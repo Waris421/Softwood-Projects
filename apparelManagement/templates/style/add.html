@@ -8,19 +8,19 @@
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     <!-- The main style form-->
     <p>
-        <form method="POST" id="styleForm">
+        <form method="POST" id="styleForm" autocomplete="off">
             <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Code:&nbsp; </label>
-                    {{style.StyleCode}}
+                    <input type="text" class="{{theme.textInput}}" name="StyleCode" required>
                 </div>
                 <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Name:&nbsp; </label>
-                    {{style.StyleName}}
+                    <input type="text" class="{{theme.textInput}}" name="StyleName" required>
                 </div>
                 <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Notes:&nbsp; </label>
-                    {{style.Notes}}  
+                    <input type="text" class="{{theme.textInput}}" name="Notes">
                 </div>
                 <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Customer:&nbsp; </label>
@@ -49,7 +49,7 @@
     </p>
       
     <div id="variantTable" name="variantTable">
-        <form method="POST" id="variantForm">
+        <form method="POST" id="variantForm" autocomplete="off">
             <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
                 <div class="col-5">
                     <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
@@ -69,10 +69,10 @@
             </div>
             <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
                 <div class="col-5">
-                    {{var.Variant1}}
+                    <input type="text" class="{{theme.textInput}}" name="Variant1" required>
                 </div>
                 <div class="col-5">
-                    {{var.Variant2}}
+                    <input type="text" class="{{theme.textInput}}" name="Variant2" required>
                 </div>
                 <div class="col-1">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
@@ -107,7 +107,7 @@
             </div>
             <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
                 <div class="col-5" deletable="true">
-                    {{route.Sequence}}
+                    <input type="number" class="{{theme.textInput}}" name="Sequence" required>
                 </div>
                 <div class="col-5">
                     <select class="{{theme.dropdown}}" id="id_RouteType_1" name="type">

@@ -13,7 +13,7 @@
             <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Order#:&nbsp; </label>
-                    {{order.WorkOrderNumber}}
+                    <input type="number" class="{{theme.textInput}}" name="OrderNumber" required>
                 </div>
                 <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Style:&nbsp; </label>
@@ -25,7 +25,7 @@
                 </div>
                 <div class="col col-md-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>DD:&nbsp; </label>
-                    {{order.DeliveryDate}}
+                    <input id="DeliveryDate" type="text" class="{{theme.textInput}}" name="DeliveryDate" required>
                 </div>
                 <div class="col col-md-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Type:&nbsp; </label>
@@ -38,19 +38,19 @@
                 </div>
                 <div class="col col-md-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Price:&nbsp; </label>
-                    {{order.Price}}
+                    <input type="number" class="{{theme.textInput}}" name="Price">
                 </div>
                 <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Agency:&nbsp; </label>
-                    {{order.Agent}}
+                    <input type="text" class="{{theme.textInput}}" name="Agent">
                 </div>
                 <div class="col col-md-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Commission(%):&nbsp; </label>
-                    {{order.Commission}}
+                    <input type="number" class="{{theme.textInput}}" name="Commission">
                 </div>
                 <div class="col col-md-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Excess Cut(%):&nbsp; </label>
-                    {{order.ExcessCut}}
+                    <input type="number" class="{{theme.textInput}}" name="ExcessCut">
                 </div>
                 <div class="col col-md-1 {{theme.align}} {{theme.textJustify}}">
                     <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
@@ -98,13 +98,13 @@
             </div>
             <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
                 <div class="col col-md-3">
-                    {{variants.Name}}
+                    <input type="text" class="{{theme.textInput}}" name="VariantCode">
                 </div>
                 <div class="col col-md-3">
-                    {{variants.Quantity}}
+                    <input type="number" class="{{theme.textInput}}" name="Quantity">
                 </div>
                 <div class="col col-md-3">
-                    {{variants.Description}}
+                    <input type="text" class="{{theme.textInput}}" name="Description">
                 </div>
                 <div class="col col-md-1">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
@@ -337,6 +337,6 @@
 
     <script> //To run at the start of the page. This should be at the end of the page.
         //changeView ('variantTable');
-        $('#id_DeliveryDate').datepicker();
+        $('#DeliveryDate').datepicker();
     </script>
 {% endblock %}

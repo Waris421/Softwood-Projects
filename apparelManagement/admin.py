@@ -54,3 +54,10 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ('Heading','Summary')
     list_filter = ('User',)
     search_fields = ('Summary','Body')
+
+@admin.register(models.StyleCard)
+class StyleAdmin(admin.ModelAdmin):
+    '''Admin View for Style'''
+
+    list_display = ('StyleCode','Customer')
+    list_filter = ('Customer',)

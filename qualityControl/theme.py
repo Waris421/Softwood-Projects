@@ -1,1 +1,1 @@
-from apparelManagement.theme import theme
+from prodManagement.theme import theme

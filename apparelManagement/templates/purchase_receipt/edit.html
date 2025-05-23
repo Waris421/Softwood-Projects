@@ -13,16 +13,16 @@
             <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>PO:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{receipt.PONumber.id}}" name="PONumber" readonly>
+                    <input type="number" class="{{theme.textInput}}" value="{{receipt.PONumber}}" name="PONumber" readonly>
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>GRN:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{receipt.ReceiptNo}}" name="GRNNumber" readonly>
-                    <input type="text" id="allocInvCode" name="allocationInvCode" value="" class="" hidden>
+                    <input type="number" class="{{theme.textInput}}" value="{{receipt.id}}" name="GRNNumber" readonly>
+                    <input type="text" id="recId" name="recId" value="" class="" hidden>
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Date:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{receipt.RecieptDate|date:'m/d/Y'}}" name="ReceiptDate" id="receiptDate" readonly>
+                    <input type="text" class="{{theme.textInput}}" value="{{receipt.ReceiptDate|date:'m/d/Y'}}" name="ReceiptDate" id="receiptDate" readonly>
                 </div>
                 <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Invoice:&nbsp; </label>
@@ -62,7 +62,7 @@
             <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
                 <div class="col-4">
                     <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Inventory Code
+                        Item Name
                     </div>
                 </div>
                 <div class="col-2">
@@ -80,12 +80,12 @@
                         Approval
                     </div>
                 </div>
-                <div class="col-2">
+                <div class="col-3">
                     <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
                         Comments
                     </div>
                 </div>
-                <div class="col-2">
+                <div class="col-1">
                     <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
@@ -93,11 +93,14 @@
             </div>
             {% for data in inv %}
                 <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                    <div class="col-4" chosen="true">
-                        <select class="{{theme.dropdown}}" id="id_InventoryCode_{{forloop.counter}}" name="InvCode"></select>
+                    <div hidden>
+                        <input name="id" value="{{data.id}}">
+                    </div>
+                    <div class="col-4">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName" readonly>
                     </div>
                     <div class="col-2">
-                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
                     </div>
                     <div class="col-1">
                         <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
@@ -109,18 +112,12 @@
                         <span class="{{theme.falseClass}}">{{theme.falseValue}}</span>
                         {% endif %}
                     </div>
-                    <div class="col-2">
+                    <div class="col-3">
                         <input type="text" class="{{theme.textInput}}" value="{{data.QualityComments}}" readonly>
                     </div>
-                    <div class="col-2">
+                    <div class="col-1">
                         <button class="{{theme.plusButton}}" type="button" onclick="openAllocation(this)">
                             <span class="material-symbols-outlined">more_vert</span>
-                        </button>
-                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                            <span>+</span>
-                        </button>
-                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                            <span>-</span>
                         </button>
                     </div>
                 </div>
@@ -197,8 +194,8 @@
 
             //Styles Dropdown
             let response = await fetch('/options/suppliers');
-            const styles = await response.json();
-            await appendOptions('id_Supplier', styles, "{{receipt.Supplier}}");
+            const suppliers = await response.json();
+            await appendOptions('id_Supplier', suppliers, "{{receipt.Supplier}}");
             //Since this dropdown is not part of a table, we need manually apply search box
             $("#id_Supplier").chosen({
                 search_contains: true,
@@ -209,19 +206,7 @@
             const workOrders = await response.json();
             await appendOptions('id_WorkOrder_1', workOrders);
 
-            //Inventory data, that was passed as JSON from view
-            const inventoryData = {{ invJson|safe }};
-
-            //Inventory Cards dropdowns
-            response = await fetch('/options/inventories');
-            const inventories = await response.json();
-
-            //Apply the relevant dropdowns on all rows of consumption
-            for (const [index, data] of inventoryData.entries()) {
-                await appendOptions(`id_InventoryCode_${index+1}`, inventories, data.InventoryCode);
-            }
-
-            addSearchBox();
+            await addSearchBox();
 
             //Remove loading animation
             hideLoadingIcon();
@@ -230,64 +215,59 @@
 
     <script>    //To handle allocation box
         async function openAllocation(source) {
-            //Get the inventory and variant code.
-            const inventoryCode = source.parentElement.parentElement.children[0].children[0].value;
-            const variant = source.parentElement.parentElement.children[1].children[0].value;
-
-            //Show error to user if inventory is not selected
-            if (inventoryCode=='' || inventoryCode=='null') {
-                alert('Select an inventory.');
+            //Get the entry id.
+            const id = source.parentElement.parentElement.children[0].children[0].value;
+            //get the allocation from server.
+            let allocation;
+            try {
+                allocation = await getAllocation(id);
+            } catch(e) {
+                showMessage(e);
+                hideLoadingIcon();
                 return ;
             }
-
-            //Get url path, which will contain the PO number
-            const urlPath = new URL(window.location.href).pathname;
-
-            //get the allocation from server.
-            const allocation = await getAllocation(inventoryCode, variant, urlPath);
 
             //Get the format of the allocation table
             const allocationTable = document.getElementById('allocationTable');
 
             const title = allocationTable.children[0].children[0].children[0].children[0];
-            title.textContent = 'Allocation: ' + inventoryCode + ' '+variant;
+            title.textContent += `#${id}`;
             
-            if (allocation != null) {
-                const allocationArea = allocationTable.children[0].children[0].children[1];
+            const allocationArea = allocationTable.children[0].children[0].children[1];
 
-                const previousRows = allocationArea.children;
+            const previousRows = allocationArea.children;
 
-                for (let i=previousRows.length - 1; i>1; i--) {
-                    previousRows[i].remove();
-                }
-                delete previousRows;
-
-                const firstRowPlusButton = allocationArea.children[1].children[2].children[0];
-
-                for (let i=1; i<allocation.length; i++) {
-                    addRow(firstRowPlusButton);
-                }
-                delete firstRowPluButton;
-                
-                const rows = allocationArea.children;
-                removeSearchBox();
-                for (let i=1; i<rows.length; i++) {
-                    const workOrderBox = rows[i].children[0].children[0];
-                    workOrderBox.value = (allocation[i-1].WorkOrder);
-
-                    const qtyBox = rows[i].children[1].children[0];
-                    qtyBox.value = (allocation[i-1].Quantity);
-
-                }
-                addSearchBox();
+            for (let i=previousRows.length - 1; i>1; i--) {
+                previousRows[i].remove();
             }
+            delete previousRows;
+
+            const firstRowPlusButton = allocationArea.children[1].children[2].children[0];
+
+            for (let i=1; i<allocation.length; i++) {
+                addRow(firstRowPlusButton);
+            }
+            delete firstRowPlusButton;
+            
+            const rows = allocationArea.children;
+            
+            removeSearchBox();
+            for (let i=1; i<rows.length; i++) {
+                const workOrderBox = rows[i].children[0].children[0];
+                workOrderBox.value = (allocation[i-1].WorkOrder);
+
+                const qtyBox = rows[i].children[1].children[0];
+                qtyBox.value = (allocation[i-1].Quantity);
+
+            }
+            addSearchBox();
 
             //The dummy box that contains inventory the currently selected inventory code
-            const referenceBox = document.getElementById('allocInvCode');
-            referenceBox.value = inventoryCode+'_'+variant;
+            const referenceBox = document.getElementById('recId');
+            referenceBox.value = id;
 
             //Get the total quantity
-            const totalQty = parseFloat(source.parentElement.parentElement.children[2].children[0].value);
+            const totalQty = parseFloat(source.parentElement.parentElement.children[3].children[0].value);
 
             //Get the footer to set the summary
             const footer = allocationTable.children[0].children[0].children[2];
@@ -304,7 +284,7 @@
             const freeQtyBox = footer.querySelector('#freeQuantity');
             freeQtyBox.textContent = totalQty.toFixed(2);
             
-            //convert the table to a bootstrap modal and show it to user.
+            //convert the table tconsole.log(source.parentElement.parentElement);o a bootstrap modal and show it to user.
             new bootstrap.Modal(allocationTable).show();
 
             changeQty();
@@ -341,10 +321,10 @@
             freeQtyBox.textContent = (totalQty - allocQty).toFixed(2);
         }
 
-        async function getAllocation(inventoryCode, variant, urlPath) {
+        async function getAllocation(id) {
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
             
-            const obj = {'inventoryCode':inventoryCode, 'variant':variant, 'urlPath':urlPath};
+            const obj = {'id':id};
             const data = JSON.stringify(obj);
 
             const response = await fetch('/purchasereceipt/alloc/get', {
@@ -353,15 +333,19 @@
                 headers: { "X-CSRFToken": csrf},
             });
 
-            return response.json();
+            if (response.ok) {
+                return response.json();
+            } else {
+                const errorMessage = await response.text();
+
+                throw errorMessage;
+            }
+            
         }
 
         async function closeAllocation() {
             //Get the selected inventory code and variant
-            const invCodeVariant = document.getElementById('allocInvCode').value;
-            const parts = invCodeVariant.split('_');
-            const invCode = parts[0];
-            const variant = parts[1];
+            const recIdValue = document.getElementById('recId').value;
 
             //Get the total allocated qty.
             const footer = document.getElementById('allocationTable').children[0].children[0].children[2];
@@ -372,13 +356,11 @@
             InvTableRows.splice(0,1);
             
             for (const row of InvTableRows) {
-                const invBox = row.children[0].children[0];
-                const varBox = row.children[1].children[0];
-                const qtyBox = row.children[2].children[0];
+                const idBox = row.children[0].children[0];
+                const qtyBox = row.children[3].children[0];
                 
-                if (invBox.value == invCode && varBox.value == variant) {
+                if (idBox.value == recIdValue) {
                     const totalQty = parseFloat(qtyBox.value);
-
                     if (totalQty < allocatedQty) {
                         qtyBox.value = allocatedQty;
                     }
@@ -514,8 +496,5 @@
 
             return arr;
         }
-    </script>
-
-    <script> //To run at the start of the page. This should be at the end of the page.
     </script>
 {% endblock %}

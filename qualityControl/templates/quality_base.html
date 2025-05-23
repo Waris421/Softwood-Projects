@@ -2,36 +2,30 @@
 <html lang="en">
   <head>
     {% load static %}
-      <link rel="icon" href="{% static 'Logo 3x.png' %}">
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-          rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
-          crossorigin="anonymous">
-      <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
-      
-      <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
-      <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-      <link rel="stylesheet" href="{% static 'style.css' %}">
-      
-      <link href="{% static 'chosen/chosen.css' %}" rel="stylesheet" />
-      <script src="{% static 'chosen/chosen.jquery.min.js' %}"></script>
-      
-      <script src="https://cdn.jsdelivr.net/npm/jquery-datetimepicker@2.5.20/build/jquery.datetimepicker.full.min.js"></script>
-      <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.css">
+    <link rel="icon" href="{% static 'Logo 3x.png' %}" />
 
-      
-      <title>
-          {% block title %} Fashion OS {% endblock %}
-      </title>
-      
-      <!--Icons from Google fonts-->
-      <div>
+    <!-- Tailwind & DaisyUI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'media',
+      };
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'style.css' %}" />
+
+    <!-- Icons -->
+    <div>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
         <style>
           .material-symbols-outlined {
             font-variation-settings:
@@ -44,104 +38,108 @@
           }
         </style>
       </div>
+
+    
+
+    <title>{% block title %} Quality Control {% endblock %}</title>
   </head>
   
-  <body> 
+  <body class="{{ theme.body }}"> 
     <!--Navigation Bar-->
-    <nav class="{{theme.navigationBar}}">  
-        <div class="container-fluid">
-          <div>
-            <ul class="navbar-nav">
-              <li class="nav-item">
-                <a class="nav-link" href="/quality">Dashboard</a>
-              </li>
-              <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Fabric</a>
-                <ul class="dropdown-menu">    
-                </ul>
-              </li>
-              <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Trims</a>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item" href="{% url 'pendingTrimAudit' %}">Pending Audits</a></li>
-                  <li><a class="dropdown-item" href="{% url 'trimAudit' %}">Audit History</a></li>
-                </ul>
-              </li>
-              <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Production</a>
-                <ul class="dropdown-menu">
-                </ul>
-              </li>
+    <div class="{{ theme.navigationBar }}">
+      <div class="navbar-start">
+        <ul class="menu menu-horizontal px-1">
+          <li><a href="/quality">Dashboard</a></li>
+
+          <li class="dropdown dropdown-hover">
+            <label tabindex="0" class="cursor-pointer">Fabric</label>
+            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+              <!-- Fabric links -->
             </ul>
-          </div>
-          <div>
-            <ul class="navbar-nav">
-              {% if user.is_authenticated %}
-              <span class="navbar-text">Logged in as {{user.first_name}} | </span>
-              <li class="nav-item">
-                <a class="nav-link" href="/logout">Logout</a>
-              </li>
-              {% else %}
-              <li class="nav-item">
-                <a class="nav-link" href="/login">Login</a>
-              </li>
-              {% endif %}
-              <li class="nav-item">
-                <a class="nav-link" href="/">Go to Main</a>
-              </li>
+          </li>
+
+          <li class="dropdown dropdown-hover">
+            <label tabindex="0" class="cursor-pointer">Trims</label>
+            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li><a href="{% url 'pendingTrimAudit' %}">Pending Audits</a></li>
+              <li><a href="{% url 'trimAudit' %}">Audit History</a></li>
             </ul>
-          </div>
-      </div> 
-    </nav>
+          </li>
+
+          <li class="dropdown dropdown-hover">
+            <label tabindex="0" class="cursor-pointer">Production</label>
+            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+              <!-- Production links -->
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="navbar-end">
+        <ul class="menu menu-horizontal px-1 items-center">
+          {% if user.is_authenticated %}
+            <li><span>Logged in as {{ user.first_name }}</span></li>
+            <li><a href="/logout" >Logout</a></li>
+          {% else %}
+            <li><a href="/">Login</a></li>
+          {% endif %}
+          <li><a href="/">Go to Main</a></li>
+        </ul>
+      </div>
+    </div>
         
     <!--Message Box-->
-    <div id="message-container"></div>
+    <div id="message-container" class="text-center"></div>
     
     <!--Main Body-->
-    <div class="{{theme.pageBody}}">
-        {% block content %} {% endblock %}
+    <div class="{{ theme.pageBody }}">
+      {% block content %}{% endblock %}
     </div>
 
     <!--Loading Animiation-->
     <div style="position: fixed;" id="loadingIcon" hidden>
-      <div class="{{theme.loadingIcon}}">
-      </div>
+      <span class="{{theme.loadingIcon}}">autorenew</span>
     </div>
 
-    <!--Simple drop down-->
-    <div class="modal fade" id="dropdown" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-      <div class="{{theme.dialogBox}}">
-        <div class="modal-content">
-          <div class="{{theme.dialogBoxHeader}}">
-            <div class="{{theme.dialogBoxTitle}}" id="modalLabel">
-              Select an Option
+    <!-- Dropdown Modal -->
+    <div id="dropdown" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modalLabel" aria-hidden="true">
+      <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div class="sm:flex sm:items-start">
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg font-medium leading-6 text-gray-900" id="modalLabel">
+                  Select an Option
+                </h3>
+              </div>
+            </div>
+            <div class="mt-2">
+              <div class="mt-1">
+                <select id="id_selectDropDown" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></select>
+              </div>
             </div>
           </div>
-          <div class="{{theme.dialogBoxBody}}">
-            <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}">
-              <select class="{{theme.dropdown}}" id="id_selectDropDown"></select>
-            </div>
-          </div>
-          <div class="{{theme.dialogBoxFooter}}">
-            <button type="button" class="{{theme.buttonSecondary}}" data-bs-dismiss="modal">OK</button>
+          <div class="px-4 py-3 bg-gray-50 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button type="button" id="okButton" class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto">
+              OK
+            </button>
           </div>
         </div>
       </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" 
-        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" 
-        crossorigin="anonymous">
-    </script>
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/timepicker/1.3.5/jquery.timepicker.min.js"></script>
-
+    
     <script>    //To add the options for selects
-      async function appendOptions (elementId, options, selected=null) {
+      async function appendOptions (elementId, options, selected=null, removePrevious=true) {
           try {
             const element = document.getElementById(elementId);    
-            element.innerHTML = ''; 
-
+            
+            if (removePrevious) {
+              element.innerHTML = ''; 
+            }
+            
             const fragment = document.createDocumentFragment();
 
             options.forEach(optionData => {
@@ -162,32 +160,33 @@
     </script>
 
     <script>    //To show message to a user
-      function showMessage(message, timeOut = 3) {
+      function showMessage(message, timeOut = 3, baseClass = '{{theme.errorBox}}') {
         //Get the container element
         const messageContainer = document.getElementById('message-container');
 
         // Create a new alert element
         const messageElement = document.createElement('div');
         //Set the correct bootstap class
-        messageElement.classList.add('alert', 'alert-dismissible', 'fade', 'show');
+        messageElement.classList.add(...baseClass.split(' '));
         messageElement.setAttribute('role', 'alert');
         
         //Add a the message and close button to the message.
         messageElement.innerHTML = `
-            <span>${message}</span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
+          <span class="{{theme.messageBoxBody}}">${message}</span>
+          <span class="{{theme.messageBoxClose}}">
+            <span class="material-icons cursor-pointer">close</span>
+          </span>`;
 
         //Add the message element to the container
         messageContainer.appendChild(messageElement);
 
         //close the message automatically after given number of seconds
         setTimeout(() => {
-            const bsAlert = new bootstrap.Alert(messageElement);
-            bsAlert.close();
-          },
-          timeOut * 1000
-        );
+          messageElement.classList.replace('opacity-100','opacity-0');
+          setTimeout(()=> {
+              messageElement.remove();
+          }, 300);
+        }, timeOut * 1000);
       }
     </script>
 
@@ -212,8 +211,9 @@
     <script>  //To show options dialogue box
       function showDropDown(options, onOkFunction, selected=null, searchBox=false) {
         const dialogBox = document.getElementById('dropdown');
+        const dropdown = document.getElementById('id_selectDropDown');
+        const okButton = document.getElementById('okButton');
 
-        const dropdown = dialogBox.children[0].children[0].children[1].children[0].children[0];
         dropdown.innerHTML = '';
 
         for (const option of options) {
@@ -229,8 +229,6 @@
           dropdown.appendChild(newOption);
         }
 
-        //Set the function to call whent the OK button is called
-        const okButton = dialogBox.children[0].children[0].children[2].children[0];
         okButton.onclick = onOkFunction;
 
         if (searchBox) {
@@ -245,7 +243,8 @@
         }
 
         //convert the table to a bootstrap modal and show it to user.
-        new bootstrap.Modal(dialogBox).show();
+        dialogBox.classList.remove('hidden');
+        dialogBox.classList.add('flex');
       }
     </script>
 
@@ -261,16 +260,15 @@
 
         // Clear written text that the copy got from source row
         for (const child of copy.children) {
-          //Get the type of element in row
-          const tag = child.children[0].tagName;
+          const inputs = child.querySelectorAll('input');
+          inputs.forEach(input => {
+            input.value = '';
+          });
 
-          if (tag === 'INPUT') {
-            //Set the value to blank if it is an input box
-            child.children[0].value = '';
-          } else if (tag === 'SELECT') {
-            //deselect all options if it is a selection box
-            child.children[0].selectedIndex = -1;
-          }
+          const selects = child.querySelectorAll('select');
+          selects.forEach(select => {
+            select.selectedIndex = -1;
+          });
         }
         
         //Insert the row after the clicked row
@@ -367,7 +365,7 @@
       
       async function addSearchBox() {
         //The keyword that is common in all search boxes
-        const keyword = "chosen";
+        const keyword = "tom_select";
         //Get elements that contain the key word.
         const searchBoxNodes = document.querySelectorAll(`[${keyword}*='true']`);
 
@@ -393,11 +391,12 @@
           id = `${id}_${row}`;
           dropdown.setAttribute('id', id);
 
-          //Apply the search box on the element, with the new ID.
-          $("#"+id).chosen({
-            search_contains: true,
-            width: `93%`
-          });
+          const selectSettings = {
+            create: false,
+            maxOptions: 50,
+          };
+
+          new TomSelect(`#${id}`,selectSettings);
         }
       }
     </script>
@@ -417,5 +416,155 @@
         }
       });
     </script>
+
+    <script> //This function shows searchbox for a select element
+      async function showSearchBox(source, url, nextFunction=null) {
+        const rect = source.getBoundingClientRect();
+
+        source.style.display = 'none';
+
+        const originalOptions = Array.from(source.options).map(option => ({
+          value: option.value,
+          text: option.text,
+        }));
+        const originalValue = source.value;
+
+        const searchContainer = document.createElement('div');
+        searchContainer.classList.add('bg-base-100', 'rounded-box', 'shadow', 'w-full', 'mt-2', 'dark:bg-gray-900', 'dark:text-white');
+        searchContainer.style.zIndex = '10';
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Type Here';
+        searchInput.style.marginTop = '0.5rem';
+        searchInput.classList.add(...'{{theme.textInput}}'.split(' '));
+        searchContainer.appendChild(searchInput);
+
+        const listContainer = document.createElement('ul');
+        listContainer.classList.add('menu');
+        searchContainer.appendChild(listContainer);
+
+        async function fetchOptons(searchTerm = '') {
+          try{
+            showLoadingIcon();
+            let response;
+
+            if (searchTerm === '') {
+              response = await fetch(`${url}?search=${originalValue}`);
+            } else {
+              response = await fetch(`${url}?search=${searchTerm}`);
+            }
+
+            if (!response.ok) {
+                console.error(`HTTP error! status: ${response.status}`);
+                listContainer.innerHTML = '<li class="disabled"><a>Error loading data</a></li>';
+                hideLoadingIcon();
+                return;
+            }
+
+            const data = await response.json();
+            listContainer.innerHTML = ''; // Clear previous options from search container
+            source.innerHTML = ''; // Clear previous options from original dropdown
+
+            if (data && data.length > 0) {
+              for (const option of data) {
+                const listItem = document.createElement('li');
+                const button = document.createElement('button');
+                button.classList.add('w-full', 'text-left', 'hover:bg-base-200', 'dark:hover:bg-gray-800', 'focus:outline-none');
+                button.textContent = option.text;
+                button.value = option.value;
+                button.type = 'button';
+
+                const newOption = document.createElement('option');
+                newOption.value = option.value;
+                newOption.text = option.text;
+                source.appendChild(newOption);
+
+                listItem.appendChild(button);
+                listContainer.appendChild(listItem);
+                
+                button.onclick = function () {
+                  source.value = this.value;
+                  source.style.display = '';
+                  searchContainer.remove();
+                  document.removeEventListener('click', handleClickOutside);
+
+                  if (nextFunction) {
+                    nextFunction(source);
+                  }
+                };
+              }
+            } else {
+              const listItem = document.createElement('li');
+              listItem.classList.add('disabled');
+              listItem.textContent = 'No matching options';
+              listContainer.appendChild(listItem);
+            }
+            hideLoadingIcon();
+          } catch (error) {
+            console.error(`Error fetching Options: ${error}`);
+            listContainer.innerHTML = '<li class="disabled"><a>Error loading data</a></li>';
+            return;
+          }
+        }
+
+        await fetchOptons();
+
+        let timeoutId;
+        searchInput.addEventListener('input', async function() {
+          const searchTerm = searchInput.value.trim();
+
+          // Debounce the input to avoid excessive backend calls
+          clearTimeout(timeoutId);
+
+          timeoutId = setTimeout(async () => {
+              await fetchOptons(searchTerm);
+          }, 300);
+        });
+
+        searchContainer.appendChild(listContainer);
+
+        searchContainer.style.left = `${rect.left}px`;
+        searchContainer.style.top = `${rect.bottom}px`;
+        searchContainer.style.width = `${rect.width}px`;
+        
+        source.parentNode.appendChild(searchContainer);
+        
+        //Bug: This doesn't work correctly.
+        //document.body.appendChild(searchContainer);
+        searchInput.focus();
+
+        function handleClickOutside(clickEvent) {
+          if (!searchContainer.contains(clickEvent.target) && clickEvent.target !== source) {
+            closeSearchBox();
+          }
+        }
+
+        function handleEscapeKey(keyEvent) {
+          if (keyEvent.key === 'Escape') {
+            closeSearchBox();
+          }
+        }
+
+        function closeSearchBox() {
+          searchContainer.remove();
+          source.style.display = '';
+          source.innerHTML = '';
+
+          for (const option of originalOptions) {
+            const newOption = document.createElement('option');
+            newOption.value = option.value;
+            newOption.text = option.text;
+            source.appendChild(newOption);
+          }
+          source.value = originalValue;
+
+          document.removeEventListener('click', handleClickOutside);
+        }
+        document.addEventListener('click', handleClickOutside);
+        searchInput.addEventListener('keydown', handleEscapeKey);
+      }
+    </script>
+
   </body>
 </html>

@@ -1,49 +1,14 @@
 import pandas as pd
 import numpy as np
 
-from django import forms
+from django.forms import model_to_dict
 
-from .. import models, theme
+from .. import models
 from .generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
 from .auth_service import canApprovePD
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
-
-#Blank form to add data of purchase demand
-class PurchaseDemandForm (forms.Form):
-    Demandee = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-
-#Blank form to create inventories of purchase demand
-class PurchaseDemandInventoryForm (forms.Form):
-    Variant = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-
-    Quantity = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=0,
-        min_value=0,
-    )
-
-    Price = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=0,
-        min_value=0,
-    )
-
-    Forex = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-        initial=1,
-        min_value=0,
-    )
 
 def GetPurchaseDemandList (
     searchTerm: str,
@@ -141,65 +106,69 @@ def AddPurchaseDemand(
         dfInventory: pd.DataFrame,
 ) -> int:
     '''Save a new PD'''
+    demand = dfDemand.iloc[0].to_dict()
+    del dfDemand
 
-    #Get the department
-    department = dfDemand['Department'][0]
-    #Return error is department is blank
-    if(department == '') or (dfDemand['Department'].isna().all()):
+    if not demand['Department']:
         raise ValueError ('No department is Provided')
     
-    demandee = dfDemand['Demandee'][0]
-    if demandee == '':
+    if not demand['Demandee']:
         raise ValueError ('No name is Provided')
     
     dfInventory = dfInventory[dfInventory['InvCode'].str.len() > 0]
+    dfInventory = dfInventory[dfInventory['Quantity'].str.len() > 0]
+    dfInventory['Quantity'] = dfInventory['Quantity'].astype(float)
+    dfInventory = dfInventory[dfInventory['Quantity'] > 0]
+    
     if dfInventory.empty:
         raise ValueError ('Please select an inventory')
     
-    dfDemand['Department'] = convertTexttoObject(models.Department, dfDemand['Department'], 'Name')
+    demand['Department'] = models.Department.objects.get(Name=demand['Department'])
+    for col in ['ApprovedBy','PONumber','Approval']:
+        demand[col] = None
     
-    purchaseDemand = {
-        'Department': dfDemand['Department'][0],
-        'Demandee': dfDemand['Demandee'][0],
-        'ApprovedBy': None,
-        'PONumber': None,
-        'Approval': None
-    }
     try:
-        purchaseDemand = models.PurchaseDemand(**purchaseDemand)
-        purchaseDemand.save()
+        demand = models.PurchaseDemand(**demand)
+        demand.save()
     except Exception as e:
         raise ValueError(f"Error saving Demand: {e}")
     
     dfInventory['Currency'] = np.where(dfInventory['Currency'].str.len() == 0, 'PKR', dfInventory['Currency'])
     dfInventory['Forex'] = np.where(dfInventory['Forex'].str.len() == 0, 1, dfInventory['Forex'])
 
+    try:
+        dfInventory['Price'] = dfInventory['Price'].astype(float)
+    except Exception as e:
+        raise ValueError(e)
+
     dfInventory['Inventory'] = convertTexttoObject(models.Inventory, dfInventory['InvCode'], 'Code')
     dfInventory.drop(inplace=True, columns=['InvCode'])
 
     dfInventory['Currency'] = convertTexttoObject(models.Currency, dfInventory['Currency'], 'Code')
 
-    dfInventory['PDNumber'] = purchaseDemand    
-
+    dfInventory['PDNumber'] = demand  
+    
     for _, row in dfInventory.iterrows():
         newEntry = models.PDInventory(**row.to_dict())
         newEntry.save()
 
-    return purchaseDemand.id
+    return demand.id
 
 def EditPurchaseDemand(
         purchaseDemand: models.PurchaseDemand,
         dfDemand: pd.DataFrame,
         dfPDInventory: pd.DataFrame
 ) -> None:
-    #Get the department
-    department = dfDemand['Department'][0]
-    #Return error is department is blank
-    if(department == '') or (dfDemand['Department'].isna().all()):
+    if purchaseDemand.Approval != None:
+        raise PermissionError('This demand is closed')
+    
+    demand = dfDemand.iloc[0].to_dict()
+    del dfDemand
+
+    if not demand['Department']:
         raise ValueError ('No department is Provided')
     
-    demandee = dfDemand['Demandee'][0]
-    if demandee == '':
+    if not demand['Demandee']:
         raise ValueError ('No name is Provided')
     
     dfPDInventory = dfPDInventory.replace('null', '')
@@ -207,28 +176,32 @@ def EditPurchaseDemand(
     if dfPDInventory.empty:
         raise ValueError ('Please select an inventory')
     
-    previousInventores = models.PDInventory.objects.filter(PDNumber=purchaseDemand).values('id','Inventory','Variant')
+    fields = ['id']
+    previousInventores = models.PDInventory.objects.filter(PDNumber=purchaseDemand).values(*fields)
     if previousInventores:
         dfPrevioiusInventories = pd.DataFrame(previousInventores)
     else:
-        dfPrevioiusInventories = pd.DataFrame(columns=['id','Inventory','Variant'])
-    del previousInventores
+        dfPrevioiusInventories = pd.DataFrame(columns=fields)
+    del previousInventores, fields
     
-    dfDemand['DemandDate'] = pd.to_datetime(dfDemand["DemandDate"], format="%d/%m/%Y")
+    demand['Department'] = models.Department.objects.get(Name=demand['Department'])
+    demand.pop('id')
+    demand.pop('DemandDate')
 
-    dfDemand['Department'] = convertTexttoObject(models.Department, dfDemand['Department'], 'Name')
-
-    purchaseDemand.DemandDate = dfDemand['DemandDate'][0]
-    purchaseDemand.Department = dfDemand['Department'][0]
-    purchaseDemand.Demandee = dfDemand['Demandee'][0]
-    purchaseDemand.ApprovedBy = None
-    purchaseDemand.PONumber = None
-    purchaseDemand.Approval = None
-    purchaseDemand.save()
-
+    for key, value in demand.items():
+        setattr(purchaseDemand, key, value)
+    del demand
+    #purchaseDemand.save()
+    
+    dfPDInventory['id'] = np.where(dfPDInventory['id'].str.len()==0, np.nan, dfPDInventory['id'])
+    dfPDInventory['id'] = dfPDInventory['id'].astype('Int64')
     dfPDInventory.rename(inplace=True, columns={'InvCode':'Inventory'})
-    dfPDInventory = pd.merge(left=dfPDInventory, right=dfPrevioiusInventories, left_on=['Inventory','Variant'],
-                             right_on=['Inventory','Variant'], how='left')    
+    dfPDInventory = pd.merge(left=dfPDInventory, right=dfPrevioiusInventories, on='id', how='left')
+
+    try:
+        dfPDInventory[['Quantity','Price']] = dfPDInventory[['Quantity','Price']].astype(float)
+    except Exception as e:
+        raise ValueError(e)
 
     dfPDInventory['Currency'] = np.where(dfPDInventory['Currency'].str.len() == 0, 'PKR', dfPDInventory['Currency'])
     dfPDInventory['Forex'] = np.where(dfPDInventory['Forex'].str.len() == 0, 1, dfPDInventory['Forex'])
@@ -245,14 +218,9 @@ def EditPurchaseDemand(
         raise ValueError(e)
 
 def ProcessDemandData(purchaseDemand: models.PurchaseDemand):
-    demand = {
-        'DemandNumber': purchaseDemand.id,
-        'DemandDate': purchaseDemand.DemandDate,
-        'Department': purchaseDemand.Department.Name,
-        'Demandee': purchaseDemand.Demandee,
-        'ApprovedBy': purchaseDemand.ApprovedBy,
-        'PONumber': purchaseDemand.PONumber,
-    }
+    demand = model_to_dict(purchaseDemand)
+
+    demand['DemandDate'] = purchaseDemand.DemandDate
 
     if not demand['ApprovedBy']:
         demand['ApprovedBy'] = ''
@@ -261,7 +229,7 @@ def ProcessDemandData(purchaseDemand: models.PurchaseDemand):
         demand['PONumber'] = ''
 
     inventories = models.PDInventory.objects.filter(PDNumber=purchaseDemand)
-    inventories = inventories.values('Inventory','Variant','Quantity','Price','Currency','Forex')
+    inventories = inventories.values('id','Inventory','Variant','Quantity','Price','Currency','Forex')
 
     return demand, inventories
 
@@ -316,7 +284,7 @@ def GetDataForPDApproval (demand: models.PurchaseDemand):
     return data, None
 
 def ApprovePD (request, demand: models.PurchaseDemand, approval: str):
-    if not canApprovePD(request, demand):
+    if not canApprovePD(request):
         raise PermissionError('Not Allowed')
 
     if approval == 'None':

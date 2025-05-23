@@ -115,12 +115,32 @@ class Worker(models.Model):
 
 class RFIDCard(models.Model):
     CardId = models.PositiveBigIntegerField(primary_key=True)
-    CardNumber = models.PositiveBigIntegerField(unique=True)
-    GroupNumber = models.PositiveBigIntegerField()
-    GroupStatus = models.CharField(max_length=31, default='InComplete')
+    CardNumber = models.PositiveBigIntegerField(unique=True, null=True, blank=True)
+    GroupNumber = models.PositiveBigIntegerField(null=True, blank=True)
+    GroupStatus = models.CharField(max_length=31, default='Incomplete')
 
     class Meta:
         indexes = [
             models.Index(fields=['GroupNumber']),
             models.Index(fields=['GroupStatus']),
+        ]
+
+class WorkerCardAssignment(models.Model):
+    id = models.AutoField(primary_key=True)
+    RFIDCard = models.ForeignKey(RFIDCard, on_delete=models.CASCADE)
+    Worker = models.ForeignKey(Worker, on_delete=models.CASCADE)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['RFIDCard']),
+        ]
+
+class BundleCardAssignment(models.Model):
+    id = models.AutoField(primary_key=True)
+    RFIDCard = models.ForeignKey(RFIDCard, on_delete=models.CASCADE)
+    Bundle = models.ForeignKey(Bundle, on_delete=models.CASCADE)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['RFIDCard']),
         ]

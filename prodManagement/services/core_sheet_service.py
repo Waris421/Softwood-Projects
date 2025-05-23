@@ -49,3 +49,22 @@ def CompleteCardGroup(cardId: int):
         raise LookupError('Card not added in system')
     
     models.RFIDCard.objects.filter(GroupNumber=groupNumber).update(GroupStatus='Complete')
+
+def AssignCardGroup(dfAssignment: pd.DataFrame):
+    dfAssignment['Bundle'] = dfAssignment['Bundle'].astype(int)
+    dfAssignment['Group'] = dfAssignment['Group'].astype(int)
+    
+    dfAssignment['Bundle'] = generic_services.convertTexttoObject(models.Bundle, dfAssignment['Bundle'], 'Bundle')
+    
+    for _, row in dfAssignment.iterrows():
+        bundle = row['Bundle']
+        cards = models.RFIDCard.objects.filter(GroupNumber=row['Group'])
+
+        for card in cards:
+            card.GroupStatus = 'InComplete'
+            card.save()
+
+            models.BundleCardAssignment(
+                RFIDCard=card,
+                Bundle = bundle
+            ).save()

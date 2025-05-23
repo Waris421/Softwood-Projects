@@ -17,7 +17,7 @@
                 </div>
                 <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Name:&nbsp; </label>
-                    {{demand.Demandee}}
+                    <input type="text" name="Demandee" class="{{theme.textInput}}">
                 </div>
                 <div class="col-1 {{theme.align}} {{theme.textJustify}}">
                     <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
@@ -73,19 +73,19 @@
                     <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
                 </div>
                 <div class="col-2">
-                    {{inventory.Variant}}
+                    <input type="text" class="{{theme.textInput}}" name="Variant">
                 </div>
                 <div class="col-2">
-                    {{inventory.Quantity}}
+                    <input type="number" class="{{theme.textInput}}" name="Quantity">
                 </div>
                 <div class="col-1">
-                    {{inventory.Price}}
+                    <input type="number" class="{{theme.textInput}}" name="Price">
                 </div>
                 <div class="col-2">
                     <select class="{{theme.dropdown}}" id="id_Currency_1" name="Currency"></select>
                 </div>
                 <div class="col-1">
-                    {{inventory.Forex}}
+                    <input type="number" class="{{theme.textInput}}" name="Forex">
                 </div>
                 <div class="col-1">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">

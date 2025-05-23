@@ -9,7 +9,6 @@ from typing import Dict
 from .. import models
 from . import generic_services
 
-
 def calculateTimePassed(row: pd.Series):
     if row['YearsPassed'] > 0:
         return f"{row['YearsPassed']} years"
@@ -89,3 +88,28 @@ def GetWorkers(department: str, status:str):
     dfWorkers.drop(inplace=True, columns=['DateOfJoining','DaysPassed','MonthsPassed','YearsPassed'])
     
     return generic_services.dfToListOfDicts(dfWorkers)
+
+def AssignCardToWorker(cardId: int, workerCode: int):
+    try:
+        card = models.RFIDCard.objects.get(CardId=cardId)
+    except:
+        raise LookupError('Card not added in system')
+    
+    try:
+        worker = models.Worker.objects.get(WorkerCode=workerCode)
+    except:
+        raise LookupError('Worker Code Not Found.')
+
+    if card.GroupNumber:
+        raise ValueError('This card is reserved for bundles.')
+
+    try:
+        previousAssignment = models.WorkerCardAssignment.objects.get(Worker=worker)
+        previousAssignment.delete()
+    except:
+        pass
+
+    models.WorkerCardAssignment(
+        RFIDCard = card,
+        Worker = worker
+    ).save()

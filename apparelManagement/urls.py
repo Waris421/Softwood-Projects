@@ -43,7 +43,6 @@ urlpatterns = [
     path('purchaseorder/<int:pk>/copy', views.CopyPurchaseOrder, name='copyPO'),
     path('purchaseorder/<int:pk>/delete', views.DeletePurchaseOrder, name='deletePO'),
     path('purchaseorder/<int:pk>/print', views.PrintPurchaseOrder, name='printPO'),
-    path('purchaseorder/<int:pk>/alloc/get', views.getPOAllocation, name='getAllocation'),
     path('purchaseorder/defaultqty/get', views.GetWODefaultQtyForPO, name='poDefaultQty'),
     path('purchaseorder/allocatedqty/get', views.getAllocatedQty, name='poAllocatedQty'),
 

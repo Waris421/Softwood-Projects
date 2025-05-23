@@ -13,23 +13,23 @@
             <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}" onchange="getPO(this)">
                     <label>PO:&nbsp; </label>
-                    <select id="id_PO" class="{{theme.dropdown}}" name="PONumber"> </select>
+                    <select id="id_PO" class="{{theme.dropdown}}" name="PONumber" value="{{poNumber}}"> </select>
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Invoice:&nbsp; </label>
-                    {{receipt.Invoice}}
+                    <input type="text" name="Invoice" class="{{theme.textInput}}">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Vehicle:&nbsp; </label>
-                    {{receipt.Vehicle}}
+                    <input type="text" name="Vehicle" class="{{theme.textInput}}">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Bilty#:&nbsp; </label>
-                    {{receipt.Bilty}}
+                    <input type="text" name="Bilty" class="{{theme.textInput}}">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Amount:&nbsp; </label>
-                    {{receipt.BiltyValue}}
+                    <input type="number" name="BiltyValue" class="{{theme.textInput}}">
                 </div>
                 <div class="col-1 {{theme.align}} {{theme.textJustify}}">
                     <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
@@ -45,12 +45,12 @@
             <div class="col-8 {{theme.border}}">
                 <form method="POST" id="inventoryForm" autocomplete="off">
                     <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">    
-                        <div class="col-5">
+                        <div class="col-6">
                             <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
                                 Inventory Code
                             </div>
                         </div>
-                        <div class="col-2">
+                        <div class="col-3">
                             <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
                                 Variant
                             </div>
@@ -60,7 +60,7 @@
                                 Quantity
                             </div>
                         </div>
-                        <div class="col-2">
+                        <div hidden>
                             <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
                                 Actions
                             </div>
@@ -69,17 +69,19 @@
                     
                     {% for data in inventory %}
                         <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                            <div class="col-5">
-                                <input type="text" class="{{theme.textInput}}" value="{{data.Inventory}}" name="InvCode" hidden>
+                            <div>
+                                <input value="{{data.id}}" name="POInvId" hidden>
+                            </div>
+                            <div class="col-6">
                                 <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="Name" readonly>
                             </div>
-                            <div class="col-2">
+                            <div class="col-3">
                                 <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
                             </div>
                             <div class="col-3">
                                 <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
                             </div>
-                            <div class="col-2">
+                            <div hidden>
                                 <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                                     <span>+</span>
                                 </button>

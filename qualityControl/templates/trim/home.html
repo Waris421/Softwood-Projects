@@ -6,28 +6,27 @@
 
 {% block content %}
     {% csrf_token %}
-    <p>
-        <div class="{{theme.border}}">
-            <div class="row g-3 {{theme.justify}} {{theme.align}}">
-                <form action="{% url 'pendingTrimAudit' %}" method="get" class="d-flex align-items-center">
-                    <div class="col {{theme.textJustify}}">
-                        <select id="workOrderFilter" name="workOrder" onchange="this.form.submit()" class="{{theme.dropdown}}">
-                            <option value="">  ---------  </option>
-                        </select>
-                    </div>
-                    <div class="col {{theme.textJustify}}">
-                        <input type="text" class="{{theme.textInput}}" name="searchTerm" placeholder="Search" value="{{searchTerm}}">
-                    </div>    
-                    <div class="col btn-group {{theme.textJustify}}">
-                        <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-                        <a class="{{theme.buttonBasic}}" role="button" onclick="startAudit()">Start Audit</a>
-                    </div>
-                </form>
+    <div class="{{theme.border}}">
+        <form action="{% url 'pendingTrimAudit' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Work order:</span>
+                    <select id="workOrderFilter" name="workOrder" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[4/9] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="searchTerm" placeholder="Search" value="{{searchTerm}}">
+                </div>
+                <div class="flex col-[9/13] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonBasic}}" role="button" onclick="startAudit()">Start Audit</a>
                 </div>
             </div>
-        </div> 
-    </p> 
-    
+        </form>
+    </div> 
+
     <div id="ReceiptsTable">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
@@ -64,12 +63,6 @@
             response = await fetch('/options/workorders');
             const workOrders = await response.json();
             await appendOptions('workOrderFilter', workOrders, '{{workOrder}}');
-
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#workOrderFilter").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             //Remove loading animation
             hideLoadingIcon();

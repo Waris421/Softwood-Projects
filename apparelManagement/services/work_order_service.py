@@ -4,75 +4,12 @@ import numpy as np
 from django.contrib.auth.models import User
 from django.db.models import Sum, Q
 from django.http import JsonResponse
-from django import forms
+from django.forms import model_to_dict
 
-from .. import models, theme
+from .. import models
 from .generic_services import convertTexttoObject, updateModelWithDF
 
 pd.options.mode.chained_assignment = None
-
-class WorkOrderForm(forms.Form):
-    WorkOrderNumber = forms.IntegerField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        min_value=0,
-    )
-
-    DeliveryDate = forms.DateField(
-        widget=forms.DateInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-    )
-
-    Price = forms.IntegerField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        min_value=0,
-    )
-
-    Agent = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-
-    Commission = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=0,
-        min_value=0,
-    )
-
-    ExcessCut = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=3,
-        min_value=0,
-    )
-
-class WorkerOrderVariantForm(forms.Form):
-    Name = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-    Quantity = forms.IntegerField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        min_value=0,
-    )
-    Description = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-
-class WorkerOrderRequirementForm(forms.Form):
-    Variant = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-    Quantity = forms.IntegerField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        min_value=0,
-    )
 
 #Get the List of Orders.
 def GetOrderList(searchTerm, customer):
@@ -130,14 +67,18 @@ def AddWorkOrder(
         dfOrder: pd.DataFrame,
         dfVariants: pd.DataFrame,
         user: User) -> int:
+    
     #Get the order number
-    orderNumber = dfOrder['WorkOrderNumber'][0]
+    orderNumber = dfOrder['OrderNumber'][0]
     #Return error is order number is blank
     if orderNumber == '':
         raise ValueError ('No Order Number is provided')
     
+    dfVariants = dfVariants[dfVariants['VariantCode'].str.len()>0]
+    dfVariants = dfVariants[dfVariants['Quantity'].str.len()>0]
+
     #Raise error if no variants are provided
-    if not dfVariants['Name'].str.len().sum():
+    if not dfVariants['VariantCode'].str.len().sum():
         raise ValueError('No Variant is provided')
     
     dfOrder['Style'] = convertTexttoObject(models.StyleCard, dfOrder['Style'], 'StyleCode')
@@ -149,19 +90,8 @@ def AddWorkOrder(
     
     dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%m/%d/%Y")
 
-    orderCard = {
-        'OrderNumber': dfOrder['WorkOrderNumber'][0],
-        'StyleCode': dfOrder['Style'][0],
-        'Customer': dfOrder['Customer'][0],
-        'Merchandiser': dfOrder['Merchandiser'][0],
-        'DeliveryDate': dfOrder['DeliveryDate'][0],
-        'Type': dfOrder['Type'][0],
-        'Currency': dfOrder['Currency'][0],
-        'Price': dfOrder['Price'][0],
-        'Agent': dfOrder['Agent'][0],
-        'Commission': dfOrder['Commission'][0],
-        'ExcessCut': dfOrder['ExcessCut'][0],
-    }    
+    dfOrder.rename(inplace=True, columns={'Style':'StyleCode'})
+    orderCard = dfOrder.iloc[0].to_dict()
 
     try:
         #Try to fetch order and if found, raise error
@@ -179,6 +109,9 @@ def AddWorkOrder(
 
     dfVariants['OrderNumber'] = orderCard
 
+    dfVariants.rename(inplace=True, columns={'VariantCode':'Name'})
+    print(dfVariants)
+
     for _, row in dfVariants.iterrows():
         try:  
             newEntry = models.OrderVariant(**row.to_dict())
@@ -194,7 +127,7 @@ def UpdateWorkOrder(
         dfRequirement: pd.DataFrame,
         ) -> None:
     #Get the order number
-    orderNumber = dfOrder['WorkOrderNumber'][0]
+    orderNumber = dfOrder['OrderNumber'][0]
     #Raise error is order number is blank
     if orderNumber == '':
         raise ValueError ('No Order Number is provided')
@@ -205,6 +138,9 @@ def UpdateWorkOrder(
     except:
         raise LookupError('Work Order not found.')
     
+    dfVariants = dfVariants[dfVariants['Name'].str.len()>0]
+    dfVariants = dfVariants[dfVariants['Quantity'].str.len()>0]
+
     #Raise error if no variants are provided
     if not dfVariants['Name'].str.len().sum():
         raise ValueError('No Variant is provided')
@@ -215,57 +151,42 @@ def UpdateWorkOrder(
 
     dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%m/%d/%Y")
     dfOrder['OrderDate'] = pd.to_datetime(dfOrder["OrderDate"], format="%m/%d/%Y")
-
-    try:
-        #Try to fetch order and proceed only if it is found
-        currentData = models.WorkOrder.objects.get(OrderNumber=orderNumber)
-    except:
-        raise LookupError('Work Order not found.')
     
     #Below fields would be kept same as already existing
     dfOrder['Merchandiser'] = currentData.Merchandiser
     dfOrder['Agent'] = currentData.Agent
     dfOrder['Commission'] = currentData.Commission
 
-    orderCard = {
-    'OrderNumber': dfOrder['WorkOrderNumber'][0],
-    'StyleCode': dfOrder['Style'][0],
-    'Customer': dfOrder['Customer'][0],
-    'Merchandiser': dfOrder['Merchandiser'][0],
-    'DeliveryDate': dfOrder['DeliveryDate'][0],
-    'OrderDate': dfOrder['OrderDate'][0],
-    'Type': dfOrder['Type'][0],
-    'Currency': dfOrder['Currency'][0],
-    'Price': dfOrder['Price'][0],
-    'Agent': dfOrder['Agent'][0],
-    'Commission': dfOrder['Commission'][0],
-    'ExcessCut': dfOrder['ExcessCut'][0],
-    }
+    dfOrder.rename(inplace=True, columns={'Style':'StyleCode'})
+    dfOrder.drop(inplace=True, columns=['Quantity'])
+
+    orderCard = dfOrder.iloc[0].to_dict()
     
     try:
         orderCard = models.WorkOrder(**orderCard)
-        orderCard.save()
+        #orderCard.save()
     except models.WorkOrder.DoesNotExist:
         raise ValueError(f"Order Number: {orderNumber}, doesn't exist.")
     except Exception as e:
         #Raise any other error, if found to be safe.
         raise LookupError(f"Error saving Order: {e}")
     
-    previousVariants = models.OrderVariant.objects.filter(OrderNumber=orderCard).values('id','Name')
+    fields = ['id','Name']
+    previousVariants = models.OrderVariant.objects.filter(OrderNumber=orderCard).values(*fields)
     if previousVariants:
         dfPreviousVariants = pd.DataFrame(previousVariants)
     else:
-        dfPreviousVariants = pd.DataFrame(columns=['id','Name'])
-    del previousVariants
+        dfPreviousVariants = pd.DataFrame(columns=fields)
+    del previousVariants, fields
 
-    previousRequirement = models.InvRequirement.objects.filter(OrderNumber=orderCard).values('id','InventoryCode','Variant')
+    fields = ['id','InventoryCode','Variant']
+    previousRequirement = models.InvRequirement.objects.filter(OrderNumber=orderCard).values(*fields)
     if previousRequirement:
         dfPreviousRequirement = pd.DataFrame(previousRequirement)
     else:
-        dfPreviousRequirement = pd.DataFrame(columns=['id','InventoryCode','Variant'])
+        dfPreviousRequirement = pd.DataFrame(columns=fields)
     del previousRequirement
 
-    dfVariants = dfVariants[dfVariants['Quantity'].str.len() > 0]
     dfVariants['Quantity'] = dfVariants['Quantity'].astype(int)
 
     dfVariants = pd.merge(left=dfVariants, right=dfPreviousVariants, on='Name', how='left')
@@ -284,12 +205,17 @@ def UpdateWorkOrder(
         dfRequirement['Quantity'] = dfRequirement['Quantity'].astype(float)
         dfRequirement = dfRequirement[dfRequirement['Quantity']>0]
 
-        dfRequirement.drop(inplace=True, columns=['Ordered','Received',''])
+        dfRequirement.drop(inplace=True, columns=['Ordered','Received','InventoryName',''])
         
         dfRequirement = pd.merge(left=dfRequirement, right=dfPreviousRequirement, on=['InventoryCode','Variant'], how='left')
 
         dfRequirement['InventoryCode'] = convertTexttoObject(models.Inventory, dfRequirement['InventoryCode'], 'Code')
         dfRequirement['OrderNumber'] = orderCard
+        
+        dfRequirement['id_x'] = np.where(dfRequirement['id_x'].str.len()==0, np.nan, dfRequirement['id_x'])
+
+        dfRequirement['id'] = np.where(dfRequirement['id_x'].isna(), dfRequirement['id_y'], dfRequirement['id_x'])
+        dfRequirement.drop(inplace=True, columns=['id_x','id_y'])
         
         try:
             updateModelWithDF(models.InvRequirement, dfRequirement, dfPreviousRequirement)
@@ -299,45 +225,38 @@ def UpdateWorkOrder(
 
 #To process the data of already added order
 def ProcessOrderData(workOrder: models.WorkOrder):
-    order = {
-        'WorkOrderNumber': workOrder.OrderNumber,
-        'style': workOrder.StyleCode.StyleCode,
-        'customer': workOrder.Customer.Name,
-        'orderDate': workOrder.OrderDate,
-        'merchandiser': workOrder.Merchandiser.id,
-        'deliveryDate': workOrder.DeliveryDate,
-        'type': workOrder.Type,
-        'currency': workOrder.Currency.Code,
-        'price': workOrder.Price,
-        'excessCut': workOrder.ExcessCut,
-    }
+    order = model_to_dict(workOrder)
 
     variants = models.OrderVariant.objects.filter(OrderNumber=workOrder).values('Name','Description','Quantity')
     if not variants:
-        variants = {'var': [models.OrderVariant()]}
-        order['quantity'] = 0
+        variants = [model_to_dict(models.OrderVariant())]
+        order['Quantity'] = 0
     else:
-        order['quantity'] = variants.aggregate(Sum('Quantity'))['Quantity__sum']
-    
-    requirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values('InventoryCode','Variant','Quantity')
+        order['Quantity'] = variants.aggregate(Sum('Quantity'))['Quantity__sum']
+    order['OrderDate'] = workOrder.OrderDate
+
+    fields = ['id', 'InventoryCode','Variant','Quantity']
+    requirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
     if requirement:
         dfRequirement = pd.DataFrame(requirement)
     else:
-        dfRequirement = pd.DataFrame(columns=['InventoryCode','Variant','Quantity'])
+        dfRequirement = pd.DataFrame(columns=fields)
     del requirement
     
-    orderedQty = models.POAllocation.objects.filter(WorkOrder=workOrder).values('POInvId','Quantity')
+    fields = ['POInvId','Quantity']
+    orderedQty = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
     if orderedQty:
         dfOrderedQty = pd.DataFrame(orderedQty)
     else:
-        dfOrderedQty = pd.DataFrame(columns=['POInvId','Quantity'])
+        dfOrderedQty = pd.DataFrame(columns=fields)
     del orderedQty
 
-    orderedInvs = models.POInventory.objects.filter(id__in=dfOrderedQty['POInvId'].to_list()).values('id','Inventory','Variant')
+    fields = ['id','Inventory','Variant']
+    orderedInvs = models.POInventory.objects.filter(id__in=dfOrderedQty['POInvId'].to_list()).values(*fields)
     if orderedInvs:
         dfOrderedInvs = pd.DataFrame(orderedInvs)
     else:
-        dfOrderedInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
+        dfOrderedInvs = pd.DataFrame(columns=fields)
     del orderedInvs
 
     receivedQty = models.RecAllocation.objects.filter(WorkOrder=workOrder).values('RecInvId','Quantity')
@@ -347,12 +266,13 @@ def ProcessOrderData(workOrder: models.WorkOrder):
         dfReceivedQty = pd.DataFrame(columns=['RecInvId','Quantity'])
     del receivedQty
     
-    receivedInvs = models.RecInventory.objects.filter(id__in=dfReceivedQty['RecInvId'].to_list()).values('id','InventoryCode','Variant')
+    fields = ['id','InventoryCode','Variant']
+    receivedInvs = models.RecInventory.objects.filter(id__in=dfReceivedQty['RecInvId'].to_list()).values(*fields)
     if receivedInvs:
         dfReceivedInvs = pd.DataFrame(receivedInvs)
     else:
-        dfReceivedInvs = pd.DataFrame(columns=['id','InventoryCode','Variant'])
-    del receivedInvs
+        dfReceivedInvs = pd.DataFrame(columns=fields)
+    del receivedInvs, fields
 
     dfOrderedQty = pd.merge(left=dfOrderedQty, right=dfOrderedInvs, left_on='POInvId', right_on='id', how='left')
     del dfOrderedInvs
@@ -391,7 +311,7 @@ def ProcessOrderData(workOrder: models.WorkOrder):
 
     #This is in response to a bug, where empty requirement didn't show any table.
     if dfRequirement.empty:
-        dfRequirement.loc[0] = {'InventoryCode': None, 'Variant': '','Quantity':0, 'Ordered':0, 'Received':0}
+        dfRequirement.loc[0] = {'id':None, 'InventoryName': '', 'Variant': '','Quantity':0, 'Ordered':0, 'Received':0}
     
 
     cols = [i for i in dfRequirement]
@@ -446,10 +366,10 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
         dfReceivedInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
     del receivedInv
 
-    dfSimpleConsumption = dfConsumption.loc[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
-    dfVariantConsumption = dfConsumption.loc[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
-    dfSizeOnlyConsumption = dfConsumption.loc[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails']]
-    dfSizeAndVariantConsumption = dfConsumption.loc[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails']]
+    dfSimpleConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
+    dfVariantConsumption = dfConsumption[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
+    dfSizeOnlyConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails']]
+    dfSizeAndVariantConsumption = dfConsumption[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails']]
     del dfConsumption
 
     if not dfSimpleConsumption.empty:
@@ -461,7 +381,7 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
         dfRequirement = dfSimpleRequirement
         del dfSimpleRequirement
     else:
-        dfRequirement = pd.DataFrame()
+        dfRequirement = pd.DataFrame(columns=['InventoryCode','Required','Variant'])
     
     if not dfVariantConsumption.empty:
         dfVariantRequirement = pd.merge(left=dfVariantConsumption, right=dfVariants, how='cross')
@@ -470,10 +390,7 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
         dfVariantRequirement.drop(columns=['Consumption','Quantity'], inplace=True)
         del dfVariantConsumption
         
-        if dfRequirement.empty:
-            dfRequirement = dfVariantRequirement     
-        else:
-            dfRequirement = pd.concat([dfRequirement, dfVariantRequirement])
+        dfRequirement = pd.concat([dfRequirement, dfVariantRequirement])
         del dfVariantRequirement 
 
     if not dfSizeOnlyConsumption.empty:
@@ -497,10 +414,7 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
         dfSizeOnlyRequirement = dfSizeOnlyRequirement.pivot_table(index='InventoryCode', values='Required', aggfunc='sum').reset_index()
         dfSizeOnlyRequirement['Variant'] = ''
 
-        if dfRequirement.empty:
-            dfRequirement = dfSizeOnlyRequirement
-        else:
-            dfRequirement = pd.concat([dfRequirement, dfSizeOnlyRequirement])
+        dfRequirement = pd.concat([dfRequirement, dfSizeOnlyRequirement])
     
     if not dfSizeAndVariantConsumption.empty:
         dfSizeAndVariantConsumption['SizeDetails'] = dfSizeAndVariantConsumption['SizeDetails'].str.split(',')
@@ -519,39 +433,49 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
         dfSizeAndVariantRequirement.rename(columns={'Name':'Variant'}, inplace=True)
         dfSizeAndVariantRequirement.drop(columns=['SizeDetails','Consumption','Quantity'], inplace=True)
 
-        if dfRequirement.empty:
-            dfRequirement = dfSizeAndVariantRequirement
-        else:
-            dfRequirement = pd.concat([dfRequirement, dfSizeAndVariantRequirement])
+        dfRequirement = pd.concat([dfRequirement, dfSizeAndVariantRequirement])
 
     excessCut = models.WorkOrder.objects.get(OrderNumber=orderNumber).ExcessCut
     dfRequirement['Required'] = dfRequirement['Required'] * (1+(excessCut/100)) * 1.02
     dfRequirement['Required'] = dfRequirement['Required'].apply(lambda x: round(x, 2))
 
-    dfOrdered = pd.merge(left=dfOrdered, right=dfOrderedInvs, left_on='POInvId', right_on='id', how='left')
-    del dfOrderedInvs
-    dfOrdered.drop(inplace=True, columns=['id','POInvId'])
-    dfOrdered.rename(inplace=True, columns={'Quantity':'Ordered'})
+    if dfOrdered.empty:
+        dfRequirement['Ordered'] = 0.0
+    else:
+        dfOrdered = pd.merge(left=dfOrdered, right=dfOrderedInvs, left_on='POInvId', right_on='id', how='left')
+        dfOrdered.drop(inplace=True, columns=['id','POInvId'])
+        dfOrdered.rename(inplace=True, columns={'Quantity':'Ordered'})
 
-    dfRequirement = pd.merge(left=dfRequirement, right=dfOrdered, left_on=['InventoryCode','Variant'],
-                             right_on=['Inventory','Variant'], how='outer')
-    del dfOrdered
+        dfRequirement = pd.merge(left=dfRequirement, right=dfOrdered, left_on=['InventoryCode','Variant'],
+                                right_on=['Inventory','Variant'], how='outer')
+        dfRequirement.drop(inplace=True, columns=['Inventory'])
+    del dfOrdered, dfOrderedInvs
 
-    dfRequirement['InventoryCode'] = np.where(dfRequirement['InventoryCode'].isna(), dfRequirement['Inventory'],
-                                              dfRequirement['InventoryCode'])
-    dfRequirement.drop(inplace=True, columns=['Inventory'])
-
-    if not dfReceived.empty:
+    if dfReceived.empty:
+        dfRequirement['Received'] = 0.0  
+    else:
         dfReceived = pd.merge(left=dfReceived, right=dfReceivedInvs, left_on='RecInvId', right_on='id', how='left')
-        del dfReceivedInvs
         dfReceived.drop(inplace=True, columns=['id','RecInvId'])
         dfReceived.rename(inplace=True, columns={'Quantity':'Received'})
 
         dfRequirement = pd.merge(left=dfRequirement, right=dfReceived, left_on=['InventoryCode','Variant'],
                                  right_on=['InventoryCode','Variant'], how='outer')
-        
+    del dfReceived, dfReceivedInvs
+
+    fields = ['Code','Name']
+    inventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values(*fields)
+    if inventories:
+        dfInventories = pd.DataFrame(inventories)
     else:
-        dfRequirement['Received'] = 0.0
+        dfInventories = pd.DataFrame(columns=fields)
+    del inventories, fields
+    
+    dfRequirement = pd.merge(left=dfRequirement, right=dfInventories, left_on='InventoryCode', right_on='Code', how='left')
+    del dfInventories
+    dfRequirement.drop(inplace=True, columns=['Code'])
+    dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
+
+    dfRequirement['id'] = None
     
     for col in ['Required','Ordered','Received']:
         dfRequirement[col] = np.where(dfRequirement[col].isna(), 0, dfRequirement[col])

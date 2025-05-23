@@ -12,7 +12,7 @@
             <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Order#:&nbsp; </label>
-                    <input id="id_Order" type="text" class="{{theme.textInput}}" value="{{order.WorkOrderNumber}}" name="WorkOrderNumber" readonly>
+                    <input id="id_Order" type="text" class="{{theme.textInput}}" value="{{order.OrderNumber}}" name="OrderNumber" readonly>
                 </div>
                 <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Style:&nbsp; </label>
@@ -24,11 +24,11 @@
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>OD:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{order.orderDate|date:'m/d/Y'}}" name="OrderDate" id="orderDate">
+                    <input type="text" class="{{theme.textInput}}" value="{{order.OrderDate|date:'m/d/Y'}}" name="OrderDate" id="orderDate">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>DD:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{order.deliveryDate|date:'m/d/Y'}}" name="DeliveryDate" id="deliveryDate">
+                    <input type="text" class="{{theme.textInput}}" value="{{order.DeliveryDate|date:'m/d/Y'}}" name="DeliveryDate" id="deliveryDate">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Type:&nbsp; </label>
@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Price:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{order.price}}" name="Price">
+                    <input type="number" class="{{theme.textInput}}" value="{{order.Price}}" name="Price">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Currency:&nbsp; </label>
@@ -44,11 +44,11 @@
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Wastage%:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{order.excessCut}}" name="ExcessCut">
+                    <input type="number" class="{{theme.textInput}}" value="{{order.ExcessCut}}" name="ExcessCut">
                 </div>
                 <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Quantity:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{order.quantity}}" name="Quantity" id="id_orderQty" readonly>
+                    <input type="number" class="{{theme.textInput}}" value="{{order.Quantity}}" name="Quantity" id="id_orderQty" readonly>
                 </div>
                 <div class="col-2 btn-group {{theme.align}} {{theme.textJustify}}">
                     <a id="submit" class="{{theme.buttonSecondary}}" role="button" onclick="submitForms()">Save</a>
@@ -123,8 +123,13 @@
                         <div class="col-1">
                             <input class="form-check-input" type="checkbox">
                         </div>
+                        <div hidden>
+                            <input value="{{data.id}}" name="id">
+                        </div>
+                        <div hidden>
+                            <input value="{{data.InventoryCode}}" name="InventoryCode">
+                        </div>
                         <div class="col-3">
-                            <input type="text" value="{{data.InventoryCode}}" name="InventoryCode" hidden>
                             <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName">
                         </div>
                         <div class="col-2">
@@ -187,6 +192,7 @@
         </div>
     </div>
 
+    <!-- Order Variants -->
     <div id="variantTable" name="varTable">
         <form method="POST" id="variantForm" autocomplete="off">
             <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">    
@@ -264,7 +270,7 @@
             //Styles Dropdown
             let response = await fetch('/options/styles');
             const styles = await response.json();
-            await appendOptions('id_Style', styles, "{{order.style}}");
+            await appendOptions('id_Style', styles, "{{order.StyleCode}}");
             //Since this dropdown is not part of a table, we need manually apply search box
             $("#id_Style").chosen({
                 search_contains: true,
@@ -274,7 +280,7 @@
             //Customer dropdown
             response = await fetch('/options/customers');
             const customers = await response.json();
-            await appendOptions('id_Customer', customers, "{{order.customer}}");
+            await appendOptions('id_Customer', customers, "{{order.Customer}}");
             //Since this dropdown is not part of a table, we need manually apply search box
             $("#id_Customer").chosen({
                 search_contains: true,
@@ -319,10 +325,16 @@
             const table = rowToCopy.parentElement;
 
             //Delete previous data from the row to copy.
-            const cols = rowToCopy.children;
-            for (const col of cols) {
-                col.children[0].value = null;
-            }
+            const inputs = rowToCopy.querySelectorAll('input');
+            inputs.forEach(input => {
+                const type = input.type;
+
+                if (type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            });
 
             const response = await fetch('/workorder/requirement/calculate', {
                 method: 'POST',
@@ -331,25 +343,26 @@
             });
             const requirement = await response.json();
             
-            rowToCopy.children[0].children[0].checked = false;
-            rowToCopy.children[1].children[1].value = requirement?.[0].InventoryCode ?? null;
-            rowToCopy.children[2].children[0].value = requirement?.[0].Variant ?? null;
-            rowToCopy.children[3].children[0].value = requirement?.[0].Required ?? null;
-            rowToCopy.children[4].children[0].value = requirement?.[0].Ordered ?? null;
-            rowToCopy.children[5].children[0].value = requirement?.[0].Received ?? null;
+            rowToCopy.children[1].children[0].value = requirement?.[0].id ?? null;
+            rowToCopy.children[2].children[0].value = requirement?.[0].InventoryCode ?? null;
+            rowToCopy.children[3].children[0].value = requirement?.[0].InventoryName ?? null;
+            rowToCopy.children[4].children[0].value = requirement?.[0].Variant ?? null;
+            rowToCopy.children[5].children[0].value = requirement?.[0].Required ?? null;
+            rowToCopy.children[6].children[0].value = requirement?.[0].Ordered ?? null;
+            rowToCopy.children[7].children[0].value = requirement?.[0].Received ?? null;
 
             for (let i=1; i<requirement.length; i++) {
                 const copy = rowToCopy.cloneNode(true);
                 copy.setAttribute("row",i+1);
 
-                console.log(copy.children[1].children[1])
+                copy.children[1].children[0].value = requirement?.[i].id ?? null;
+                copy.children[2].children[0].value = requirement?.[i].InventoryCode ?? null;
+                copy.children[3].children[0].value = requirement?.[i].InventoryName ?? null;
+                copy.children[4].children[0].value = requirement?.[i].Variant ?? null;
+                copy.children[5].children[0].value = requirement?.[i].Required ?? null;
+                copy.children[6].children[0].value = requirement?.[i].Ordered ?? null;
+                copy.children[7].children[0].value = requirement?.[i].Received ?? null;
 
-                copy.children[1].children[1].value = requirement?.[i].InventoryCode ?? null;
-                copy.children[2].children[0].value = requirement?.[i].Variant ?? null;
-                copy.children[3].children[0].value = requirement?.[i].Required ?? null;
-                copy.children[4].children[0].value = requirement?.[i].Ordered ?? null;
-                copy.children[5].children[0].value = requirement?.[i].Received ?? null;
-            
                 table.appendChild(copy);
             }
 
@@ -652,9 +665,9 @@
             });
 
             if (response.ok) {
-                const selectedTable = await response.text();
-
                 unsavedDataFlag = false;
+
+                showMessage('Saved Successfully');
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);
@@ -696,5 +709,4 @@
         $('#orderDate').datepicker();
         $('#deliveryDate').datepicker();
     </script>
-
 {% endblock %}

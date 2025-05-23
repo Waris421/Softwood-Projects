@@ -13,7 +13,7 @@
             <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="col col-md-2 d-flex {{theme.align}} {{theme.justify}}">
                     <label>PO:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{order.PONumber}}" name="PONumber" id="orderNumber" readonly>
+                    <input type="text" class="{{theme.textInput}}" value="{{order.id}}" name="PONumber" id="orderNumber" readonly>
                 </div>
                 <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Supplier:&nbsp; </label>
@@ -30,7 +30,7 @@
                 <div class="col col-md-1 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Tax:&nbsp; </label>
                     <input id="id_Tax" type="number" class="{{theme.textInput}}" value="{{order.Tax}}" name="Tax">
-                    <input type="text" id="allocInvCode" name="allocationInvCode" value="" class="" hidden>
+                    <input type="text" id="allocId" name="allocId" value="" class="" hidden>
                 </div>
                 <div class="col col-md-2 btn-group {{theme.align}} {{theme.textJustify}}">
                     <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
@@ -85,6 +85,9 @@
             </div>
             {% for data in inv %}
                 <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="number" value="{{data.id}}" name="id" hidden>
+                    </div>
                     <div class="col col-md-4" chosen="true">
                         <select class="{{theme.dropdown}}" id="id_InventoryCode_{{forloop.counter}}" name="InvCode">
                         </select>
@@ -234,65 +237,67 @@
     <script>    //To handle allocation box
         async function openAllocation(source) {
             showLoadingIcon();
-            //Get the inventory and variant code.
-            const inventoryCode = source.parentElement.parentElement.children[0].children[0].value;
-            const variant = source.parentElement.parentElement.children[1].children[0].value;
-
-            //Show error to user if inventory is not selected
-            if (inventoryCode=='' || inventoryCode=='null') {
-                alert('Select an inventory.');
+            
+            const id = source.parentElement.parentElement.children[0].children[0].value;
+            
+            if (id=='') {
+                alert('Please save the PO first');
                 return ;
             }
 
-            //Get url path, which will contain the PO number
-            const urlPath = new URL(window.location.href).pathname;
+            let allocation;
 
             //get the allocation from server.
-            const allocation = await getAllocation(inventoryCode, variant, urlPath);
+            try {
+                allocation = await getAllocation(id);
+            } catch (e) {
+                showMessage(e);
+                hideLoadingIcon();
+                return ;
+            }
 
             //Get the format of the allocation table
             const allocationTable = document.getElementById('allocationTable');
 
             const title = allocationTable.querySelector('.modal-header');
-            console.log(title);
-            title.textContent += ` ${inventoryCode} ${variant}`;
+            title.textContent += `#${id}`;
             
-            if (allocation != null) {
-                const allocationArea = allocationTable.querySelector('.modal-body');
+            const allocationArea = allocationTable.querySelector('.modal-body');
 
-                const previousRows = allocationArea.children;
+            const previousRows = allocationArea.children;
 
-                for (let i=previousRows.length - 1; i>1; i--) {
-                    previousRows[i].remove();
-                }
-                delete previousRows;
-
-                const firstRowPlusButton = allocationArea.children[1].children[2].children[0];
-
-                for (let i=1; i<allocation.length; i++) {
-                    addRow(firstRowPlusButton);
-                }
-                delete firstRowPlusButton;
-                
-                const rows = allocationArea.children;
-                removeSearchBox();
-                for (let i=1; i<rows.length; i++) {
-                    const workOrderBox = rows[i].children[0].children[0];
-                    workOrderBox.value = (allocation[i-1].WorkOrder);
-
-                    const qtyBox = rows[i].children[1].children[0];
-                    qtyBox.value = (allocation[i-1].Quantity);
-
-                }
-                addSearchBox();
+            for (let i=previousRows.length - 1; i>1; i--) {
+                previousRows[i].remove();
             }
+            delete previousRows;
+
+            const firstRowPlusButton = allocationArea.children[1].children[2].children[0];
+
+            for (let i=1; i<allocation.length; i++) {
+                addRow(firstRowPlusButton);
+            }
+            delete firstRowPlusButton;
+            
+            const rows = allocationArea.children;
+            removeSearchBox();
+            
+            for (let i=1; i<rows.length; i++) {
+                const workOrderBox = rows[i].children[0].children[0];
+                const qtyBox = rows[i].children[1].children[0];
+
+                if (allocation.length) {
+                    workOrderBox.value = (allocation[i-1].WorkOrder);
+                    qtyBox.value = (allocation[i-1].Quantity);
+                }
+            }
+            addSearchBox();
 
             //The dummy box that contains inventory the currently selected inventory code
-            const referenceBox = document.getElementById('allocInvCode');
-            referenceBox.value = inventoryCode+'_'+variant;
+            const referenceBox = document.getElementById('allocId');
+            referenceBox.value = id;
 
             //Get the total quantity
-            const totalQty = parseFloat(source.parentElement.parentElement.children[2].children[0].value);
+            const totalQty = parseFloat(source.parentElement.parentElement.children[3].children[0].value);
 
             //Get the footer to set the summary
             const footer = allocationTable.children[0].children[0].children[2];
@@ -348,27 +353,29 @@
             freeQtyBox.textContent = (totalQty - allocQty).toFixed(2);
         }
 
-        async function getAllocation(inventoryCode, variant, urlPath) {
+        async function getAllocation(id) {
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
             
-            const obj = {'inventoryCode':inventoryCode, 'variant':variant, 'urlPath':urlPath};
-            const data = JSON.stringify(obj);
+            const data = JSON.stringify({'id':id});
 
-            const response = await fetch('alloc/get', {
+            const response = await fetch('/purchaseorder/alloc/get', {
                 method: 'POST',
                 body: data,
                 headers: { "X-CSRFToken": csrf},
             });
 
-            return response.json();
+            if (response.ok){
+                return response.json();
+            } else {
+                const errorMessage = await response.text();
+
+                throw errorMessage;
+            }
         }
 
         async function closeAllocation() {
             //Get the selected inventory code and variant
-            const invCodeVariant = document.getElementById('allocInvCode').value;
-            const parts = invCodeVariant.split('_');
-            const invCode = parts[0];
-            const variant = parts[1];
+            const id = document.getElementById('allocId').value;
 
             //Get the total allocated qty.
             const footer = document.getElementById('allocationTable').children[0].children[0].children[2];
@@ -379,11 +386,10 @@
             InvTableRows.splice(0,1);
             
             for (const row of InvTableRows) {
-                const invBox = row.children[0].children[0];
-                const varBox = row.children[1].children[0];
-                const qtyBox = row.children[2].children[0];
+                const idBox = row.children[0].children[0];
+                const qtyBox = row.children[3].children[0];
                 
-                if (invBox.value == invCode && varBox.value == variant) {
+                if (idBox.value == id) {
                     const totalQty = parseFloat(qtyBox.value);
 
                     if (totalQty < allocatedQty) {

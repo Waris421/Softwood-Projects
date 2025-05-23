@@ -135,6 +135,9 @@
             </div>
             {% for data in cons %}
                 <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="text" value="{{data.id}}" name="id" hidden>
+                    </div>
                     <div class="col-3" chosen="true">
                         <select class="{{theme.dropdown}}" id="id_InventoryCode_{{forloop.counter}}" name="InvCode">
                         </select>
@@ -364,18 +367,6 @@
 
     </script>
 
-    <script>   //To change the section based on the selected operation
-        async function getOperationSection(source) {
-            const operationObj = source.value;
-
-            const response = await fetch('/options/section/'+operationObj);
-            const section = await response.json();
-
-            const sectionElement = source.parentElement.nextElementSibling.children[0];
-            sectionElement.value = section;
-        }
-    </script>
-
     <script>    //To handle inventory search box
         async function openInvSearch(source) {
             //Filter out the inventories from server based on selected group
@@ -539,7 +530,7 @@
             hideLoadingIcon();
             
             if (response.ok) {
-                const selectedTable = await response.text();
+                showMessage('Success');
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);

@@ -4,7 +4,7 @@ Contains generic variables and functions
 
 from datetime import datetime
 
-from marketing.services.generic_services import askAI, dfToListOfDicts, updateModelWithDF
+from marketing.services.generic_services import askAI, dfToListOfDicts, updateModelWithDF, getAPIUser
 from apparelManagement.services.generic_services import applySearch, paginate, refineJson, convertTexttoObject
 
 NOW = datetime.now()

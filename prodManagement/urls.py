@@ -29,6 +29,8 @@ urlpatterns = [
     path('productivity/worker/add', views.AddWorker, name='addWorker'),
     path('productivity/worker/<int:pk>/edit', views.EditWorker, name='editWorker'),
     path('productivity/api/complete-group', views.MarkGroupCompletion.as_view(), name='groupCompletionAPI'),
+    path('productivity/api/assign-worker-card', views.AssignWorkerCard.as_view(), name='assignWorkerCard'),
+    path('productivity/assign-bundle-card', views.AssignCardToBundles, name='assignBundleCards'),
 
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),
@@ -36,7 +38,7 @@ urlpatterns = [
     path('options/operations/categories', options_service.GetOperationCategories, name='opCats'),
     path('options/machines/types', options_service.GetMachineTypes, name='machTypes'),
     path('options/machines/manufacturers', options_service.GetMachineManufacturers, name='machManufacturers'),
-
-    path('api/temp', views.Temp.as_view(), name='temp'),
+    path('options/core-sheet/cuts', options_service.GetCutsForOrder, name='cutList'),
+    path('options/core-sheet/bundles', options_service.GetBundlesForCut, name='bundleList'),
+    path('options/bundle-cards/available', options_service.GetAvailableCardGroups, name='availableBundleCards'),
 ]
-

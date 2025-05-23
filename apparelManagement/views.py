@@ -243,7 +243,7 @@ def AddStyle (request: HttpRequest):
         #Convert the json to a dict
         jsonData = json.loads(request.body.decode('utf-8'))
 
-        dfStyle, dfVariants, dfRoute = generic_services.refineJson(jsonData)  
+        dfStyle, dfVariants, dfRoute = generic_services.refineJson(jsonData) 
         
         try:
             styleCode = style_card_service.AddStyleCard(dfStyle, dfVariants, dfRoute)       
@@ -254,19 +254,16 @@ def AddStyle (request: HttpRequest):
             return HttpResponse(e, status=400)
          
     else:
-        styleForm = style_card_service.StyleForm()
-        styleVariantForm = style_card_service.StyleVariantForm()
-        styleRouteForm = style_card_service.StyleRouteForm()
-
-        context = {'style': styleForm, 'var':styleVariantForm,'route':styleRouteForm,
-                   'theme': theme}
+        context = {
+            'theme': theme
+        }
         return render (request, 'style/add.html', context)
 
 @login_required(login_url='/login')
 def UpdateStyle (request: HttpRequest, pk: str):
     if not auth_service.hasPermission(request, model=models.StyleCard, type='change'):
         return HttpResponse('Access Denied', status=403)
-    
+
     try:
         style = models.StyleCard.objects.get(StyleCode=pk)
     except:
@@ -406,11 +403,9 @@ def AddWorkOrder(request: HttpRequest):
             print(e)
             return HttpResponse(e, status=400)
     else:
-        OrderForm = work_order_service.WorkOrderForm()
-        VariantForm = work_order_service.WorkerOrderVariantForm()
-
-        context = {'order': OrderForm, 'variants': VariantForm,
-                   'theme': theme}
+        context = {
+            'theme': theme
+        }
         return render(request, 'work_order/add.html', context)
 
 @login_required(login_url='/login')
@@ -685,18 +680,18 @@ def AddPurchaseOrder(request: HttpRequest):
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
 
-        OrderDF, InventoryDF, AllocationDF = generic_services.refineJson(data)
+        dfOrder, dfInventory = generic_services.refineJson(data)
 
-        poNumber = purchase_order_service.AddPurchaseOrder(OrderDF, InventoryDF, AllocationDF)
-
-        #Return the PO Number that is generated.
-        return HttpResponse(poNumber, status=200)
+        try:
+            poNumber = purchase_order_service.AddPurchaseOrder(dfOrder, dfInventory)
+            return HttpResponse(poNumber, status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
     else:
-        POForm = purchase_order_service.PurchaseOrderForm()
-        POInvForm = purchase_order_service.PurchaseOrderInventoryForm()
-
-        context = {'order': POForm, 'inventory': POInvForm,
-                   'theme': theme}
+        context = {
+            'theme': theme
+        }
         return render(request, 'purchase_order/add.html', context)
 
 @login_required(login_url='/login')
@@ -713,9 +708,9 @@ def EditPurchaseOrder(request: HttpRequest, pk):
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
 
-        OrderDF, InventoryDF, AllocationDF = generic_services.refineJson(data)
+        dfOrder, dfInventory, dfAllocation = generic_services.refineJson(data)
         try:
-            purchase_order_service.EditPurchaseOrder(orderObject, OrderDF, InventoryDF, AllocationDF)
+            purchase_order_service.EditPurchaseOrder(orderObject, dfOrder, dfInventory, dfAllocation)
             return HttpResponse('Saved Successfuly', status=200)
         except Exception as e:   
             print(e)         
@@ -729,16 +724,16 @@ def EditPurchaseOrder(request: HttpRequest, pk):
         return render(request, 'purchase_order/edit.html', context)
 
 @login_required(login_url='/login')
-def getPOAllocation(request: HttpRequest, pk):
+def getPOAllocation(request: HttpRequest):
     if request.method == 'POST':
-        data = json.loads(request.body.decode('utf-8'))
+        pk = json.loads(request.body.decode('utf-8'))['id']
 
-        inventoryCode = data['inventoryCode']
-        variant = data['variant']
-        urlPath = data['urlPath']
-        del data
+        try:
+            poInventory = models.POInventory.objects.get(id=pk)
+        except:
+            return HttpResponse('Resource not found',status=401)
 
-        allocation = purchase_order_service.getPOAllocation(inventoryCode, variant, urlPath)
+        allocation = purchase_order_service.getPOAllocation(poInventory)
 
         return JsonResponse(allocation, safe=False)
     else:
@@ -746,30 +741,30 @@ def getPOAllocation(request: HttpRequest, pk):
 
 @login_required(login_url='/login')
 def GetWODefaultQtyForPO (request: HttpRequest):
-    if request.method == 'POST':
-        data = json.loads(request.body.decode('utf-8'))
-
-        invVar = data['invVar'].split('_')
-        inventory = models.Inventory.objects.get(Code=invVar[0])
-        variant = invVar[1]
-
-        workOrder = data['workOrder']
-        if workOrder == 'null':
-            return JsonResponse(0, safe=False)
-        else:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
-  
-        if 'poNumber' in data:
-            currentPO = data['poNumber']
-            currentPO = models.PurchaseOrder.objects.get(id=currentPO)
-        else:
-            currentPO = models.PurchaseOrder()
-
-        quantity = purchase_order_service.GetWorkOrderDefaultQty(workOrder, inventory, variant, currentPO)
-
-        return JsonResponse(quantity, safe=False)
-    else:
+    if request.method != 'POST':
         return HttpResponse('Not Allowed', status=405)
+    
+    data = json.loads(request.body.decode('utf-8'))
+
+    invVar = data['invVar'].split('_')
+    inventory = models.Inventory.objects.get(Code=invVar[0])
+    variant = invVar[1]
+
+    workOrder = data['workOrder']
+    if workOrder == 'null':
+        return JsonResponse(0, safe=False)
+    else:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
+
+    if 'poNumber' in data:
+        currentPO = data['poNumber']
+        currentPO = models.PurchaseOrder.objects.get(id=currentPO)
+    else:
+        currentPO = models.PurchaseOrder()
+
+    quantity = purchase_order_service.GetWorkOrderDefaultQty(workOrder, inventory, variant, currentPO)
+
+    return JsonResponse(quantity, safe=False)
 
 @login_required(login_url='/login')
 def getAllocatedQty (request: HttpRequest):
@@ -909,10 +904,14 @@ def AddPurchaseReceipt(request: HttpRequest):
 
         dfReceipt, dfInventory = generic_services.refineJson(data)
         
-        recNumber = purchase_receipt_service.AddPurchaseReceipt(dfReceipt, dfInventory)
-        
-        #Return the receipt Number that is generated.
-        return HttpResponse(recNumber, status=200)
+        try:
+            recNumber = purchase_receipt_service.AddPurchaseReceipt(dfReceipt, dfInventory)
+            
+            #Return the receipt Number that is generated.
+            return HttpResponse(recNumber, status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
     else:
         poNumber = request.GET.get('poNumber', None)
 
@@ -923,13 +922,10 @@ def AddPurchaseReceipt(request: HttpRequest):
         
         inventory = purchase_receipt_service.GetPOData(purchaseOrder)
 
-        RecForm = purchase_receipt_service.PurchaseReceiptForm()
-
         context = {
-            'receipt': RecForm, 'inventory': inventory,
-            'poNumber': poNumber,
+            'inventory': inventory,'poNumber': poNumber,
             'theme': theme
-            }
+        }
         return render(request, 'purchase_receipt/add.html', context)
 
 @login_required(login_url='/login')
@@ -940,7 +936,7 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
     try:
         receiptObject = models.InventoryReciept.objects.get(id=pk)
     except:
-        return HttpResponse('Order not found', status=404)
+        return HttpResponse('Resource not found', status=404)
     
     if request.method == 'POST':
         #convert json data to a dict.
@@ -965,19 +961,19 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
 
 @login_required(login_url='/login')
 def GetReceiptAllocation(request: HttpRequest):
-    if request.method == 'POST':
-        data = json.loads(request.body.decode('utf-8'))
-
-        inventoryCode = data['inventoryCode']
-        variant = data['variant']
-        urlPath = data['urlPath']
-        del data
-
-        allocation = purchase_receipt_service.GetReceiptAllocation(inventoryCode, variant, urlPath)
-        
-        return JsonResponse(allocation, safe=False)
-    else:
+    if request.method != 'POST':
         return HttpResponse('No Allowed', status=405)
+
+    pk = json.loads(request.body.decode('utf-8'))['id']
+
+    try:
+        recInventory = models.RecInventory.objects.get(id=pk)
+    except:
+        return HttpResponse('Resource not found',status=401)
+
+    allocation = purchase_receipt_service.GetReceiptAllocation(recInventory)
+    
+    return JsonResponse(allocation, safe=False)
 
 @login_required(login_url='/login')
 def CopyPurchaseReceipt (request: HttpRequest, pk: int):
@@ -1086,11 +1082,7 @@ def AddPurchaseDemand (request: HttpRequest):
             print(e)
             return HttpResponse(e, status=400)
     else:
-        PDForm = purchase_demand_service.PurchaseDemandForm()
-        PDInvForm = purchase_demand_service.PurchaseDemandInventoryForm()
-
         context = {
-            'demand':PDForm, 'inventory':PDInvForm,
             'theme': theme
         }
         return render(request, 'purchase_demand/add.html', context)

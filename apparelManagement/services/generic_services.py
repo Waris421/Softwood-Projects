@@ -8,6 +8,10 @@ from typing import Dict, Any, List
 
 from django.db.models import Model
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.contrib.auth.models import User
+
+from rest_framework.request import Request
+from rest_framework.authtoken.models import Token
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')
 GST_RATE = 18.0
@@ -208,3 +212,12 @@ def truncateTime (time: datetime.time):
     if time is None:
         return None
     return time.replace(microsecond=0)
+
+def getAPIUser(request: Request) -> User:
+    credentials = request.data.get('credentials')
+    
+    try:
+        token = Token.objects.get(key=credentials)
+        return token.user
+    except:
+        raise PermissionError('Unauthorised')

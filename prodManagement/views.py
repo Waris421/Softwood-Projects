@@ -300,19 +300,6 @@ def SummariseStyleBulletin(request: HttpRequest):
 
     return JsonResponse(summary, safe=False)
 
-class Temp(APIView):
-    permission_classes = [AllowAny]
-    def post (self, request:Request):
-        deviceId = request.data.get('deviceId')  
-        tagId = request.data.get('tagId')
-
-        print(f"Tag: {tagId}", f"Device: {deviceId}")
-
-        response = {"message": "Success"}
-        status = rest_framework.status.HTTP_200_OK
-
-        return Response (data=response, status=status)
-
 @login_required(login_url='/login')
 def CoreSheet (request: HttpRequest):
     if request.method != 'GET':
@@ -436,12 +423,10 @@ class MarkGroupCompletion(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request:Request):
-        credentials = request.data.get('credentials')
-
-        try:
-            token = Token.objects.get(key=credentials)
+        try:        
+            user = generic_services.getAPIUser(request)
         except:
-            response = {'error': 'Not authorised'}
+            response = {'error': 'Access Denied'}
             status=  rest_framework.status.HTTP_401_UNAUTHORIZED
             return Response(data=response, status=status)            
 
@@ -458,3 +443,47 @@ class MarkGroupCompletion(APIView):
             response = {'error': str(e)}
             status=  rest_framework.status.HTTP_400_BAD_REQUEST
             return Response(data=response, status=status)
+
+class AssignWorkerCard(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            user = generic_services.getAPIUser(request)
+        except:
+            response = {'error': 'Access Denied'}
+            status=  rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status) 
+        
+        cardId = request.data.get('cardId')
+        workerCode = request.data.get('workerCode')
+
+        try:
+            worker_service.AssignCardToWorker(cardId, workerCode)
+            response = {'message': 'In Process'}
+            status=  rest_framework.status.HTTP_200_OK
+
+            return Response(data=response, status=status)
+        except Exception as e:
+            response = {'error': str(e)}
+            status=  rest_framework.status.HTTP_400_BAD_REQUEST
+            return Response(data=response, status=status)
+
+@login_required(login_url='/login')
+def AssignCardToBundles(request: HttpRequest):
+    if request.method == 'POST':
+        jsonData = json.loads(request.body.decode('utf-8'))
+
+        _, dfAssignment = generic_services.refineJson(jsonData)
+        
+        try:
+            core_sheet_service.AssignCardGroup(dfAssignment)
+            return HttpResponse('OK')
+        except Exception as e:
+            return HttpResponse(e, status=401)
+
+    else:
+        context = {
+            'theme': theme,
+        }
+        return render(request, 'CS/assign.html', context)

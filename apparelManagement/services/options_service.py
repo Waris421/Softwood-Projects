@@ -7,8 +7,6 @@ import pandas as pd
 
 from .. import models
 
-#Here we serve all the options for dropdowns
-
 @login_required(login_url='/login')
 def yesOrNo(request):
     if request.method == 'GET':
@@ -39,19 +37,34 @@ def getCustomersList(request):
         return JsonResponse(data, safe=False)
 
 @login_required(login_url='/login')
-def getSuppliersList(request):
-    if request.method == 'GET':
-        objects = models.Supplier.objects.all()     
-        dfData = pd.DataFrame(index=range(objects.count()))
+def getSuppliersList(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+
+    search = request.GET.get('search','')
+
+    searchFilter = Q()
+    if search:
+        searchFilter &= (
+            Q(Name__icontains=search) |
+            Q(TradeName__icontains=search) |
+            Q(Address__icontains=search)
+        )
+    
+    fields = ['Name','TradeName']
+    suppliers = models.Supplier.objects.filter(searchFilter)[:15].values(*fields)
+
+    if suppliers:
+        dfSupplier = pd.DataFrame(suppliers)
+        dfSupplier['text'] = dfSupplier['Name'].astype(str)+' - '+dfSupplier['TradeName'].astype(str)
+        dfSupplier.drop(inplace=True, columns=['TradeName'])
+        dfSupplier.rename(inplace=True, columns={'Name':'value'})
         
-        dfData['text'] = pd.DataFrame(objects.values('Name'))
-        dfData['value'] = pd.DataFrame(objects.values('Name'))
+        suppliers = dfSupplier.to_dict(orient='records')  
+    else:
+        suppliers = []
 
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
-
-        cols = [i for i in dfData]
-        data = [dict(zip(cols, i)) for i in dfData.values]
-        return JsonResponse(data, safe=False)
+    return JsonResponse(suppliers, safe=False)
 
 @login_required(login_url='/login')
 def getDepartmentsList (request: HttpRequest):
@@ -84,6 +97,7 @@ def getCategories(request):
 def getInventories(request: HttpRequest):
     if request.method == 'GET':
         invGroup = request.GET.get('group',None)
+        search = request.GET.get('search', '')
 
         if invGroup == 'Direct':
             groups = ['Fabric','Trim']
@@ -96,9 +110,13 @@ def getInventories(request: HttpRequest):
         else:
             objects = models.Inventory.objects.filter(InUse=True)
         
+        if search:
+            objects = objects.filter(Q(Name__icontains=search) | Q(Code__icontains=search))
+
         if objects.count() < 1:
             return JsonResponse([], safe=False)
 
+        objects = objects[:15]
         data = objects.values('Code','Name')
         dfData = pd.DataFrame(data)
         

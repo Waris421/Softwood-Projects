@@ -1,73 +1,12 @@
 import pandas as pd
 import numpy as np
 
-from django import forms
+from django.forms.models import model_to_dict
 
-from .. import models, theme
+from .. import models
 from .generic_services import convertTexttoObject, updateModelWithDF
 
 pd.options.mode.chained_assignment = None
-
-class StyleForm (forms.Form):
-    StyleCode = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-    )
-    
-    StyleName = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-    )
-
-    Notes = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-    )
-
-class StyleVariantForm (forms.Form):
-    Variant1 = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        max_length=255,
-        required=False,
-    )
-    Variant2 = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        max_length=255,
-        required=False,
-    )
-
-class StyleConsForm(forms.Form):
-    Consumption = forms.FloatField (
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-
-    SizeDetails = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        max_length=255,
-        required=False,
-    )
-
-class StyleRouteForm (forms.Form):
-    Sequence = forms.IntegerField(
-        widget = forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-        initial=1,
-    )
-
-class StitchOBForm (forms.Form):
-    Sequence = forms.IntegerField(
-        widget = forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-        initial=1,
-    )
-
-class FinishOBForm (forms.Form):
-    Sequence = forms.IntegerField(
-        widget = forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-        initial=1,
-    )
 
 def getStyleCard (searchTerm, customer):
     if customer:
@@ -161,6 +100,9 @@ def AddStyleCard(
     if(styleCode == ''):
         raise ValueError ('No Style Code is Provided')
     
+    dfRoute = dfRoute[dfRoute['Sequence'].str.len() > 0]
+    dfRoute = dfRoute[dfRoute['type'].str.len() > 0]
+
     #Replace any blank variants with Nan
     dfVariants = dfVariants.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
     dfVariants['Variant1'] = np.where(dfVariants['Variant1'].str.len()==0,np.nan, dfVariants['Variant1'])
@@ -171,20 +113,16 @@ def AddStyleCard(
     if dfVariants.empty:
         raise ValueError('No Variant is provided')
 
-    if dfRoute['type'].str.len().sum() == 0:
+    if dfRoute.empty:
         raise ValueError('No Production route is provided')
     
+    if dfRoute['Sequence'].duplicated().any():
+        raise ValueError('Incorrect Sequence is Provided')
+
     #Convert Customer to model objects and assign to style
     dfStyle['Customer'] = convertTexttoObject(models.Customer, dfStyle['Customer'],'Name')
     
-    #Create dict from the provided data, to be able to save in database
-    styleCard = {
-        'StyleCode': dfStyle['StyleCode'][0],
-        'StyleName': dfStyle['StyleName'][0],
-        'Customer': dfStyle['Customer'][0],
-        'Category': dfStyle['Category'][0],
-        'Notes': dfStyle['Notes'][0],
-        }
+    styleCard = dfStyle.iloc[0].to_dict()
     
     try:
         #Try to fetch style and if found, raise error
@@ -220,18 +158,15 @@ def AddStyleCard(
         newEntry = models.StyleVariant(**row.to_dict())
         newEntry.save()
 
-    if not dfRoute.empty:
-        if dfRoute['Sequence'].duplicated().any():
-            raise ValueError('Incorrect Sequence is Provided')
+    dfRoute['Style'] = styleCard
+    dfRoute['Cost'] = 0.0
     
-        dfRoute['Style'] = styleCard
-        dfRoute['Cost'] = 0.0
-        
-        dfRoute.rename(inplace=True, columns={'type':'Stage'})
+    dfRoute.rename(inplace=True, columns={'type':'Stage'})
+    print(dfRoute)
 
-        for _, row in dfRoute.iterrows():
-            newEntry = models.StyleRoute(**row.to_dict())
-            newEntry.save()
+    for _, row in dfRoute.iterrows():
+        newEntry = models.StyleRoute(**row.to_dict())
+        newEntry.save()
 
     return styleCard.StyleCode
 
@@ -249,37 +184,35 @@ def UpdateStyleCard(
     dfStyle['Customer'] = convertTexttoObject(models.Customer, dfStyle['Customer'], 'Name')
 
     #Create dict from the provided data, to be able to save in database
-    styleCard = {
-        'StyleCode': dfStyle['StyleCode'][0],
-        'StyleName': dfStyle['StyleName'][0],
-        'Customer': dfStyle['Customer'][0],
-        'Category': dfStyle['Category'][0],
-        'Notes': dfStyle['Notes'][0],
-        }
+    styleCard = dfStyle.iloc[0].to_dict()
     del dfStyle
+    styleCard.pop('SelectedTable')
     
     styleCard = models.StyleCard(**styleCard)
     styleCard.save()
 
-    previousVariants = models.StyleVariant.objects.filter(Style=styleCard).values('id','VariantCode')
+    fields = ['id','VariantCode']
+    previousVariants = models.StyleVariant.objects.filter(Style=styleCard).values(*fields)
     if previousVariants:
         dfPreviousVariants = pd.DataFrame(previousVariants)
     else:
-        dfPreviousVariants = pd.DataFrame(columns=['id','VariantCode'])
+        dfPreviousVariants = pd.DataFrame(columns=fields)
     del previousVariants
 
-    previousConsumption = models.StyleConsumption.objects.filter(Style=styleCard).values('id','InventoryCode','SizeDetails')
+    fields = ['id']
+    previousConsumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
     if previousConsumption:
         dfPreviousConsumption = pd.DataFrame(previousConsumption)
     else:
-        dfPreviousConsumption = pd.DataFrame(columns=['id','InventoryCode','SizeDetails'])
+        dfPreviousConsumption = pd.DataFrame(columns=fields)
     del previousConsumption
 
-    previoiusRoute = models.StyleRoute.objects.filter(Style=styleCard).values('id','Stage')
+    fields = ['id','Stage']
+    previoiusRoute = models.StyleRoute.objects.filter(Style=styleCard).values(*fields)
     if previoiusRoute:
         dfPreviousRoute = pd.DataFrame(previoiusRoute)
     else:
-        dfPreviousRoute = pd.DataFrame(columns=['id','Stage'])
+        dfPreviousRoute = pd.DataFrame(columns=fields)
     del previoiusRoute
     
     dfVariants.rename(inplace=True, columns={'Variant':'VariantCode'})
@@ -293,28 +226,43 @@ def UpdateStyleCard(
     del dfVariants, dfPreviousVariants
 
     dfConsumption = dfConsumption[dfConsumption['InvCode'].str.len() > 0]
+
+    dfConsumption['id'] = np.where(dfConsumption['id']=='None', None, dfConsumption['id'])
+    dfConsumption['id'] = np.where(dfConsumption['id'].str.len()==0, None, dfConsumption['id'])
     
     dfConsumption.rename(inplace=True, columns={'InvCode':'InventoryCode', 'type': 'Type'})
-
-    dfConsumption = pd.merge(left=dfConsumption, right=dfPreviousConsumption, how='left',
-                             on=['InventoryCode','SizeDetails'])
     
     dfConsumption['Style'] = styleCard
 
-    dfConsumption['FinalCons'] = calculateFinalConsumption(dfConsumption[['InventoryCode','Unit','Consumption']])
+    dfConsumption['Consumption'] = np.where(dfConsumption['Consumption'].str.len()==0, 0, dfConsumption['Consumption'])
     
+    dfConsumption['FinalCons'] = calculateFinalConsumption(dfConsumption[['InventoryCode','Unit','Consumption']])
+
     dfConsumption['InventoryCode'] = convertTexttoObject(models.Inventory, dfConsumption['InventoryCode'], 'Code')
 
     dfConsumption['Unit'] = convertTexttoObject(models.Unit, dfConsumption['Unit'], 'Name')
 
     dfConsumption['HasVariant'] = np.where(dfConsumption['HasVariant'] == 'true', True, False)
+    
+    dfConsumption['SizeDetails'] = np.where(dfConsumption['SizeDetails']=='None', '', dfConsumption['SizeDetails'])
 
-    try:
-        pass
-        updateModelWithDF(models.StyleConsumption, dfConsumption, dfPreviousConsumption)
-    except Exception as e:
-        raise ValueError(f'Error Saving Consumption: {e}')
-    del dfConsumption, dfPreviousConsumption
+    dfPreviousConsumption['id'] = dfPreviousConsumption['id'].astype(str)
+
+    dfDeletedConsumption = dfPreviousConsumption[~dfPreviousConsumption['id'].isin(dfConsumption['id'])]
+    for _, row in dfDeletedConsumption.iterrows():
+        models.StyleConsumption.objects.get(id=row['id']).delete()
+    
+    del dfPreviousConsumption, dfDeletedConsumption
+
+    for _, row in dfConsumption.iterrows():
+        if row['id']:
+            consumption = models.StyleConsumption.objects.get(id=row['id'])
+            for key, value in row.to_dict().items():
+                if key != 'id':
+                    setattr(consumption, key, value)
+        else:
+            consumption = models.StyleConsumption(**row)
+        consumption.save()
 
     dfRoute.rename(inplace=True, columns={'type':'Stage'})
     dfRoute = pd.merge(left=dfRoute, right=dfPreviousRoute, left_on='Stage', right_on='Stage', how='left')
@@ -327,29 +275,15 @@ def UpdateStyleCard(
         updateModelWithDF(models.StyleRoute, dfRoute, dfPreviousRoute)
     except Exception as e:
         raise ValueError(f'Error Saving Route: {e}')
-    del dfRoute, dfPreviousRoute
  
-def ProcessStyleData(styleObject: models.StyleCard):   
-    style = {
-        'StyleCode': styleObject.StyleCode,
-        'StyleName': styleObject.StyleName,
-        'Customer': styleObject.Customer.Name,
-        'Category': styleObject.Category,
-        'Notes': styleObject.Notes
-    }
-
-    variants = models.StyleVariant.objects.filter(Style=styleObject).values('VariantCode')
-    if not variants:
-        variants = {'var': [models.StyleVariant()]}
+def ProcessStyleData(styleCard: models.StyleCard):   
+    variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
     
-    consumption = models.StyleConsumption.objects.filter(Style=styleObject).values('InventoryCode','Consumption','Unit','Type',
+    consumption = models.StyleConsumption.objects.filter(Style=styleCard).values('id','InventoryCode','Consumption','Unit','Type',
                                                                              'FinalCons','HasVariant','SizeDetails')
-    
     if not consumption:
-        consumption = {'cons': [models.StyleConsumption()]}
+        consumption = [model_to_dict(models.StyleConsumption())]
 
-    route = models.StyleRoute.objects.filter(Style=styleObject).values('Sequence','Stage')
-    if not route:
-        route = {'route': [models.StyleRoute()]}
+    route = models.StyleRoute.objects.filter(Style=styleCard).values('Sequence','Stage')
     
-    return style, variants, consumption, route
+    return model_to_dict(styleCard), variants, consumption, route

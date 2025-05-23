@@ -38,3 +38,11 @@ class ImpExp(ImportExportModelAdmin):
     list_filter = ('GroupStatus',)
     ordering = ('CardNumber',)
     resource_class = ImpExpResource
+
+@admin.register(models.WorkerCardAssignment)
+class WorkerCardAssignmentAdmin(admin.ModelAdmin):
+    '''Admin View for WorkerCardAssignment'''
+
+    list_display = ('Worker',)
+    list_filter = ('Worker',)
+    ordering = ('Worker',)

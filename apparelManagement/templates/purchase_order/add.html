@@ -6,7 +6,6 @@
 
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
-
     <!-- The main Order form-->
     <p>
         <form method="POST" id="orderForm" autocomplete="off">
@@ -14,16 +13,14 @@
                 <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Supplier:&nbsp; </label>
                     <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier"> </select>
-                    <input type="text" id="allocInvCode" name="allocationInvCode" value="" class="" hidden>
                 </div>
                 <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Delivery Date:&nbsp; </label>
-                    {{order.DeliveryDate}}
+                    <input id="DeliveryDate" type="text" class="{{theme.textInput}}" name="DeliveryDate">
                 </div>
                 <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
                     <label>Tax:&nbsp; </label>
-                    {{order.Tax}}
-                    <input type="text" id="allocInvCode" name="allocationInvCode" value="" class="" hidden>
+                    <input type="number" name="Tax" class="{{theme.textInput}}">
                 </div>
                 <div class="col col-md-1 {{theme.align}} {{theme.textJustify}}">
                     <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
@@ -33,6 +30,7 @@
             </div>
         </form>
     </p>
+    
     <!--Inventory Table-->
     <div id="inventoryTable" name="invTable">
         <form method="POST" id="inventoryForm" autocomplete="off">
@@ -79,24 +77,21 @@
                     <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
                 </div>
                 <div class="col col-md-1">
-                    {{inventory.Variant}}
+                    <input type="text" class="{{theme.textInput}}" name="VariantCode">
                 </div>
                 <div class="col col-md-2">
-                    {{inventory.Quantity}}
+                    <input type="number" class="{{theme.textInput}}" name="Quantity">
                 </div>
                 <div class="col col-md-1">
-                    {{inventory.Price}}
+                    <input type="number" class="{{theme.textInput}}" name="Price">
                 </div>
                 <div class="col col-md-2">
                     <select class="{{theme.dropdown}}" id="id_Currency_1" name="Currency"></select>
                 </div>
                 <div class="col col-md-1">
-                    {{inventory.Forex}}
+                    <input type="text" class="{{theme.textInput}}" name="Forex">
                 </div>
                 <div class="col col-md-1">
-                    <button class="{{theme.plusButton}}" type="button" onclick="openAllocation(this)">
-                        <span class="material-symbols-outlined">more_vert</span>
-                    </button>
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                         <span>+</span>
                     </button>
@@ -107,68 +102,6 @@
             </div>
         </form>
     </div>
-
-    <!--Allocation dialog box-->
-    <form method="POST" id="allocationForm" autocomplete="off">
-        <div class="modal fade" id="allocationTable" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
-            <div class="{{theme.dialogBox}}">
-                <div class="modal-content">
-                    <div class="{{theme.dialogBoxHeader}}">
-                        <div class="{{theme.dialogBoxTitle}}" id="modalLabel">
-                            Allocation
-                        </div>
-                    </div>
-                    <div class="{{theme.dialogBoxBody}}">
-                        <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                            <div class="col col-md-5">
-                                <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                    Order#
-                                </div>
-                            </div>
-                            <div class="col col-md-4">
-                                <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                    Quantity
-                                </div>
-                            </div>
-                            <div class="col col-md-2">
-                                <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                    Actions
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
-                            <div class="col col-md-5" chosen="true">
-                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onchange="getDefaultQty(this)"></select>
-                            </div>
-                            <div class="col col-md-4">
-                                <input type="number" class="{{theme.textInput}}" value="" name="Quantity" min="0" onchange="changeQty()">
-                            </div>
-                            <div class="col col-md-2">
-                                <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                                    <span>+</span>
-                                </button>
-                                <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                                    <span>-</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="{{theme.dialogBoxFooter}}">
-                        <label>Total Qty:&nbsp; </label>
-                        <div id="totalQuantity"></div>
-
-                        <label>|| Allocted Qty:&nbsp; </label>
-                        <div id="allocatedQuantity"></div>
-
-                        <label>|| Free Qty:&nbsp; </label>
-                        <div id="freeQuantity"></div>
-                        
-                        <button type="button" class="{{theme.buttonSecondary}}" data-bs-dismiss="modal" onclick="closeAllocation()">OK</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </form>
 
     <script> //To run after page loads.
         window.addEventListener('load', async () => {
@@ -194,11 +127,6 @@
             const currencies = await response.json();
             await appendOptions('id_Currency_1', currencies, 'PKR');
 
-            //Inventory Cards dropdowns
-            response = await fetch('/options/workorders');
-            const workorders = await response.json();
-            await appendOptions('id_WorkOrder_1', workorders);
-
             addSearchBox();
 
             delete response;
@@ -207,199 +135,12 @@
         });
     </script>
 
-    <script>    //To handle alocation box
-        async function openAllocation(source) {
-            //Get the inventory and variant code.
-            const inventoryCode = source.parentElement.parentElement.children[0].children[0].value;
-            const variant = source.parentElement.parentElement.children[1].children[0].value;
-
-            //Show error to user if inventory is not selected
-            if (inventoryCode=='' || inventoryCode=='null') {
-                alert('Select an inventory.');
-                return ;
-            }
-
-            //Get url path, which will contain the PO number
-            const urlPath = new URL(window.location.href).pathname;
-
-            //get the allocation from server.
-            const allocation = await getAllocation(inventoryCode, variant, urlPath);
-
-            //Get the format of the allocation table
-            const allocationTable = document.getElementById('allocationTable');
-
-            const title = allocationTable.children[0].children[0].children[0].children[0];
-            title.textContent = 'Allocation: ' + inventoryCode + ' '+variant;
-
-            if (allocation != null) {
-                const allocationArea = allocationTable.children[0].children[0].children[1];
-
-                const previousRows = allocationArea.children;
-
-                for (let i=previousRows.length - 1; i>1; i--) {
-                    previousRows[i].remove();
-                }
-                delete previousRows;
-
-                const firstRowPlusButton = allocationArea.children[1].children[2].children[0];
-
-                for (let i=1; i<allocation.length; i++) {
-                    addRow(firstRowPlusButton);
-                }
-                delete firstRowPluButton;
-                
-                const rows = allocationArea.children;
-                removeSearchBox();
-                for (let i=1; i<rows.length; i++) {
-                    const workOrderBox = rows[i].children[0].children[0];
-                    workOrderBox.value = (allocation[i-1].WorkOrder);
-
-                    const qtyBox = rows[i].children[1].children[0];
-                    qtyBox.value = (allocation[i-1].Quantity);
-
-                }
-                addSearchBox();
-            }
-
-            //The dummy box that contains inventory the currently selected inventory code
-            const referenceBox = document.getElementById('allocInvCode');
-            referenceBox.value = inventoryCode+'_'+variant;
-
-            //Get the total quantity
-            const totalQty = parseFloat(source.parentElement.parentElement.children[2].children[0].value);
-
-            //Get the footer to set the summary
-            const footer = allocationTable.children[0].children[0].children[2];
-
-            //Set the value of total quantity.
-            const totalQtyBox = footer.querySelector('#totalQuantity');
-            totalQtyBox.textContent = totalQty;
-
-            //Set the value of allocated quantity
-            const allocQtyBox = footer.querySelector('#allocatedQuantity');
-            allocQtyBox.textContent = 0;
-
-            //Set the value of free qty to the difference of total and allocated quantity
-            const freeQtyBox = footer.querySelector('#freeQuantity');
-            freeQtyBox.textContent = totalQty;
-            
-            //convert the table to a bootstrap modal and show it to user.
-            new bootstrap.Modal(allocationTable).show();
-
-            changeQty();
-        }
-
-        function changeQty() {
-            //Get the modal
-            const dialogBox = document.getElementById('allocationTable').children[0].children[0];
-            
-            //Get all the rows in an array
-            const rows = Array.from(dialogBox.children[1].children);
-            
-            //Remove header row
-            rows.shift();
-
-            let allocQty = 0.0;
-
-            for (const row of rows) {
-                //Get the first column
-                const quantity = parseFloat(row.children[1].children[0].value);
-                if (quantity) {
-                    allocQty = allocQty + quantity;
-                }
-            }
-
-            const footer = dialogBox.children[2];
-            
-            const totalQty = parseFloat(footer.querySelector('#totalQuantity').textContent);
-            const allocatedQtyBox = footer.querySelector('#allocatedQuantity');
-            const freeQtyBox = footer.querySelector('#freeQuantity');
-
-            allocatedQtyBox.textContent = allocQty;
-            freeQtyBox.textContent = totalQty - allocQty;
-        }
-
-        async function getAllocation(inventoryCode, variant, urlPath) {
-            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-            
-            const obj = {'inventoryCode':inventoryCode,'variant':variant, 'urlPath':urlPath};
-            const data = JSON.stringify(obj);
-
-            const response = await fetch('alloc/get', {
-                method: 'POST',
-                body: data,
-                headers: { "X-CSRFToken": csrf},
-            });
-
-            return response.json();
-        }
-
-        async function closeAllocation() {
-            //Get the selected inventory code and variant
-            const invCodeVariant = document.getElementById('allocInvCode').value;
-            const parts = invCodeVariant.split('_');
-            const invCode = parts[0];
-            const variant = parts[1];
-
-            //Get the total allocated qty.
-            const footer = document.getElementById('allocationTable').children[0].children[0].children[2];
-            const allocatedQty = parseFloat(footer.querySelector('#allocatedQuantity').textContent);
-
-            //Get the rows of inventory table.
-            const InvTableRows = Array.from(document.getElementById('inventoryTable').children[0].children);
-            InvTableRows.splice(0,1);
-            
-            for (const row of InvTableRows) {
-                const invBox = row.children[0].children[0];
-                const varBox = row.children[1].children[0];
-                const qtyBox = row.children[2].children[0];
-                
-                if (invBox.value == invCode && varBox.value == variant) {
-                    const totalQty = parseFloat(qtyBox.value);
-
-                    if (totalQty < allocatedQty) {
-                        qtyBox.value = allocatedQty;
-                    }
-                }
-            }
-            await submitForms();
-        }
-    </script>
-
-    <script>    //To get the default qty of work order in alloc box
-        async function getDefaultQty(source) {
-            const workOrder = source.value;
-
-            const allocInvVar = document.getElementById('allocInvCode').value;
-
-            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
-            const obj = {'invVar':allocInvVar, 'workOrder':workOrder};
-            const data = JSON.stringify(obj);
-
-            const response = await fetch('/purchaseorder/defaultqty/get', {
-                method: 'POST',
-                body: data,
-                headers: { "X-CSRFToken": csrf},
-            });
-
-            const qty = await response.json();
-            
-            const qtyBox = source.parentElement.parentElement.children[1].children[0];
-
-            qtyBox.value = qty;
-
-            changeQty();
-        }
-    </script>
-
     <script> //To send data to server
         function submitForms() {
             const allForms = document.forms;
 
             const orderForm = allForms['orderForm']; 
             const inventoryForm = allForms['inventoryForm'];
-            const allocationForm = allForms['allocationForm'];
             
             const order = orderForm.elements;
 
@@ -415,9 +156,6 @@
 
             //Prepare the data for inventory Group
             data = formToTable('inventory', inventoryForm, data);
-
-            //Prepare the data for alocaiton Group
-            data = formToTable('allocation', allocationForm, data);
             
             submitData(data)
         }
@@ -475,6 +213,6 @@
     </script>
 
     <script> //To run at the start of the page. This should be at the end of the page.
-        $('#id_DeliveryDate').datepicker();
+        $('#DeliveryDate').datepicker();
     </script>
 {% endblock %}

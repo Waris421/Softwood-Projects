@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import math
+from datetime import date
 from typing import Dict, Any, List
 
 from apparelManagement import models as appModels
@@ -74,6 +75,9 @@ def GetAuditHistory (supplier: str, inventory: str, approval: bool, startDate: s
     '''
     Get the data for all the audits, with the mentioned filters
     '''
+    if not startDate:
+        startDate = date(date.today().year, 1, 1)
+    
     receipts = appModels.InventoryReciept.objects.filter(ReceiptDate__gte=startDate)
     if endDate:
         receipts = appModels.InventoryReciept.objects.filter(ReceiptDate__lte=endDate)

@@ -1,55 +1,14 @@
 import pandas as pd
 import numpy as np
+from datetime import date, timedelta, datetime
 
-from django import forms
+from django.forms import model_to_dict
 
-from .. import models, theme
+from .. import models
 from .generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, GST_RATE, LOCAL_CURRENCY
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
-
-#Blank form to add data of purchase order
-class PurchaseOrderForm(forms.Form):
-    DeliveryDate = forms.DateField(
-        widget=forms.DateInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-    )
-    
-    Tax = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=18,
-        min_value=0,
-    )
-
-#Blank form to create inventories of purchase order
-class PurchaseOrderInventoryForm(forms.Form):
-    Variant = forms.CharField(
-        widget=forms.TextInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-    )
-
-    Quantity = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=0,
-        min_value=0,
-    )
-
-    Price = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=True,
-        initial=0,
-        min_value=0,
-    )
-
-    Forex = forms.FloatField(
-        widget=forms.NumberInput(attrs={'class': theme.theme['textInput']}),
-        required=False,
-        initial=1,
-        min_value=0,
-    )
 
 def getInventoryPrice (inventory: models.Inventory):
     '''
@@ -71,9 +30,9 @@ def getLeadTime (Inventories: pd.Series):
     If none of the inventories have a lead-time, it'll return 0
     '''
     leadTime = 0.0
-    for inventory in Inventories:
+    for inventoryCode in Inventories:
         try:
-            invLeadTime = inventory.LeadTime
+            invLeadTime = models.Inventory.objects.get(Code=inventoryCode).LeadTime
         except Exception as e:
             raise ValueError(e)
         if invLeadTime > leadTime:
@@ -382,201 +341,165 @@ def GetOrderList(searchTerm: str, supplier: str, poNumber: int):
     data = [dict(zip(cols, i)) for i in dfOrders.values]
     return data
 
-def AddPurchaseOrder(OrderDF: pd.DataFrame, InventoryDF: pd.DataFrame, AllocationDF:pd.DataFrame):
+def AddPurchaseOrder(dfOrder: pd.DataFrame, dfInventory: pd.DataFrame):
     '''
     Add the PO from new PO Form
     '''
-    OrderDF['Supplier'] = convertTexttoObject(models.Supplier, OrderDF['Supplier'], 'Name')
 
-    OrderDF['DeliveryDate'] = pd.to_datetime(OrderDF["DeliveryDate"], format="%m/%d/%Y")
+    orderCard = dfOrder.iloc[0].to_dict()
+    try:
+        orderCard['Supplier'] = models.Supplier.objects.get(Name=orderCard['Supplier'])
+    except:
+        raise LookupError('Cannot find the supplier')
+    
+    if orderCard['Tax']:
+        orderCard['Tax'] = float(orderCard['Tax'])
+    else:
+        orderCard['Tax'] = GST_RATE
+    
+    if orderCard['DeliveryDate']:
+        orderCard['DeliveryDate'] = datetime.strptime(orderCard['DeliveryDate'], '%m/%d/%Y').date()
+    else:
+        leadTime = getLeadTime(dfInventory['InvCode'])
+        orderCard['DeliveryDate'] = (date.today() + timedelta(days = leadTime))
 
-    OrderDF['Tax'] = OrderDF['Tax'].astype(float)
-
-    orderCard = {
-        'DeliveryDate': OrderDF['DeliveryDate'][0],
-        'Supplier': OrderDF['Supplier'][0],
-        'Tax': OrderDF['Tax'][0],
-    }
     orderCard = models.PurchaseOrder(**orderCard)
     orderCard.save() 
 
     #Convert fields to required format and handle empty cells
-    InventoryDF['Currency']=np.where(InventoryDF['Currency'].str.len()==0, 'PKR', InventoryDF['Currency'])
-    InventoryDF['Quantity'] = np.where(InventoryDF['Quantity'].str.len()==0, 0, InventoryDF['Quantity'])
-    InventoryDF['Price'] = np.where(InventoryDF['Price'].str.len()==0, 0, InventoryDF['Price'])
-    InventoryDF['Forex'] = np.where(InventoryDF['Forex'].str.len()==0, 1, InventoryDF['Forex'])
-    InventoryDF['Quantity'] = InventoryDF['Quantity'].astype(float)
-    InventoryDF['Price'] = InventoryDF['Price'].astype(float)
-    InventoryDF['Forex'] = InventoryDF['Forex'].astype(float) 
+    dfInventory['Currency']=np.where(dfInventory['Currency'].str.len()==0, 'PKR', dfInventory['Currency'])
+    dfInventory['Quantity'] = np.where(dfInventory['Quantity'].str.len()==0, 0, dfInventory['Quantity'])
+    dfInventory['Price'] = np.where(dfInventory['Price'].str.len()==0, 0, dfInventory['Price'])
+    dfInventory['Forex'] = np.where(dfInventory['Forex'].str.len()==0, 1, dfInventory['Forex'])
+    dfInventory['Quantity'] = dfInventory['Quantity'].astype(float)
+    dfInventory['Price'] = dfInventory['Price'].astype(float)
+    dfInventory['Forex'] = dfInventory['Forex'].astype(float) 
 
-    if InventoryDF.empty:
+    if dfInventory.empty:
         raise ValueError('No Inventory provided')
     
     #Set PO Number
-    InventoryDF['PONumber'] = orderCard
+    dfInventory['PONumber'] = orderCard
 
     #Remove rows without inventory code
-    InventoryDF = InventoryDF[InventoryDF['InvCode'].str.len()>0]
+    dfInventory = dfInventory[dfInventory['InvCode'].str.len()>0]
     
-    InventoryDF['InvCode'] = convertTexttoObject(models.Inventory, InventoryDF['InvCode'], 'Code')
+    dfInventory['InvCode'] = convertTexttoObject(models.Inventory, dfInventory['InvCode'], 'Code')
 
-    InventoryDF['Currency'] = convertTexttoObject(models.Currency, InventoryDF['Currency'], 'Code')
+    dfInventory['Currency'] = convertTexttoObject(models.Currency, dfInventory['Currency'], 'Code')
 
-    InventoryDF['Quantity'] = InventoryDF['Quantity'].apply(lambda x: round(x, 0))
+    dfInventory['Quantity'] = dfInventory['Quantity'].apply(lambda x: round(x, 0))
 
-    InventoryDF.rename(inplace=True, columns={'InvCode':'Inventory'})
-
-    #The inventory code on which the allocation is made
-    allocationInvVariant = str(OrderDF['allocationInvCode'][0])
-    allocationInvVariant = allocationInvVariant.split('_')
+    dfInventory.rename(inplace=True, columns={'InvCode':'Inventory','VariantCode':'Variant'})
 
     #Save the inventories and set the object for which to save allocations
-    poInvObj = None
-    for index, row in InventoryDF.iterrows():
-        try:  
-            newEntry = models.POInventory(**row.to_dict())
-            newEntry.save()
-
-            if not allocationInvVariant:
-                if (row['Inventory'].Code == allocationInvVariant[0]) & (row['Variant'] == allocationInvVariant[1]):
-                    poInvObj = newEntry
-  
-        except Exception as e:
-            raise ValueError(f"Cannot save at {index}: {e}")
-    
-    #Save the allocaiton if is provided
-    if poInvObj and not AllocationDF.empty:
-        AllocationDF = AllocationDF.replace('null', '')
-        
-        AllocationDF['POInvId'] = poInvObj 
-
-        AllocationDF['WorkOrder'] = convertTexttoObject(models.WorkOrder, AllocationDF['WorkOrder'], 'OrderNumber')
-
-        for index, row in AllocationDF.iterrows():
-            try:
-                pass
-                newEntry = models.POAllocation(**row.to_dict())
-                newEntry.save()
-            except Exception as e:
-                raise ValueError(f"Cannot save at {index}: {e}")
+    for _, row in dfInventory.iterrows():
+        newEntry = models.POInventory(**row.to_dict())
+        newEntry.save()
     
     #Return PO Number to redirect user to
     return orderCard.id
 
 def EditPurchaseOrder(
         orderObject: models.PurchaseOrder,
-        OrderDF: pd.DataFrame,
-        InventoryDF: pd.DataFrame,
-        AllocationDF:pd.DataFrame
+        dfOrder: pd.DataFrame,
+        dfInventory: pd.DataFrame,
+        dfAllocation:pd.DataFrame
         ):
     '''
     Update the PO from the data in the PO table.
     '''
-    OrderDF['Supplier'] = convertTexttoObject(models.Supplier, OrderDF['Supplier'], 'Name')
+    if dfInventory.empty:
+        raise ValueError('No Inventory provided')
 
-    OrderDF['DeliveryDate'] = pd.to_datetime(OrderDF["DeliveryDate"], format="%m/%d/%Y")
+    dfOrder['Supplier'] = convertTexttoObject(models.Supplier, dfOrder['Supplier'], 'Name')
 
-    OrderDF['Tax'] = OrderDF['Tax'].astype(float)
+    dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%m/%d/%Y")
+
+    dfOrder['Tax'] = dfOrder['Tax'].astype(float)
 
     #Update order object to as provided by user and save it.
-    orderObject.Supplier = OrderDF['Supplier'][0]
-    orderObject.DeliveryDate = OrderDF['DeliveryDate'][0]
-    orderObject.Tax = OrderDF['Tax'][0]
-    orderObject.save()
+    orderObject.Supplier = dfOrder['Supplier'][0]
+    orderObject.DeliveryDate = dfOrder['DeliveryDate'][0]
+    orderObject.Tax = dfOrder['Tax'][0]
+    #orderObject.save()
 
     #Get the already saved inventories against this PO and their allocation
-    previousInventories = models.POInventory.objects.filter(PONumber=orderObject).values('id','Inventory','Variant')
+    fields = ['id']
+    previousInventories = models.POInventory.objects.filter(PONumber=orderObject).values(*fields)
     if previousInventories:
         dfPreviousInventories = pd.DataFrame(previousInventories)
     else:
-        dfPreviousInventories = pd.DataFrame(columns=['id','Inventory','Variant'])
-    del previousInventories
+        dfPreviousInventories = pd.DataFrame(columns=fields)
+    del previousInventories, fields
 
     #Convert fields to required format and handle empty cells
-    InventoryDF['Currency']=np.where(InventoryDF['Currency'].str.len()==0, 'PKR', InventoryDF['Currency'])
-    InventoryDF['Quantity'] = np.where(InventoryDF['Quantity'].str.len()==0, 0, InventoryDF['Quantity'])
-    InventoryDF['Price'] = np.where(InventoryDF['Price'].str.len()==0, 0, InventoryDF['Price'])
-    InventoryDF['Forex'] = np.where(InventoryDF['Forex'].str.len()==0, 1, InventoryDF['Forex'])
-    InventoryDF['Quantity'] = InventoryDF['Quantity'].astype(float)
-    InventoryDF['Price'] = InventoryDF['Price'].astype(float)
-    InventoryDF['Forex'] = InventoryDF['Forex'].astype(float) 
+    dfInventory['Currency']=np.where(dfInventory['Currency'].str.len()==0, 'PKR', dfInventory['Currency'])
+    dfInventory['Quantity'] = np.where(dfInventory['Quantity'].str.len()==0, 0, dfInventory['Quantity'])
+    dfInventory['Price'] = np.where(dfInventory['Price'].str.len()==0, 0, dfInventory['Price'])
+    dfInventory['Forex'] = np.where(dfInventory['Forex'].str.len()==0, 1, dfInventory['Forex'])
+    dfInventory['Quantity'] = dfInventory['Quantity'].astype(float)
+    dfInventory['Price'] = dfInventory['Price'].astype(float)
+    dfInventory['Forex'] = dfInventory['Forex'].astype(float)
+    dfInventory['id'] = np.where(dfInventory['id'].str.len()==0, np.nan, dfInventory['id'])
+    dfInventory['id'] = dfInventory['id'].astype('Int64')
 
-    if InventoryDF.empty:
-        raise ValueError('No Inventory provided')
+    dfInventory = pd.merge(left=dfInventory, right=dfPreviousInventories, left_on='id', right_on='id', how='left')
+    
+    dfInventory['InvCode'] = convertTexttoObject(models.Inventory, dfInventory['InvCode'], 'Code')
 
-    InventoryDF = pd.merge(left=InventoryDF, right=dfPreviousInventories, left_on=['InvCode','Variant'],
-                           right_on=['Inventory','Variant'], how='left')
-    InventoryDF.drop(inplace=True, columns=['Inventory'])
+    dfInventory['Currency'] = convertTexttoObject(models.Currency, dfInventory['Currency'], 'Code')
     
-    InventoryDF['InvCode'] = convertTexttoObject(models.Inventory, InventoryDF['InvCode'], 'Code')
-
-    InventoryDF['Currency'] = convertTexttoObject(models.Currency, InventoryDF['Currency'], 'Code')
+    dfInventory.rename(inplace=True, columns={'InvCode':'Inventory'})
     
-    InventoryDF.rename(inplace=True, columns={'InvCode':'Inventory'})
-    
-    InventoryDF['PONumber'] = orderObject
+    dfInventory['PONumber'] = orderObject
 
     try:
-        updateModelWithDF(targetTable=models.POInventory, newData=InventoryDF, previousData=dfPreviousInventories)
+        updateModelWithDF(targetTable=models.POInventory, newData=dfInventory, previousData=dfPreviousInventories)
     except Exception as e:
         raise ValueError (e)
 
     #The inventory code on which the allocation is made
-    allocationInvVariant = str(OrderDF['allocationInvCode'][0])
-    allocationInvVariant = allocationInvVariant.split('_')
+    allocId = dfOrder['allocId'][0]
 
-    AllocationDF = AllocationDF[~AllocationDF['WorkOrder'].isna()]
+    dfAllocation = dfAllocation[~dfAllocation['WorkOrder'].isna()]
     #Save the allocaiton if it is provided
-    if not AllocationDF.empty:
-        AllocationDF['WorkOrder'] = AllocationDF['WorkOrder'].astype(int)
+    if not dfAllocation.empty:
+        dfAllocation['WorkOrder'] = dfAllocation['WorkOrder'].astype(int)
 
         try:
-            POInvObj = models.POInventory.objects.get(PONumber=orderObject, Inventory=allocationInvVariant[0], Variant=allocationInvVariant[1])
-            AllocationDF['POInvId'] = POInvObj
+            POInvObj = models.POInventory.objects.get(id=allocId)
+            dfAllocation['POInvId'] = POInvObj
         except Exception as e:
             raise ValueError(e)
         
         previousAllocations = models.POAllocation.objects.filter(POInvId=POInvObj).values('id','WorkOrder')
-        dfPreviousAllocations = pd.DataFrame(previousAllocations)
-        del previousAllocations
-        
-        if dfPreviousAllocations.empty:
-            AllocationDF['id'] = None
+        if previousAllocations:
+            dfPreviousAllocations = pd.DataFrame(previousAllocations)
         else:
-            AllocationDF = pd.merge(left=AllocationDF, right=dfPreviousAllocations, left_on='WorkOrder', right_on='WorkOrder', how='left')
+            dfPreviousAllocations = pd.DataFrame(columns=['id','WorkOrder'])
+        del previousAllocations
 
-        AllocationDF['WorkOrder'] = convertTexttoObject(models.WorkOrder, AllocationDF['WorkOrder'], 'OrderNumber')
+        dfAllocation = pd.merge(left=dfAllocation, right=dfPreviousAllocations, left_on='WorkOrder', right_on='WorkOrder', how='left')
+
+        dfAllocation['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfAllocation['WorkOrder'], 'OrderNumber')
 
         try:
-            updateModelWithDF(targetTable=models.POAllocation, newData=AllocationDF, previousData=dfPreviousAllocations)
+            updateModelWithDF(targetTable=models.POAllocation, newData=dfAllocation, previousData=dfPreviousAllocations)
         except Exception as e:
             raise ValueError (e)
         
-def getPOAllocation(inventoryCode: str, variant: str, urlPath: str):
+def getPOAllocation(poInventory: models.POInventory):
     '''
     Get the allocation of an inventory code in a provided PO.
     '''
-    urlParts = urlPath.strip('/').split('/')
-    del urlPath
+    allocation = models.POAllocation.objects.filter(POInvId=poInventory)
+    allocation = allocation.values('WorkOrder','Quantity')
 
-    if len(urlParts) == 2:
-        #This is true for a new PO and there would be no allocation
-        return
-    elif len(urlParts) == 3:
-        poNumber = int(urlParts[1])
-        poObject = models.PurchaseOrder.objects.get(id=poNumber)
-
-        poInventory = models.POInventory.objects.get(PONumber=poObject, Inventory=inventoryCode, Variant=variant)
-
-        allocation = models.POAllocation.objects.filter(POInvId=poInventory)
-        allocation = allocation.values('WorkOrder','Quantity')
-
-        if allocation:
-            return list(allocation)
-        else:
-            return None
+    if allocation:
+        return list(allocation)
     else:
-        raise SyntaxError('Invalid Input')
+        return []
 
 def getAllocatedQty (purchaseOrder: models.PurchaseOrder, inventory: models.Inventory, variant: str):
     poInventory = models.POInventory.objects.get(PONumber=purchaseOrder, Inventory=inventory, Variant=variant)
@@ -593,13 +516,8 @@ def ProcessOrderData(orderObject: models.PurchaseOrder):
     '''
     Get the data of the provided PO.
     '''
-    order = {
-        'PONumber': orderObject.id,
-        'OrderDate': orderObject.OrderDate,
-        'DeliveryDate': orderObject.DeliveryDate,
-        'Supplier': orderObject.Supplier.Name,
-        'Tax': orderObject.Tax
-    }
+    order = model_to_dict(orderObject)
+    order['OrderDate'] = orderObject.OrderDate
 
     inventories = models.POInventory.objects.filter(PONumber=orderObject)
     inventories = inventories.values('id','Inventory','Variant','Quantity','Price','Currency','Forex')

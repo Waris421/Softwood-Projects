@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
 
 import json
-from datetime import datetime
 
 from .services import trim_audit_service
 from .theme import theme
@@ -32,16 +31,6 @@ def TrimsAudit (request: HttpRequest):
     
     if endDate == 'None':
         endDate = None
-
-    if startDate:
-        startDate = datetime.strptime(startDate, '%m/%d/%Y').date()
-    else:
-        startDate = datetime(datetime.now().year, 1, 1).date()
-    
-    if endDate:
-        endDate = datetime.strptime(endDate, '%m/%d/%Y').date()
-    else:
-        endDate = None
     
     if inventory == 'null':
         inventory = None
@@ -61,7 +50,7 @@ def TrimsAudit (request: HttpRequest):
 
     if not endDate:
         endDate = ''
-
+    
     context = {
         'audits': data.object_list, 'pageObj': data,
         'supplier': supplier, 'inventory': inventory, 'approval': approval,

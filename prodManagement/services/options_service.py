@@ -6,7 +6,7 @@ import pandas as pd
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from .generic_services import operationSections, operationCategories, machineTypes
 from .generic_services import machineManufacturers, dfToListOfDicts
@@ -149,3 +149,89 @@ def GetOrdersWithMissingCS (request: HttpRequest):
 
     pendingOrders = dfToListOfDicts(dfPendingOrders)
     return JsonResponse(pendingOrders, safe=False)
+
+@login_required(login_url='/login')
+def GetCutsForOrder(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+    
+    orderNumber = request.GET.get('orderNumber')
+    
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+    except:
+        return HttpResponse('Resource Not Found', status=403)
+    del orderNumber
+    
+    fields = ['id','CutNumber','NoOfPlies']
+    cuts = models.Cut.objects.filter(WorkOrder=workOrder).values(*fields)[:15]
+    del workOrder
+
+    if cuts:
+        dfCuts = pd.DataFrame(cuts)
+    else:
+        dfCuts = pd.DataFrame(columns=fields)
+    del fields, cuts
+
+    dfCuts.sort_values(by='CutNumber', inplace=True)
+    dfCuts['text'] = dfCuts['CutNumber'].astype(str)+' - Qty:'+dfCuts['NoOfPlies'].astype(str)
+    dfCuts.drop(inplace=True, columns=['CutNumber','NoOfPlies'])
+    dfCuts.rename(inplace=True, columns={'id':'value'})
+
+    emptyRow = {'value': None, 'text': '-------------'}
+    dfCuts = pd.concat([pd.DataFrame([emptyRow]), dfCuts]).reset_index(drop=True)
+
+    return JsonResponse(dfToListOfDicts(dfCuts), safe=False)
+
+@login_required(login_url='/login')
+def GetBundlesForCut(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+
+    cutId = request.GET.get('cutId')
+    try:
+        cut = models.Cut.objects.get(id=cutId)
+    except:
+        return HttpResponse('Resource Not Found', status=403)
+    del cutId
+
+    fields = ['id','Size','Bundle']
+    bundles = models.Bundle.objects.filter(Cut=cut).values(*fields)
+
+    if bundles:
+        dfBundles = pd.DataFrame(bundles)
+    else:
+        dfBundles = pd.DataFrame(columns=fields)
+    del bundles, fields
+
+    dfBundles.sort_values(by='Bundle', inplace=True)
+    dfBundles['text'] = dfBundles['Bundle'].astype(str)+' - Size:'+dfBundles['Size'].astype(str)
+    dfBundles.drop(inplace=True, columns=['Bundle','Size'])
+    dfBundles.rename(inplace=True, columns={'id':'value'})
+
+    emptyRow = {'value': None, 'text': '-------------'}
+    dfBundles = pd.concat([pd.DataFrame([emptyRow]), dfBundles]).reset_index(drop=True)
+
+    return JsonResponse(dfToListOfDicts(dfBundles), safe=False)
+
+@login_required(login_url='/login')
+def GetAvailableCardGroups(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+    
+    cards = models.RFIDCard.objects.filter(GroupStatus='Complete').exclude(GroupNumber=None).values('GroupNumber').annotate(CardQty=Count('CardId')).order_by('GroupNumber')
+    if cards:
+        dfCards = pd.DataFrame(cards)
+    else:
+        dfCards = pd.DataFrame(columns=['GroupNumber','CardQty'])
+    del cards
+    
+    dfCards.sort_values(by='GroupNumber', inplace=True)
+    dfCards['text'] = 'Group: '+dfCards['GroupNumber'].astype(str)+' - Qty:'+dfCards['CardQty'].astype(str)
+    dfCards.drop(inplace=True, columns=['CardQty'])
+    dfCards.rename(inplace=True, columns={'GroupNumber':'value'})
+
+    emptyRow = {'value': None, 'text': '-------------'}
+    dfCards = pd.concat([pd.DataFrame([emptyRow]), dfCards]).reset_index(drop=True)
+
+    return JsonResponse(dfToListOfDicts(dfCards), safe=False)
