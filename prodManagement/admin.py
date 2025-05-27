@@ -29,7 +29,7 @@ class BundleAdmin(admin.ModelAdmin):
     list_filter = ('Cut',)
     ordering = ('Cut',)
 
-class ImpExpResource (resources.ModelResource):
+""" class ImpExpResource (resources.ModelResource):
     class Meta:
         model = models.RFIDCard
 @admin.register(models.RFIDCard)
@@ -37,12 +37,12 @@ class ImpExp(ImportExportModelAdmin):
     list_display = ('GroupNumber','CardNumber','GroupStatus')
     list_filter = ('GroupStatus',)
     ordering = ('CardNumber',)
-    resource_class = ImpExpResource
+    resource_class = ImpExpResource """
 
-@admin.register(models.WorkerCardAssignment)
-class WorkerCardAssignmentAdmin(admin.ModelAdmin):
-    '''Admin View for WorkerCardAssignment'''
+@admin.register(models.Serial)
+class SerialAdmin(admin.ModelAdmin):
+    '''Admin View for Serial'''
 
-    list_display = ('Worker',)
-    list_filter = ('Worker',)
-    ordering = ('Worker',)
+    list_display = ('Worker','Operation')
+    list_filter = ('Operation',)
+    ordering = ('Operation',)

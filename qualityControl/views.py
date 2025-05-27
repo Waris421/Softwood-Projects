@@ -61,82 +61,64 @@ def TrimsAudit (request: HttpRequest):
 
 @login_required(login_url='/login')
 def PendingTrimsAudit (request: HttpRequest):
-    if request.method == 'POST':
+    if request.method != 'GET':
+        return HttpResponse('Not allowed', status=403)
+    
+    searchTerm = request.GET.get('searchTerm', '')
+    workOrder = request.GET.get('workOrder', None)
+    pageNumber = request.GET.get('pageNumber', 1)
+    
+    if workOrder == 'null':
+        workOrder = None
+
+    data = trim_audit_service.GetPendingAudits(workOrder)
+    data = applySearch(data, searchTerm)
+    data = paginate(data, pageNumber)
+
+    context = {
+        'inv': data.object_list, 'pageObj': data,
+        'searchTerm': searchTerm, 'workOrder': workOrder,
+        'theme': theme
+    }
+    return render(request, 'trim/home.html', context)
+
+@login_required(login_url='/login')
+def AddTrimsAudit (request: HttpRequest):
+    if request.method == 'POST':    
         #Convert the json to a dict
         jsonData = json.loads(request.body.decode('utf-8'))
-
-        dfData = refineJson(jsonData)
-
+        
         try:
-            data, checkListOptions = trim_audit_service.PrepareDataForAudit(dfData)
-            context = {
-                'inv': data, 'checkListOptions': checkListOptions, 
-                'theme': theme,
-            }
-            return render(request,'trim/audit.html', context)
+            trim_audit_service.AddTrimsAudit(jsonData)
+            return HttpResponse('OK')
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
     else:
-        searchTerm = request.GET.get('searchTerm', '')
-        workOrder = request.GET.get('workOrder', None)
-        pageNumber = request.GET.get('pageNumber', 1)
+        recInvs = request.GET.getlist('ref')
         
-        if workOrder == 'null':
-            workOrder = None
-
-        data = trim_audit_service.GetPendingAudits(workOrder)
-        data = applySearch(data, searchTerm)
-        data = paginate(data, pageNumber)
-
+        inv, options = trim_audit_service.PrepareDataForAudit(recInvs)
         context = {
-            'inv': data.object_list, 'pageObj': data,
-            'searchTerm': searchTerm, 'workOrder': workOrder,
-            'theme': theme
+            'inv': inv, 'checkListOptions': options,
+            'theme':theme,
         }
-        return render(request, 'trim/home.html', context)
 
-@login_required(login_url='/login')
-def AddTrimsAudit (request: HttpRequest):
-    if request.method != 'POST':
-        return HttpResponse('Not allowed', status=403)
-    
-    #Convert the json to a dict
-    jsonData = json.loads(request.body.decode('utf-8'))
-    
-    try:
-        trim_audit_service.AddTrimsAudit(jsonData)
-        return HttpResponse('OK')
-    except Exception as e:
-        print(e)
-        return HttpResponse(e, status=400)
+        return render(request, 'trim/audit.html', context)
 
 @login_required(login_url='/login')
 def EditTrimsAudit (request: HttpRequest, pk: int):
     if request.method == 'POST':  
-        form = request.POST
-        
-        checks = form.getlist('CheckList')
-        approvals = form.getlist('Approval')
-        ids = form.getlist('id')
-        comments = form.getlist('Comments')
-        del form
+        #Convert the json to a dict
+        jsonData = json.loads(request.body.decode('utf-8'))
 
-        formData = {
-            'CheckList': checks, 'Approval': approvals,
-            'id': ids, 'Comments': comments
-        }
-        del checks, approvals, ids, comments
+        dfData = refineJson(jsonData)
+        
         try:
-            trim_audit_service.EditTrimsAudit(formData, pk)
+            trim_audit_service.EditTrimsAudit(dfData, pk)
             return redirect('trimAudit')
         except Exception as e:
             print(e)
-            errorMessage = str(e)
-            data, checkListOptions = trim_audit_service.GetAuditsData(pk)
-            context = {'audit': data, 'checkListOptions': checkListOptions,
-                       'error': errorMessage, 'theme': theme}
-            return render(request, 'trim/edit_audit.html', context)   
+            return HttpResponse(e, status=400) 
     else:
         try:
             data, checkListOptions = trim_audit_service.GetAuditsData(pk)

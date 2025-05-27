@@ -18,7 +18,6 @@
                 </div>
                 <div class="flex col-[10/13] btn-group {{theme.align}} justify-end ml-1">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-                    <a class="{{theme.buttonBasic}}" href="{% url 'addCoreSheet' %}" role="button">Add</a>
                 </div>
             </div>
         </form>
@@ -28,16 +27,24 @@
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
                 <th scope="col">Work Order</th>
-                <th scope="col">Quantity</th>
-                <th scope="col">Cuts</th>
+                <th scope="col">Style</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Merchandiser</th>
+                <th scope="col">Will Cut</th>
+                <th scope="col">Cut Quantity</th>
+                <th scope="col">No. of Cuts</th>
                 <th scope="col">Bundles</th>
                 <th scope="col">Sizes</th>
             </tr>
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in coreSheets %}
                     <tr class="{{theme.tableBodyRow}}">
-                        <td class="{{theme.hyperLink}}"><a href="{% url 'editCoreSheet' workOrder=data.WorkOrder %}">{{ data.WorkOrder }}</a></td>
-                        <td>{{ data.Quantity }}</td>
+                        <td class="{{theme.hyperLink}}"><a href="{% url 'editCoreSheet' workOrder=data.OrderNumber %}">{{ data.OrderNumber }}</a></td>
+                        <td>{{ data.StyleCode }}</td>
+                        <td>{{ data.Customer }}</td>
+                        <td>{{ data.Merchandiser }}</td>
+                        <td>{{ data.WillCut }}</td>
+                        <td>{{ data.CutQuantity }}</td>
                         <td>{{ data.Cuts }}</td>
                         <td>{{ data.Bundles }}</td>
                         <td>{{ data.Sizes }}</td>

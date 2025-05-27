@@ -46,29 +46,36 @@ def getCheckList ():
     
     return checkListOptions
 
+def SummariseRecInv (group: pd.Series):
+    recInventory = group['RecInventory'].iloc[0]
+    allApproved = group['Approval'].all()
+
+    if not allApproved:
+        # Filter for rows where Approval is False
+        rejectedRows = group[~group['Approval']]
+        # Concatenate 'CheckList: Comments'
+        concatenatedString = rejectedRows.apply(
+            lambda row: f"{row['CheckList']}: {row['Comments']}", axis=1
+        ).str.cat(sep='; ') # You can choose your separator here (e.g., '; ')
+    else:
+        concatenatedString = None
+
+    return pd.Series({
+        'Approval': allApproved,
+        'QualityComments': concatenatedString
+    })
+
 def updateApprovalForAudit(dfData: pd.DataFrame):
     '''
     Update the approval in inventory receipt, based on it's audit report
     '''
-    resultDict = {}
-    for recInventory in dfData['RecInventory'].unique():
-        dfSubset = dfData[dfData['RecInventory'] == recInventory]
-        allApproved = dfSubset['Approval'].all()
-        resultDict[recInventory] = {'Approval': allApproved, 'Comments': ''}
-
-        if not allApproved:
-            comments = []
-            for index, row in dfSubset.iterrows():
-                if row['Comments']:
-                    comments.append(f"{row['CheckList']}: {row['Comments']}")
-            resultDict[recInventory]['Comments'] = ' || '.join(comments)
     
-    for recInventory, data in resultDict.items():
-        recInventory.Approval = data['Approval']
-        if not data['Comments']:
-            data['Comments'] = None
-        recInventory.QualityComments = data['Comments']
+    summaryDf = pd.DataFrame(dfData.groupby('RecInventory').apply(SummariseRecInv).reset_index())
 
+    for _, row in summaryDf.iterrows():
+        recInventory = row['RecInventory']
+        recInventory.Approval = row['Approval']
+        recInventory.QualityComments = row['QualityComments']
         recInventory.save()
 
 def GetAuditHistory (supplier: str, inventory: str, approval: bool, startDate: str, endDate: str):
@@ -218,12 +225,13 @@ def GetPendingAudits (workOrder: int):
     data = [dict(zip(cols, i)) for i in dfReceiptInventories.values]
     return data
 
-def PrepareDataForAudit (dfRecInvIds: pd.DataFrame):
+def PrepareDataForAudit (recInvs: List[str]):
     '''
     Get the data for conducting inventory audit
     '''
+
     fields = ['id','ReceiptNumber','InventoryCode','Variant','Quantity']
-    receiptInventories = appModels.RecInventory.objects.filter(id__in=dfRecInvIds['receiptInvNumber'].to_list()).values(*fields)
+    receiptInventories = appModels.RecInventory.objects.filter(id__in=recInvs).values(*fields)
     if receiptInventories:
         dfReceiptInventories = pd.DataFrame(receiptInventories)
     else:
@@ -296,6 +304,7 @@ def AddTrimsAudit (dataDict: Dict[str, Any]):
         groupedData[compositeKey][columnName] = value
     
     dfData = pd.DataFrame(list(groupedData.values()))
+    del groupedData
 
     dfData['Approval'] = np.where(dfData['Approval'] == 'null', None, dfData['Approval'])
 
@@ -314,15 +323,13 @@ def AddTrimsAudit (dataDict: Dict[str, Any]):
     for _,row in dfData.iterrows():
         newEntry = models.TrimAudit(**row)
         newEntry.save()
-    
+
     updateApprovalForAudit(dfData)
 
-def EditTrimsAudit (formData: Dict[str, List[Any]], receiptInvNumber: int):
+def EditTrimsAudit (dfNewData: pd.DataFrame, receiptInvNumber: int):
     '''
     Update a trims audit based on the provided data
     '''
-    dfNewData = pd.DataFrame(formData)
-    del formData
 
     if dfNewData['CheckList'].duplicated().any():
         raise ValueError('Duplicate Data')

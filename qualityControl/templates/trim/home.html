@@ -73,57 +73,24 @@
         async function startAudit() {
             const rows = document.getElementById('tableData').children;
 
-            const data = {};
+            const data = new URLSearchParams();
             for (let i=0; i<rows.length; i++) {
                 const checked = Boolean(rows[i].children[0].children[0].checked);
                 const receiptInvNumber = rows[i].children[2].textContent;
 
                 if (checked) {
-                    data[`data_receiptInvNumber_${i+1}`] = receiptInvNumber;
+                    data.append('ref', receiptInvNumber);
+                    data.append('ref', receiptInvNumber);
                 }
-            }
+            }      
             
-            if (Object.keys(data).length == 0) {
+            if (data.length == 0) {
                 showMessage('Select an Inventory');
                 return
             }
 
-            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
-            const jsonData = JSON.stringify(data);
-
-            const response = await fetch('', {
-                method: 'POST',
-                body: jsonData,
-                headers: { "X-CSRFToken": csrf},
-            });
-
-            if (response.status == 200) {
-                const html = await response.text();
-                
-                document.documentElement.innerHTML = html;
-
-                const scripts = document.querySelectorAll('script');
-                for (const script of scripts) {
-                    const newScript = document.createElement('script');
-
-                    for (const {name, value} of script.attributes) {
-                        newScript.setAttribute(name, value);
-                    }
-                    if (script.textContent) {
-                        newScript.textContent = script.textContent;
-                    }
-                    document.body.appendChild(newScript);
-                    script.remove();
-                }
-
-                //Apply search on dropdown where needed
-                await addSearchBox();
-            } else {
-                const errorMessage = await response.text();
-
-                showMessage(errorMessage);
-            }
+            const url = `/trims/audit/add?${data.toString()}`;
+            document.location.href = url;
         }
     </script>
 

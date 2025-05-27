@@ -1,19 +1,36 @@
 import pandas as pd
 
 from django.db import transaction
+from django.forms import model_to_dict
 
 from .. import models
 from . import generic_services
 
 def GetCoreSheetList(workOrder: models.WorkOrder):
-    fields = ['id', 'WorkOrder', 'NoOfPlies']
-    
+    fields = ['OrderNumber','StyleCode','Customer','Merchandiser','ExcessCut']
     if workOrder:
-        cuts = models.Cut.objects.filter(WorkOrder=workOrder).values(*fields)
+        workOrders = models.WorkOrder.objects.fitler(OrderNumber=workOrder.OrderNumber).values(*fields)
     else:
-        cuts = models.Cut.objects.all().values(*fields)
-    del workOrder
+        workOrders = models.WorkOrder.objects.all().values(*fields)
     
+    dfWorkOrders = pd.DataFrame(workOrders)
+    del workOrders, workOrder
+
+    fields = ['OrderNumber','Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber__in=dfWorkOrders['OrderNumber']).values(*fields)
+    if variants:
+        dfVariants = pd.DataFrame(variants)
+    else:
+        dfVariants = pd.DataFrame(columns=fields)
+    del variants
+
+    fields = ['id', 'first_name','last_name']
+    users = models.User.objects.all().values(*fields)
+    dfUsers = pd.DataFrame(users)
+    del users
+ 
+    fields = ['id', 'WorkOrder', 'NoOfPlies']    
+    cuts = models.Cut.objects.filter(WorkOrder__in=dfWorkOrders['OrderNumber'].to_list()).values(*fields)
     if cuts:
         dfCuts = pd.DataFrame(cuts)
     else:
@@ -28,18 +45,40 @@ def GetCoreSheetList(workOrder: models.WorkOrder):
         dfBundles = pd.DataFrame(columns=fields)
     del bundles, fields
 
-    dfBundles = pd.merge(left=dfBundles, right=dfCuts, left_on='Cut', right_on='id', how='left')
-    del dfCuts
-    dfBundles.drop(inplace=True, columns=['id'])
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfUsers, left_on='Merchandiser', right_on='id', how='left')
+    del dfUsers
+    dfWorkOrders['Merchandiser'] = dfWorkOrders['first_name'].astype(str)+' '+dfWorkOrders['last_name'].astype(str)
+    dfWorkOrders.drop(inplace=True, columns=['id','first_name','last_name'])
 
-    dfBundles = dfBundles.groupby('WorkOrder').agg(
+    dfVariants = dfVariants.groupby('OrderNumber')['Quantity'].sum().reset_index()
+
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfVariants, on='OrderNumber', how='left')
+    del dfVariants
+    dfWorkOrders.rename(inplace=True, columns={'Quantity':'POQuantity'})
+
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfCuts, left_on='OrderNumber', right_on='WorkOrder', how='left')
+    del dfCuts
+    dfWorkOrders.drop(inplace=True, columns=['WorkOrder'])
+    dfWorkOrders.rename(inplace=True, columns={'id':'Cut'})   
+
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfBundles, on='Cut', how='left') 
+    del dfBundles
+    
+    dfWorkOrders['WillCut'] = dfWorkOrders['POQuantity']
+    dfWorkOrders['WillCut'] += (dfWorkOrders['POQuantity'] * dfWorkOrders['ExcessCut']/100).round(0)
+
+    dfWorkOrders = dfWorkOrders.groupby('OrderNumber').agg(
+        StyleCode=('StyleCode','first'),
+        Customer=('Customer','first'),
+        Merchandiser=('Merchandiser','first'),
+        WillCut=('WillCut','mean'),
         Cuts=('Cut', 'nunique'),
         Sizes=('Size', 'nunique'),
         Bundles=('Bundle', 'count'),
-        Quantity=('NoOfPlies', 'sum')
+        CutQuantity=('NoOfPlies', 'sum')
     ).reset_index()
     
-    return generic_services.dfToListOfDicts(dfBundles)
+    return generic_services.dfToListOfDicts(dfWorkOrders)
 
 @transaction.atomic
 def CompleteCardGroup(cardId: int):
@@ -68,3 +107,27 @@ def AssignCardGroup(dfAssignment: pd.DataFrame):
                 RFIDCard=card,
                 Bundle = bundle
             ).save()
+
+def GetOrderCuttingDetail(workOrder: models.WorkOrder):
+    cuts = models.Cut.objects.filter(WorkOrder=workOrder).values('id','CutNumber')
+
+    variants = models.OrderVariant.objects.filter(OrderNumber=workOrder).values('Name')
+    sizes = []
+    for item in variants:
+        name = item['Name']
+        if '-' in name:
+            parts = name.split('-', 1)  # Split only on the first dash
+            sizes.append(parts[1])
+        else:
+            sizes.append(name)
+    
+    return cuts, sizes
+
+def GetCutDetails(cut: models.Cut):
+    cutDetails = model_to_dict(cut, fields=['Shade','WarpShrinkage','WeftShrinkage','Inseam','NoOfPlies'])
+
+    bundles = models.Bundle.objects.filter(Cut=cut).values('id','Size','Bundle')
+
+    cutDetails['Bundles'] = list(bundles)
+
+    return cutDetails

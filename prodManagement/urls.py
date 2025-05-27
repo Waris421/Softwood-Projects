@@ -31,6 +31,7 @@ urlpatterns = [
     path('productivity/api/complete-group', views.MarkGroupCompletion.as_view(), name='groupCompletionAPI'),
     path('productivity/api/assign-worker-card', views.AssignWorkerCard.as_view(), name='assignWorkerCard'),
     path('productivity/assign-bundle-card', views.AssignCardToBundles, name='assignBundleCards'),
+    path('productivity/cut/<int:pk>/get', views.GetCutDetails, name='getCutDetails'),
 
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),

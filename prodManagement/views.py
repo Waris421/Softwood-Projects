@@ -341,7 +341,35 @@ def AddCoreSheet (request: HttpRequest):
 
 @login_required(login_url='/login')
 def EditCoreSheet(request: HttpRequest, workOrder: int):
-    return HttpResponse('In process')
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
+    except:
+        return HttpResponse('Resource not found', status=404)
+
+    if request.method == 'POST':
+        pass
+    else:
+        cuts, sizes = core_sheet_service.GetOrderCuttingDetail(workOrder)
+        context = {
+            'cuts': cuts, 'sizes': sizes,
+            'orderNumber': workOrder.OrderNumber,
+            'theme': theme,
+        }
+        return render(request, 'CS/edit.html', context)
+
+@login_required(login_url='/login')
+def GetCutDetails(request: HttpRequest, pk: int):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    try:
+        cut = models.Cut.objects.get(id=pk)
+    except:
+        return HttpResponse('Resource not found', status=404)
+    
+    cutDetails = core_sheet_service.GetCutDetails(cut)
+    print(cutDetails)
+    return JsonResponse(cutDetails)
 
 @login_required(login_url='/login')
 def Workers(request: HttpRequest):

@@ -11,74 +11,72 @@
     
     <div id="auditTable" name="auditTable">  
         <form method="post" id="auditForm" autocomplete="off">
-            {% for receipt in inv %}  
-                <div class="row mt-1" row="0">
-                    <div class="col">
-                        <div class="row {{theme.justify}} {{theme.textJustify}} {{theme.border}}" row="{{forloop.counter}}" row="1">
-                            <input class="{{theme.textInput}}" readonly
-                            value="Supplier: {{receipt.Supplier}}, Receipt: {{receipt.ReceiptNumber}}">
-                            {% for data in receipt.Details %}
-                                <div class="col-6 mt-1 {{theme.justify}} {{theme.textJustify}}">
-                                    <input class="{{theme.textInput}} bg-dark text-white" readonly
+            <div class="grid grid-cols-2 {{theme.justify}} {{theme.align}}">
+                {% for receipt in inv %}  
+                    <div class="flex flex-col {{theme.align}} {{theme.justify}}">
+                        <input class="{{theme.textInput}} mb-2" readonly value="Supplier: {{receipt.Supplier}}, Receipt: {{receipt.ReceiptNumber}}">
+                        {% for data in receipt.Details %}
+                            <div class="flex flex-col {{theme.align}} {{theme.justify}}">
+                                <input class="{{theme.textInput}} bg-dark text-white mb-1" readonly
                                     value="{{data.Name}} {% if data.Variant %} ({{data.Variant}}) {% endif %}">
-                                    <input class="{{theme.textInput}}" readonly
+                                
+                                <input class="{{theme.textInput}} mb-2" readonly
                                     value="Total Qty: {{data.Quantity}}, Audit Qty: {{data.AuditQuantity}}">
 
-                                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="2">
-                                        <div class="col-4">
-                                            <div class="{{theme.textJustify}} {{theme.border}}">
-                                                Check List
-                                            </div> 
-                                        </div>
-                                        <div class="col-3">
-                                            <div class="{{theme.textJustify}} {{theme.border}}">
-                                                Approval
-                                            </div>  
-                                        </div>
-                                        <div class="col-3">
-                                            <div class="{{theme.textJustify}} {{theme.border}}">
-                                                Comemnts
-                                            </div>  
-                                        </div>
-                                        <div class="col-2">
-                                            <div class="{{theme.textJustify}} {{theme.border}}">
-                                                Actions
-                                            </div>  
+                                <div class="grid grid-cols-4 {{theme.justify}} {{theme.align}}">
+                                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Check List
                                         </div>
                                     </div>
-                                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="3">
-                                        <div class="col-4" chosen="true">
-                                            <select class="{{theme.dropdown}}" id="id_CheckList_{{data.RecInvId}}_{{receipt.ReceiptNumber}}" name="CheckList_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
-                                                {% for option in checkListOptions %}
-                                                    <option value="{{option.value}}">{{option.text}}</option>
-                                                {% endfor %}
-                                            </select>
+                                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Approval
                                         </div>
-                                        <div class="col-3">
-                                            <select class="{{theme.dropdown}}" id="id_Approval_{{data.RecInvId}}_{{receipt.ReceiptNumber}}" name="Approval_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
-                                                <option value="null">Pending</option>
-                                                <option value="true">Approved</option>
-                                                <option value="false">Rejected</option>
-                                            </select>
+                                    </div>
+                                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Comments
                                         </div>
-                                        <div class="col-3">
-                                            <input type="text" class="{{theme.textInput}}" value="" name="Comments_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
-                                        </div>
-                                        <div class="col-2">
-                                            <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                                                <span>+</span>
-                                            </button>
-                                            <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this, 2)">
-                                                <span>-</span>
-                                            </button>
+                                    </div>
+                                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Actions
                                         </div>
                                     </div>
                                 </div>
-                            {% endfor %}
-                        </div>
+                                <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                                        <select class="{{theme.dropdown}}" id="id_CheckList_{{data.RecInvId}}_{{receipt.ReceiptNumber}}" name="CheckList_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
+                                            {% for option in checkListOptions %}
+                                                <option value="{{option.value}}">{{option.text}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                                        <select class="{{theme.dropdown}}" id="id_Approval_{{data.RecInvId}}_{{receipt.ReceiptNumber}}" name="Approval_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
+                                            <option value="null">Pending</option>
+                                            <option value="true">Approved</option>
+                                            <option value="false">Rejected</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                        <input type="text" class="{{theme.textInput}}" value="" name="Comments_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
+                                    </div>
+                                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                                            <span>+</span>
+                                        </button>
+                                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this,2)">
+                                            <span>-</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
-                </div>            
-            {% endfor %}  
+                {% endfor %}  
+            </div> 
             <a class="{{theme.buttonBasic}}" role="button" onclick="submitForms()">Save</a>
         </form>
     </div>
@@ -96,16 +94,14 @@
                     data[`${element.name}_${rowNum}`] = element.value;
                 }
             }
-            const response = await submitData(data);
+            try {
+                const response = await submitData(data);
 
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                const error = await response.text();
+                window.location.href = '/trims/audit';
+            } catch (e) {
                 showMessage(error);
+                hideLoadingIcon();
             }
-            
-            hideLoadingIcon();
         }
 
         async function submitData(obj) {
@@ -119,7 +115,12 @@
                 headers: { "X-CSRFToken": csrf},
             });
             
-            return response
+            if (response.ok) {
+                return response
+            } else {
+                error = await response.text()
+                throw error
+            }
         }
     </script>
 {% endblock content %}

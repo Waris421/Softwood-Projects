@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from apparelManagement.models import Department, StyleCard, WorkOrder
+from apparelManagement.models import Department, StyleCard, WorkOrder, OrderVariant
 
 class Operation(models.Model):
     id = models.AutoField(primary_key=True)
@@ -144,3 +144,10 @@ class BundleCardAssignment(models.Model):
         indexes = [
             models.Index(fields=['RFIDCard']),
         ]
+
+class Serial(models.Model):
+    id = models.AutoField(primary_key=True)
+    Worker = models.ForeignKey(Worker, on_delete=models.PROTECT)
+    Operation = models.ForeignKey(Operation, on_delete=models.PROTECT)
+    Bundle = models.ForeignKey(Bundle, on_delete=models.PROTECT)
+    Machine = models.ForeignKey(Machine, on_delete=models.PROTECT)
