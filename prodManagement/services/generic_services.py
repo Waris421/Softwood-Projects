@@ -5,9 +5,14 @@ Contains generic variables and functions
 from datetime import datetime
 
 from marketing.services.generic_services import askAI, dfToListOfDicts, updateModelWithDF, getAPIUser
-from apparelManagement.services.generic_services import applySearch, paginate, refineJson, convertTexttoObject
+from apparelManagement.services.generic_services import applySearch, paginate, refineJson, convertTexttoObject, LOCAL_TIMEZONE
 
 NOW = datetime.now()
+TODAY = datetime.today()
+
+
+def convertStrToDateTime(date: str, format: str):
+    return datetime.strptime(date, format)
 
 operationSections = [
         {'value': None, 'text': 'All',},

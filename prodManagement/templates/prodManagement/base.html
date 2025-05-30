@@ -14,8 +14,8 @@
       </script>
 
       <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
-
       <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
       <link rel="stylesheet" href="{% static 'style.css' %}">
       <title>
@@ -64,6 +64,12 @@
               <li><a href="{% url 'coreSheets' %}">Core Sheet</a></li>
             </ul>
           </li>
+          <li class="dropdown dropdown-hover">
+            <label tabindex="0" class="cursor-pointer">Stitching</label>
+            <ul tabindex="0" class="{{theme.navigationDropdown}}">
+              <li><a href="{% url 'serials' %}">Scan Report</a></li>
+            </ul>
+          </li>
         </ul>
       </div>
       <div class="navbar-end">
@@ -80,7 +86,7 @@
     </div>
         
     <!--Message Box-->
-    <div id="message-container"></div>
+    <div id="message-container" class="fixed top-0 left-0 right-0 z-50 p-4"></div>
     
     <!--Main Body-->
     <div class="{{theme.pageBody}}">

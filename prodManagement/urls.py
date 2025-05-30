@@ -21,9 +21,9 @@ urlpatterns = [
     path('productivity/bulletin/summarise', views.SummariseStyleBulletin, name='summariseSytleBulletin'),
 
     path('productivity/core-sheets', views.CoreSheet, name='coreSheets'),
-    path('productivity/core-sheet/add', views.AddCoreSheet, name='addCoreSheet'),
     path('productivity/core-sheet/<int:workOrder>/edit', views.EditCoreSheet, name='editCoreSheet'),
     path('producitivty/core-sheet/orders/missing', options_service.GetOrdersWithMissingCS, name='missingCS'),
+    path('productivity/cut/<int:pk>/get', views.GetCutDetails, name='getCutDetails'),
 
     path('productivity/workers', views.Workers, name='workers'),
     path('productivity/worker/add', views.AddWorker, name='addWorker'),
@@ -31,7 +31,11 @@ urlpatterns = [
     path('productivity/api/complete-group', views.MarkGroupCompletion.as_view(), name='groupCompletionAPI'),
     path('productivity/api/assign-worker-card', views.AssignWorkerCard.as_view(), name='assignWorkerCard'),
     path('productivity/assign-bundle-card', views.AssignCardToBundles, name='assignBundleCards'),
-    path('productivity/cut/<int:pk>/get', views.GetCutDetails, name='getCutDetails'),
+
+    path('productivity/serials', views.Serials, name='serials'),
+    path('productivity/api/worker-work', views.GetWorkSummary, name='getWorkSummary'),
+    path('productivity/api/work-detail', views.GetWorkDetails, name='getWorkDetail'),
+    path('productivity/api/wages-summary', views.GetWagesSummary, name='getWageSummary'),
 
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),

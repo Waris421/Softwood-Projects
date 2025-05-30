@@ -14,7 +14,7 @@ import json
 
 from .theme import theme
 from .services import stitching_service, generic_services, bulletin_service, core_sheet_service
-from .services import  worker_service
+from .services import  worker_service, serial_service
 
 from . import models
 
@@ -330,16 +330,6 @@ def CoreSheet (request: HttpRequest):
     return render(request, 'CS/home.html', context)
 
 @login_required(login_url='/login')
-def AddCoreSheet (request: HttpRequest):
-    if request.method == 'POST':
-        pass
-    else:
-        context = {
-            'theme': theme,
-        }
-        return render(request, 'CS/add.html', context)
-
-@login_required(login_url='/login')
 def EditCoreSheet(request: HttpRequest, workOrder: int):
     try:
         workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
@@ -347,7 +337,17 @@ def EditCoreSheet(request: HttpRequest, workOrder: int):
         return HttpResponse('Resource not found', status=404)
 
     if request.method == 'POST':
-        pass
+        jsonData = json.loads(request.body.decode('utf-8'))
+
+        dfCut, dfBundles = generic_services.refineJson(jsonData)
+
+        try:
+            cutNumber = core_sheet_service.EditCoreSheet(dfCut, dfBundles, workOrder)
+            return HttpResponse(cutNumber, status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=401)
+    
     else:
         cuts, sizes = core_sheet_service.GetOrderCuttingDetail(workOrder)
         context = {
@@ -368,7 +368,6 @@ def GetCutDetails(request: HttpRequest, pk: int):
         return HttpResponse('Resource not found', status=404)
     
     cutDetails = core_sheet_service.GetCutDetails(cut)
-    print(cutDetails)
     return JsonResponse(cutDetails)
 
 @login_required(login_url='/login')
@@ -515,3 +514,85 @@ def AssignCardToBundles(request: HttpRequest):
             'theme': theme,
         }
         return render(request, 'CS/assign.html', context)
+
+@login_required(login_url='/login')
+def Serials(request:HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    worker = request.GET.get('worker', None)
+    startDate = request.GET.get('startDate',None)
+    endDate = request.GET.get('endDate',None)
+    
+    context = {
+        'worker': worker,
+        'startDate':startDate, 'endDate':endDate,
+        'theme': theme
+    }
+    return render(request, 'serials/home.html', context)
+
+@login_required(login_url='/login')
+def GetWorkSummary(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+
+    worker = request.GET.get('worker', None)
+    startDate = request.GET.get('startDate',None)
+    endDate = request.GET.get('endDate', None)
+    
+    if startDate in ['None','']:
+        startDate = generic_services.TODAY
+    else:
+        startDate = generic_services.convertStrToDateTime(startDate, "%Y-%m-%d")
+    if endDate in ['None','']:
+        endDate = generic_services.TODAY
+    else:
+        endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
+
+    data = serial_service.GetWorkSummary(startDate, endDate, worker)
+
+    return JsonResponse(data)
+
+@login_required(login_url='/login')
+def GetWorkDetails(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    worker = request.GET.get('worker', None)
+    startDate = request.GET.get('startDate',None)
+    endDate = request.GET.get('endDate',None)
+
+    if startDate in ['None','']:
+        startDate = generic_services.TODAY
+    else:
+        startDate = generic_services.convertStrToDateTime(startDate, "%Y-%m-%d")
+    if endDate in ['None','']:
+        endDate = generic_services.TODAY
+    else:
+        endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
+
+    data = serial_service.GetScanTable(startDate, endDate, worker)
+
+    return JsonResponse(data, safe=False)
+
+@login_required(login_url='/login')
+def GetWagesSummary(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    worker = request.GET.get('worker', None)
+    startDate = request.GET.get('startDate',None)
+    endDate = request.GET.get('endDate', None)
+    
+    if startDate in ['None','']:
+        startDate = generic_services.TODAY
+    else:
+        startDate = generic_services.convertStrToDateTime(startDate, "%Y-%m-%d")
+    if endDate in ['None','']:
+        endDate = generic_services.TODAY
+    else:
+        endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
+
+    data = serial_service.GetWageSummary(startDate, endDate, worker)
+    
+    return JsonResponse(data)

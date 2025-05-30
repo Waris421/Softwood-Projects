@@ -66,4 +66,10 @@ theme = {
     'trueValue': 'thumb_up',
     'falseClass': 'indicator-item badge badge-error',
     'falseValue': 'thumb_down',
+
+    #Chart Colors
+    'red': '#DC143C',
+    'redPrimary': '#DC143C',
+    'redSecondary': '#FF6347',
+    'green': '#228B22',
 }

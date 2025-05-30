@@ -43,6 +43,6 @@ class ImpExp(ImportExportModelAdmin):
 class SerialAdmin(admin.ModelAdmin):
     '''Admin View for Serial'''
 
-    list_display = ('Worker','Operation')
-    list_filter = ('Operation',)
+    list_display = ('TimeDate','Operation')
+    list_filter = ('TimeDate',)
     ordering = ('Operation',)

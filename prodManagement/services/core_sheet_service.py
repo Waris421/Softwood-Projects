@@ -1,6 +1,8 @@
 import pandas as pd
+import numpy as np
 
 from django.db import transaction
+from django.db.models import Max
 from django.forms import model_to_dict
 
 from .. import models
@@ -131,3 +133,41 @@ def GetCutDetails(cut: models.Cut):
     cutDetails['Bundles'] = list(bundles)
 
     return cutDetails
+
+def EditCoreSheet(dfCut: pd.DataFrame, dfBundle: pd.DataFrame, workOrder: models.WorkOrder):
+    dfCut.rename(inplace=True, columns={'Cut':'id','ShrinkageWarp':'WarpShrinkage','ShrinkageWeft':'WeftShrinkage'})
+    cutDict = dfCut.iloc[0].to_dict()
+    del dfCut
+
+    if cutDict['id']:
+        cut = models.Cut.objects.get(id=cutDict['id'])
+        cutDict.pop('id')
+        for key, value in cutDict.items():
+            setattr(cut, key, value)
+        
+        previousBundles = models.Bundle.objects.filter(Cut=cut).values('id')
+        dfPreviousBundles = pd.DataFrame(previousBundles)
+        del previousBundles
+    else:
+        cutDict['WorkOrder'] = workOrder
+
+        maxCutNumber = models.Cut.objects.filter(WorkOrder=workOrder).aggregate(Max('CutNumber'))['CutNumber__max']
+        if maxCutNumber:
+            cutDict['CutNumber'] = maxCutNumber+1
+        else:
+            cutDict['CutNumber'] = 1
+        del maxCutNumber
+        
+        cutDict['id'] = None
+        cut = models.Cut(**cutDict)
+        dfPreviousBundles = pd.DataFrame(columns=['id'])
+
+    cut.save()
+    
+    dfBundle.rename(inplace=True, columns={'BundleNumber':'Bundle'})
+    dfBundle['Cut'] = cut
+    dfBundle['id'] = np.where(dfBundle['id'].str.len()==0, None, dfBundle['id'])
+    
+    generic_services.updateModelWithDF(models.Bundle, dfBundle, dfPreviousBundles)
+
+    return cut.id
