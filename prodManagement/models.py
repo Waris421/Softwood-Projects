@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models.functions import TruncDate
+from django.utils import timezone
 from django.contrib.auth.models import User
 from apparelManagement.models import Department, StyleCard, WorkOrder, OrderVariant
 
@@ -152,11 +152,25 @@ class Serial(models.Model):
     Operation = models.ForeignKey(Operation, on_delete=models.PROTECT)
     Bundle = models.ForeignKey(Bundle, on_delete=models.PROTECT)
     Machine = models.ForeignKey(Machine, on_delete=models.PROTECT)
-    TimeDate = models.DateTimeField(auto_now_add=True)
+    TimeDate = models.DateTimeField(blank=True, null=True, default=timezone.now)
+    Line = models.CharField(max_length=31)
 
     class Meta:
         indexes = [
             models.Index(fields=['Operation']),
-            models.Index(fields=['Worker']),
+            models.Index(fields=['Line', 'Worker']),
             models.Index(fields=['Bundle']),
+        ]
+
+class Attendance(models.Model):
+    id = models.AutoField(primary_key=True)
+    Worker = models.ForeignKey(Worker, on_delete=models.PROTECT)
+    Date = models.DateField(blank=True, null=True, default=timezone.now)
+    LoginTime = models.TimeField(blank=True, null=True, default=timezone.now)
+    LogoutTime = models.TimeField(blank=True, null=True, default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Worker']),
+            models.Index(fields=['Date'])
         ]

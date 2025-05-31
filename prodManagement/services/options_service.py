@@ -46,6 +46,9 @@ def GetOperations(request: HttpRequest):
     
     search = request.GET.get('search', '')
     code = request.GET.get('code', None)
+
+    search = None if search == 'null' else search
+    code = None if code == 'null' else code
     
     if search:
         operations = models.Operation.objects.filter(Q(Name__icontains=search) | Q(id__icontains=search))[:15]
@@ -235,3 +238,51 @@ def GetAvailableCardGroups(request: HttpRequest):
     dfCards = pd.concat([pd.DataFrame([emptyRow]), dfCards]).reset_index(drop=True)
 
     return JsonResponse(dfToListOfDicts(dfCards), safe=False)
+
+@login_required(login_url='/login')
+def GetWorkers(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+
+    search = request.GET.get('search', '')
+    code = request.GET.get('code', None)
+
+    try:
+        code = int(code)
+    except:
+        code = None
+
+    filters = Q()
+
+    if search:
+        filters |= (Q(WorkerCode__icontains=search) | Q(WorkerName__icontains=search))
+    
+    if code:
+        filters &= Q(WorkerCode=code)
+    
+    workers = models.Worker.objects.filter(filters)[:15]
+
+    fields = ['WorkerCode', 'WorkerName','Department','SubDepartment']
+    workers = workers.values(*fields)
+    if workers:
+        dfWorkers = pd.DataFrame(workers)
+    else:
+        dfWorkers = pd.DataFrame(columns=fields)
+    del workers
+
+    dfSubDepartments = pd.DataFrame(operationSections)
+    
+    dfWorkers = pd.merge(left=dfWorkers, right=dfSubDepartments, left_on='SubDepartment', right_on='value', how='left')
+    del dfSubDepartments
+    dfWorkers.drop(inplace=True, columns=['SubDepartment','value'])
+    dfWorkers.rename(inplace=True, columns={'text':'Section'})
+
+    dfWorkers['text'] = dfWorkers['WorkerCode'].astype(str)+' - '+dfWorkers['WorkerName'].astype(str)
+    dfWorkers['text'] = dfWorkers['text']+' - '+dfWorkers['Department']+' - '+dfWorkers['Section']
+    dfWorkers.drop(inplace=True, columns=['WorkerName','Department','Section'])
+    dfWorkers.rename(inplace=True, columns={'WorkerCode':'value'})
+
+    emptyRow = {'value': None, 'text': '-------------'}
+    dfWorkers = pd.concat([pd.DataFrame([emptyRow]), dfWorkers]).reset_index(drop=True)
+
+    return JsonResponse(dfToListOfDicts(dfWorkers), safe=False)

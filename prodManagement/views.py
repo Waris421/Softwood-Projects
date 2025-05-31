@@ -521,12 +521,24 @@ def Serials(request:HttpRequest):
         return HttpResponse('Not Allowed', status=403)
     
     worker = request.GET.get('worker', None)
+    line = request.GET.get('line', None)
+    section = request.GET.get('section', None)
+    workOrder = request.GET.get('workOrder', None)
+    overTime = request.GET.get('overTime', None)
+    operation = request.GET.get('operation', None)
     startDate = request.GET.get('startDate',None)
     endDate = request.GET.get('endDate',None)
     
+    if overTime == 'true':
+        overTime = True
+    elif overTime == 'false':
+        overTime = False
+    else:
+        overTime = None
+    
     context = {
-        'worker': worker,
-        'startDate':startDate, 'endDate':endDate,
+        'worker': worker, 'line': line, 'section': section, 'overTime': overTime,
+        'workOrder': workOrder,'operation': operation, 'startDate':startDate, 'endDate':endDate,
         'theme': theme
     }
     return render(request, 'serials/home.html', context)
@@ -537,6 +549,11 @@ def GetWorkSummary(request: HttpRequest):
         return HttpResponse('Not Allowed', status=403)
 
     worker = request.GET.get('worker', None)
+    line = request.GET.get('line', None)
+    section = request.GET.get('section', None)
+    workOrder = request.GET.get('workOrder', None)
+    overTime = request.GET.get('overTime', None)
+    operation = request.GET.get('operation', None)
     startDate = request.GET.get('startDate',None)
     endDate = request.GET.get('endDate', None)
     
@@ -549,7 +566,7 @@ def GetWorkSummary(request: HttpRequest):
     else:
         endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
 
-    data = serial_service.GetWorkSummary(startDate, endDate, worker)
+    data = serial_service.GetWorkSummary(startDate, endDate, worker, overTime, line, section, workOrder, operation)
 
     return JsonResponse(data)
 
@@ -559,6 +576,11 @@ def GetWorkDetails(request: HttpRequest):
         return HttpResponse('Not Allowed', status=403)
     
     worker = request.GET.get('worker', None)
+    line = request.GET.get('line', None)
+    section = request.GET.get('section', None)
+    workOrder = request.GET.get('workOrder', None)
+    overTime = request.GET.get('overTime', None)
+    operation = request.GET.get('operation', None)
     startDate = request.GET.get('startDate',None)
     endDate = request.GET.get('endDate',None)
 
@@ -571,7 +593,7 @@ def GetWorkDetails(request: HttpRequest):
     else:
         endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
 
-    data = serial_service.GetScanTable(startDate, endDate, worker)
+    data = serial_service.GetScanTable(startDate, endDate, worker, overTime, line, section, workOrder, operation)
 
     return JsonResponse(data, safe=False)
 
@@ -581,6 +603,11 @@ def GetWagesSummary(request: HttpRequest):
         return HttpResponse('Not Allowed', status=403)
     
     worker = request.GET.get('worker', None)
+    line = request.GET.get('line', None)
+    section = request.GET.get('section', None)
+    workOrder = request.GET.get('workOrder', None)
+    overTime = request.GET.get('overTime', None)
+    operation = request.GET.get('operation', None)
     startDate = request.GET.get('startDate',None)
     endDate = request.GET.get('endDate', None)
     
@@ -593,6 +620,6 @@ def GetWagesSummary(request: HttpRequest):
     else:
         endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
 
-    data = serial_service.GetWageSummary(startDate, endDate, worker)
+    data = serial_service.GetWageSummary(startDate, endDate, worker, overTime, line, section, workOrder, operation)
     
     return JsonResponse(data)

@@ -7,31 +7,39 @@
 {% block content %}
     <!--The filters-->
     <div class="{{theme.border}}">
-        <form action="{% url 'serials' %}" method="get" autocomplete="off">
+        <form action="{% url 'serials' %}" method="get" autocomplete="off" id="filters">
             <div class="grid grid-cols-6 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/2] items-center">
                     <span class="text-sm text-gray-500 mb-1">Worker:</span>
-                    <select id="worker" name="worker" class="{{theme.dropdown}}" onclick="" value="{{worker}}"></select>
+                    <select id="worker" name="worker" class="{{theme.dropdown}}" onchange="this.form.submit()" onclick="showSearchBox(this, '/options/workers', refreshFilters)"></select>
                 </div>
                 <div class="flex flex-col col-[2/3] items-center">
                     <span class="text-sm text-gray-500 mb-1">Line:</span>
-                    <select id="line" name="line" class="{{theme.dropdown}}" onclick="" value="{{line}}"></select>
+                    <select id="line" name="line" class="{{theme.dropdown}}" onchange="refreshFilters()">
+                        <option value="">All</option>
+                        <option value="Blue" {% if line == "Blue" %}selected{% endif %}>Blue</option>
+                        <option value="Green" {% if line == "Green" %}selected{% endif %}>Green</option>
+                    </select>
                 </div>
                 <div class="flex flex-col col-[3/4] items-center">
                     <span class="text-sm text-gray-500 mb-1">Section:</span>
-                    <select id="section" name="section" class="{{theme.dropdown}}" onclick="" value="{{section}}"></select>
+                    <select id="section" name="section" class="{{theme.dropdown}}" onchange="refreshFilters()"></select>
                 </div>
                 <div class="flex flex-col col-[4/5] items-center">
                     <span class="text-sm text-gray-500 mb-1">Work Order:</span>
-                    <select id="workOrder" name="workOrder" class="{{theme.dropdown}}" onclick="" value="{{workOrder}}"></select>
+                    <select id="workOrder" name="workOrder" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/workorders', refreshFilters)"></select>
                 </div>
                 <div class="flex flex-col col-[5/6] items-center">
                     <span class="text-sm text-gray-500 mb-1">Over Time:</span>
-                    <select id="overTime" name="overTime" class="{{theme.dropdown}}" onclick="" value="{{overTime}}"></select>
+                    <select id="overTime" name="overTime" class="{{theme.dropdown}}" onchange="refreshFilters()">
+                        <option value="">---------</option>
+                        <option value="true" {% if overTime == True %}selected{% endif %}>Yes</option>
+                        <option value="false" {% if overTime == False %}selected{% endif %}>No</option>
+                    </select>
                 </div>
                 <div class="flex flex-col col-[6/7] items-center">
                     <span class="text-sm text-gray-500 mb-1">Operation:</span>
-                    <select id="operation" name="operation" class="{{theme.dropdown}}" onclick="" value="{{operation}}"></select>
+                    <select id="operation" name="operation" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/operations', refreshFilters, true)"></select>
                 </div>
                 <div class="flex flex-col col-[1/3] items-center">
                     <span class="text-sm text-gray-500 mb-1">Scan Date:</span>
@@ -70,6 +78,7 @@
                     <th scope="col">Day</th>
                     <th scope="col">Code</th>
                     <th scope="col">Name</th>
+                    <th scope="col">Line</th>
                     <th scope="col">Section</th>
                     <th scope="col">W/O</th>
                     <th scope="col">Operation</th>
@@ -84,6 +93,7 @@
                         <td>Day</td>
                         <td>WorkerCode</td>
                         <td>WorkerName</td>
+                        <td>Line</td>
                         <td>Section</td>
                         <td>WorkOrder</td>
                         <td>OperationCode: OperationName</td>
@@ -192,6 +202,12 @@
                                     ]
                                 );
                             },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: Math.PI / 4,
+                            },
                             borderColor: '#eee',
                             borderWidth: 1,
                             shadowBlur: 5,
@@ -296,6 +312,12 @@
                                     ]
                                 );
                             },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: Math.PI / 4,
+                            },
                             borderColor: '#eee',
                             borderWidth: 1,
                             shadowBlur: 5,
@@ -367,6 +389,7 @@
                 // Add worker code, worker name, section, work order and operation
                 appendFilterCell(rowData.WorkerCode, 'worker', rowData.WorkerCode, workerFilter);
                 appendFilterCell(rowData.WorkerName, 'worker', rowData.WorkerCode, workerFilter);
+                appendFilterCell(rowData.Line, 'line', rowData.Line, lineFilter);
                 appendFilterCell(rowData.Section, 'section', rowData.SectionCode, sectionFilter);
                 appendFilterCell(rowData.WorkOrder, 'workOrder', rowData.WorkOrder, workOrderFilter);
                 appendFilterCell(`${rowData.OperationCode} - ${rowData.OperationName}`, 'operation', rowData.OperationCode, operationFilter);
@@ -388,21 +411,178 @@
         }
     </script>
 
-    <script>    //To make wages chart
+    <script>    //To make attendance chart
         async function makeAttendanceChart(chartInstance, filters) {
-            showMessage('Attendance chart is not complete yet');
         }
     </script>
 
     <script>    //To make wages chart
         async function makeWagesChart(chartInstance, filters) {
             const params = new URLSearchParams(filters);
-            const url = "{% url 'getWorkSummary' %}";
+            const url = "{% url 'getWageSummary' %}";
             const response = await fetch(`${url}?${params.toString()}`);
             const data = await response.json();
 
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function (params) {
+                        const dataIndex = params[0].dataIndex;
 
-            showMessage('Wages chart is not complete yet');
+                        // Worker Name as heading of tool tip
+                        let tooltipContent = `<b>${data.WorkerName[dataIndex]}</b><br/>`;
+
+                        // Add remaining fields
+                        tooltipContent += `Code: ${data.WorkerCode[dataIndex]}<br/>`;
+                        tooltipContent += `Days: ${data.Days[dataIndex]}<br/>`;
+                        tooltipContent += `Wage: ${data.Wage[dataIndex].toFixed(2)}<br/>`;
+
+                        return tooltipContent;
+                    }
+                },
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: data.WorkerCode,
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Days',
+                        nameLocation: 'middle',
+                        nameGap: 25,
+                        min: 0,
+                    },
+                    {
+                        type: 'value',
+                        name: 'Wage',
+                        nameLocation: 'middle',
+                        nameGap: 20,
+                        min: 0,
+                    },
+                ],
+                series: [
+                    {
+                        name: 'Days',
+                        type: 'bar',
+                        data: data.Days,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.TimeSpentColor && data.TimeSpentColor[params.dataIndex] ? data.TimeSpentColor[params.dataIndex] : '#228B22';
+                                
+                                //To lighten or darken a color
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 1, 0, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: -Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    },
+                    {
+                        name: 'Wage',
+                        type: 'bar',
+                        yAxisIndex: 1,
+                        data: data.Wage,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.WageColor && data.WageColor[params.dataIndex] ? data.WageColor[params.dataIndex] : '#228B22';
+                                
+                                //To lighten or darken a color
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 1, 0, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: -Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    },
+                ],
+                //Apply zoom on mouse wheel/pinch
+                dataZoom: [{
+                    type: 'inside',
+                    start: 0,      // Start percentage of the data to display
+                    end: 100,       // End percentage of the data to display (e.g., show 50% of data initially)
+                }],
+            };
+            chartInstance.setOption(option, true);
         }
     </script>
 
@@ -426,14 +606,14 @@
 
         //Global Filters
         let currentFilters = {
-            worker: workerFilter.value,
-            line: lineFilter.value,
-            section: sectionFilter.value,
-            workOrder:workOrderFilter.value,
-            overTime: OTFilter.value,
-            operation:operationFilter.value,
-            startDate:startDate.value,
-            endDate:endDate.value,
+            worker: '{{worker}}',
+            line: '{{line}}',
+            section: '{{section}}',
+            workOrder: '{{workOrder}}',
+            overTime: '{{overTime}}',
+            operation: '{{operation}}',
+            startDate: '{{startDate}}',
+            endDate: '{{endDate}}',
         };
 
         function updateAllCharts() {
@@ -465,6 +645,26 @@
             
             updateAllCharts();
         });
+        
+        //Toggle Worker code if there is a click on wagesChart
+        wagesChart.on('click', (params) => {
+            const clickedWorker = params.name;
+
+            // If already filtered by this worker, clear the filter; otherwise, apply it
+            currentFilters.worker = (currentFilters.worker === clickedWorker) ? '' : clickedWorker;
+            workerFilter.value = currentFilters.worker;
+
+            updateAllCharts();
+        });
+
+    </script>
+
+    <script>    //To refresh data when filters change
+        function refreshFilters(source) {
+            const form = document.getElementById('filters');
+
+            form.submit();
+        }
     </script>
 
     <script>    //This will run after the page loads.
@@ -472,6 +672,24 @@
             showLoadingIcon();
 
             updateAllCharts();
+
+            let response = await fetch(`/options/workers?code=${"{{worker}}"}`);
+            const workers = await response.json();
+            appendOptions('worker', workers, '{{worker}}');
+
+            response = await fetch('/options/operations/sections');
+            const sections = await response.json();
+            appendOptions('section', sections, '{{section}}');
+
+            response = await fetch(`/options/workorders?order=${"{{workOrder}}"}`);
+            const workOrders = await response.json();
+            appendOptions('workOrder', workOrders, '{{workOrder}}');
+
+            response = await fetch(`/options/operations?code=${"{{operation}}"}`);
+            const operations = await response.json();
+            const newOperation = { "value": null, "text": "-----------" };
+            operations.unshift(newOperation);
+            appendOptions('operation', operations, '{{operation}}');
 
             hideLoadingIcon();
         });

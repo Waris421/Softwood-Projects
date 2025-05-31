@@ -416,7 +416,7 @@
     </script>
 
     <script> //This function shows searchbox for a select element
-      async function showSearchBox(source, url, nextFunction=null) {
+      async function showSearchBox(source, url, nextFunction=null, addBlank=false) {
         const rect = source.getBoundingClientRect();
 
         source.style.display = 'none';
@@ -461,6 +461,10 @@
             }
 
             const data = await response.json();
+            if (addBlank) {
+              const newRow = { "value": null, "text": "-----------" };
+              data.unshift(newRow);
+            }
             listContainer.innerHTML = ''; // Clear previous options from search container
             source.innerHTML = ''; // Clear previous options from original dropdown
 

@@ -46,4 +46,5 @@ urlpatterns = [
     path('options/core-sheet/cuts', options_service.GetCutsForOrder, name='cutList'),
     path('options/core-sheet/bundles', options_service.GetBundlesForCut, name='bundleList'),
     path('options/bundle-cards/available', options_service.GetAvailableCardGroups, name='availableBundleCards'),
+    path('options/workers', options_service.GetWorkers, name='workersDropdown'),
 ]

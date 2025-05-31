@@ -2,7 +2,7 @@
 Contains generic variables and functions
 """
 
-from datetime import datetime
+from datetime import datetime, time
 
 from marketing.services.generic_services import askAI, dfToListOfDicts, updateModelWithDF, getAPIUser
 from apparelManagement.services.generic_services import applySearch, paginate, refineJson, convertTexttoObject, LOCAL_TIMEZONE
@@ -10,6 +10,10 @@ from apparelManagement.services.generic_services import applySearch, paginate, r
 NOW = datetime.now()
 TODAY = datetime.today()
 
+STITCHING_START = time(hour=8, minute=30)
+STITCHING_END = time(hour=17, minute=30)
+
+MIN_WAGE = 32000
 
 def convertStrToDateTime(date: str, format: str):
     return datetime.strptime(date, format)
@@ -114,3 +118,8 @@ changeOverTimes = {
     'ZigZag': 4,
     'Manu': 0,
 }
+
+stitchingLines = [
+    {'value': 'B', 'text':'Blue'},
+    {'value': 'G', 'text':'Green'},
+]

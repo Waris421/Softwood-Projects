@@ -43,6 +43,14 @@ class ImpExp(ImportExportModelAdmin):
 class SerialAdmin(admin.ModelAdmin):
     '''Admin View for Serial'''
 
-    list_display = ('TimeDate','Operation')
-    list_filter = ('TimeDate',)
-    ordering = ('Operation',)
+    list_display = ('TimeDate','Line', 'Operation')
+    list_filter = ('Line',)
+    ordering = ('TimeDate',)
+
+@admin.register(models.Attendance)
+class AttendanceAdmin(admin.ModelAdmin):
+    '''Admin View for Attendance'''
+
+    list_display = ('Date','Worker','LoginTime','LogoutTime')
+    list_filter = ('Worker',)
+    ordering = ('Date',)
