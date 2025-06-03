@@ -1,0 +1,12 @@
+<p>Hello {{ user.username }},</p>
+
+<p>You're receiving this email because you requested a password reset for your user account at Fashion OS.</p>
+
+<p>Please go to the following page and choose a new password:</p>
+
+<p><a href="{{ resetLink }}">{{ resetLink }}</a></p>
+
+<p>Your username, in case you've forgotten: {{ user.username }}</p>
+
+<p>Thanks for using our site!</p>
+<p>The FOS team</p>

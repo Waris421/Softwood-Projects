@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'qualityControl',
     'prodManagement',
     'marketing',
+    'authentication',
     'crispy_forms',
     'crispy_bootstrap5',
     'rest_framework',
@@ -164,9 +165,9 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False     #Don't delete cookies upon browser c
 SESSION_SAVE_EVERY_REQUEST = True # "False" by default
 
 #Settings for emails
-"""EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'softwoodplayground@gmail.com'
-EMAIL_HOST_PASSWORD = 'yiwn adym noin zwgx'"""
+EMAIL_HOST_PASSWORD = 'yiwn adym noin zwgx'

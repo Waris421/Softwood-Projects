@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.apps import apps
 from . import models
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin

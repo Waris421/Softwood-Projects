@@ -190,7 +190,7 @@ class Customer (models.Model):
 
     Name = models.CharField (primary_key=True, max_length=25)
     TradeName = models.CharField (max_length=255, blank=True, null=True)
-    Address = models.CharField (max_length=15, blank=True, null=True)
+    Address = models.CharField (max_length=63, blank=True, null=True)
     VATNumber = models.CharField (max_length=50, blank=True, null=True)
     PaymentTerms = models.CharField (max_length=255, blank=True, null=True)
     DocumentsURL = models.CharField (max_length=1000, blank=True, null=True)
