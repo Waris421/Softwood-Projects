@@ -623,3 +623,40 @@ def GetWagesSummary(request: HttpRequest):
     data = serial_service.GetWageSummary(startDate, endDate, worker, overTime, line, section, workOrder, operation)
     
     return JsonResponse(data)
+
+@login_required(login_url='/login')
+def GetAttendanceDetails(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    worker = request.GET.get('worker', None)
+    line = request.GET.get('line', None)
+    section = request.GET.get('section', None)
+    workOrder = request.GET.get('workOrder', None)
+    overTime = request.GET.get('overTime', None)
+    operation = request.GET.get('operation', None)
+    startDate = request.GET.get('startDate',None)
+    endDate = request.GET.get('endDate', None)
+
+    if startDate in ['None','']:
+        startDate = generic_services.TODAY
+    else:
+        startDate = generic_services.convertStrToDateTime(startDate, "%Y-%m-%d")
+    if endDate in ['None','']:
+        endDate = generic_services.TODAY
+    else:
+        endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
+    
+    data = serial_service.GetAttendanceDetail(startDate, endDate)
+
+    """data = {
+        "Date": ["2025-06-02", "2025-06-03", "2025-06-02", "2025-06-03"],
+        "LoginTime": ["08:45:00", "08:30:00", "09:00:00", "08:40:00"],
+        "LogoutTime": ["17:30:00", "17:45:00", "17:00:00", "17:15:00"],
+        "Duration": [8.75, 9.25, 8.00, 8.50],
+        "WorkerCode": [501360, 501360, 501363, 501363],
+        "WorkerName": ["Ashfaq Rasheed", "Umar Ali", "Ashfaq Rasheed", "Umar Ali"],
+        "Section": ["Assembly 2", "Small Parts", "Assembly 2", "Small Parts"]
+    }"""
+
+    return JsonResponse(data)

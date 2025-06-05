@@ -26,10 +26,10 @@
         </div>
 
         <div class="col btn-group {{theme.textJustify}}">
-          <a class="{{theme.buttonBasic}}" href="/style/add" role="button" target="_blank">Add Style</a>
-          <a id="copyCardButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Copy Style</a>
-          <a id="editCardButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Edit Style</a>
-          <a id="deleteCardButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Delete Style</a>
+          <a class="{{theme.buttonBasic}}" href="/style/add" role="button">Add Style</a>
+          <a id="copyCardButton" class="{{theme.buttonBasic}}" role="button">Copy Style</a>
+          <a id="editCardButton" class="{{theme.buttonBasic}}" role="button">Edit Style</a>
+          <a id="deleteCardButton" class="{{theme.buttonBasic}}" role="button">Delete Style</a>
         </div>
       </div> 
     </p>
@@ -72,6 +72,7 @@
       </tbody>
     </table>
   </div>
+
   <div class="{{theme.pagination}}">
     {% if page_obj.has_previous %}
       <a href="?page={{ page_obj.previous_page_number }}&customerFilter={{ selectedCustomer }}&search_term={{ searchTerm }}"
@@ -130,8 +131,7 @@
     </form>
   </div>
 
-  <script>
-      //This functions changes the edit card button based on selection in radio
+  <script>  //To change the edit card button based on selection in radio
       $("#tableData").on("click", "input[type='radio']", function() { 
           //Get the code against seletion
           const selectedCode = $(this).closest("tr").find("td.code").text();

@@ -30,11 +30,9 @@ def getLeadTime (Inventories: pd.Series):
     If none of the inventories have a lead-time, it'll return 0
     '''
     leadTime = 0.0
-    for inventoryCode in Inventories:
-        try:
-            invLeadTime = models.Inventory.objects.get(Code=inventoryCode).LeadTime
-        except Exception as e:
-            raise ValueError(e)
+    for inventory in Inventories:
+        invLeadTime = inventory.LeadTime
+        
         if invLeadTime > leadTime:
             leadTime = invLeadTime
     return leadTime
@@ -136,7 +134,7 @@ def GeneratePOfromAutoReq(dfData: pd.DataFrame, supplierName:str):
     dfInventory = dfInventory.groupby(['InventoryCode','Variant']).sum().reset_index()
 
     #Convert inventory code to objects of inventory class. This can only be done after the above grouping
-    for df in [dfInventory,dfOrder, dfAllocation]:
+    for df in [dfInventory, dfOrder, dfAllocation]:
         df['InventoryCode'] = convertTexttoObject(models.Inventory, df['InventoryCode'], 'Code')
 
     dfOrder['Tax'] = GST_RATE
@@ -247,9 +245,14 @@ def PrepareDataForAutoReq(startingOrder: int, endingOrder: int):
 
         dfRequirement = pd.merge(left=dfRequirement, right=dfAllocation, left_on=['OrderNumber','InventoryCode','Variant']
                                  ,right_on=['WorkOrder','Inventory','Variant'], how='left')
-        dfRequirement.drop(inplace=True, columns=['Inventory'])
+        dfRequirement.drop(inplace=True, columns=['WorkOrder','Inventory'])
         
         dfRequirement['Ordered'] = np.where(dfRequirement['Ordered'].isna(), 0, dfRequirement['Ordered'])
+        
+        dfRequirement = dfRequirement.groupby(['OrderNumber','InventoryCode','Variant','InventoryName']).agg(
+            Required = ('Required','mean'),
+            Ordered = ('Ordered','sum')
+        ).reset_index()
     else:
         dfRequirement['Ordered'] = 0
     
@@ -422,7 +425,7 @@ def EditPurchaseOrder(
     orderObject.Supplier = dfOrder['Supplier'][0]
     orderObject.DeliveryDate = dfOrder['DeliveryDate'][0]
     orderObject.Tax = dfOrder['Tax'][0]
-    #orderObject.save()
+    orderObject.save()
 
     #Get the already saved inventories against this PO and their allocation
     fields = ['id']

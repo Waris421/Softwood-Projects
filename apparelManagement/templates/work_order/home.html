@@ -17,9 +17,9 @@
                       </form>
                 </div>
                 <div class="col btn-group {{theme.textJustify}}">
-                    <a class="{{theme.buttonBasic}}" href="/workorder/add" role="button" target="_blank">Add Order</a>
-                    <a id="copyOrderButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Copy Order</a>
-                    <a id="editOrderButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Edit Order</a>
+                    <a class="{{theme.buttonBasic}}" href="/workorder/add" role="button">Add Order</a>
+                    <a id="copyOrderButton" class="{{theme.buttonBasic}}" role="button">Copy Order</a>
+                    <a id="editOrderButton" class="{{theme.buttonBasic}}" role="button">Edit Order</a>
                     <a id="deleteOrderButton" class="{{theme.buttonBasic}}" role="button">Delete Order</a>
                 </div>
             </div>
@@ -38,6 +38,7 @@
             </div>
         </p>
     </div>
+
     <div id ="workOrder_Table">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
@@ -64,6 +65,7 @@
               </tbody>
         </table>
     </div>
+
     <div class="{{theme.pagination}}">
         {% if page_obj.has_previous %}
           <a href="?page={{ page_obj.previous_page_number }}&customerFilter={{ selectedCustomer }}&search_term={{ searchTerm }}"

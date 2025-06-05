@@ -36,6 +36,7 @@ urlpatterns = [
     path('productivity/api/worker-work', views.GetWorkSummary, name='getWorkSummary'),
     path('productivity/api/work-detail', views.GetWorkDetails, name='getWorkDetail'),
     path('productivity/api/wages-summary', views.GetWagesSummary, name='getWageSummary'),
+    path('productivity/api/attendance-details', views.GetAttendanceDetails, name='getAttendanceDetail'),
 
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),

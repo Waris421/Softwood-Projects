@@ -162,7 +162,6 @@ def AddStyleCard(
     dfRoute['Cost'] = 0.0
     
     dfRoute.rename(inplace=True, columns={'type':'Stage'})
-    print(dfRoute)
 
     for _, row in dfRoute.iterrows():
         newEntry = models.StyleRoute(**row.to_dict())

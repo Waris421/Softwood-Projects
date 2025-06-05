@@ -1,4 +1,4 @@
-from pandas import DataFrame, merge, to_datetime
+from pandas import DataFrame, merge, to_datetime, Categorical
 from numpy import where
 
 from typing import List, Union
@@ -278,3 +278,40 @@ def GetWageSummary(
     dfScan.drop(inplace=True, columns=['WagePerDay'])
 
     return dfScan.to_dict(orient='list')
+
+def GetAttendanceDetail(
+        startDate, endDate
+):
+    fields = ['WorkerCode','WorkerName','SubDepartment']
+    workers = models.Worker.objects.filter(Status='Working').values(*fields)
+    if workers:
+        dfWorkers = DataFrame(workers)
+    else:
+        dfWorkers = DataFrame(columns=fields)
+    del workers
+    
+    dfAttendance = getAttendanceData(dfWorkers['WorkerCode'].to_list(), startDate, endDate)
+
+    dfSections = DataFrame(generic_services.operationSections)
+    
+    dfAttendance = merge(left=dfAttendance, right=dfWorkers, left_on='Worker', right_on='WorkerCode', how='left')
+    del dfWorkers
+    dfAttendance.drop(inplace=True, columns=['Worker'])
+    
+    dfAttendance = merge(left=dfAttendance, right=dfSections, left_on='SubDepartment', right_on='value', how='left')
+    del dfSections
+    dfAttendance.drop(inplace=True, columns=['SubDepartment','value'])
+    dfAttendance.rename(inplace=True, columns={'text':'Section'})
+
+    dfAttendance['Date'] = to_datetime(dfAttendance['Date'], format='%Y-%m-%d')
+    dfAttendance['LoginTime'] = to_datetime(str(startDate)+' '+dfAttendance['LoginTime'].astype(str))
+    dfAttendance['LogoutTime'] = to_datetime(str(startDate)+' '+dfAttendance['LogoutTime'].astype(str))
+    dfAttendance['StandardLoginTime'] = to_datetime(str(startDate)+' '+str(generic_services.STITCHING_START))
+    dfAttendance['StandardLogoutTime'] = to_datetime(str(startDate)+' '+str(generic_services.STITCHING_END))
+
+    dfAttendance['LoginDifference'] = (dfAttendance['StandardLoginTime'] - dfAttendance['LoginTime']).dt.total_seconds()/60
+    dfAttendance['LogoutDifference'] = (dfAttendance['LogoutTime'] - dfAttendance['StandardLogoutTime']).dt.total_seconds()/60
+
+    print(dfAttendance[['LoginTime','LoginDifference','LogoutTime','LogoutDifference']])
+
+    return dfAttendance.to_dict(orient='list')

@@ -181,6 +181,7 @@ def UpdateWorkOrder(
 
     fields = ['id','InventoryCode','Variant']
     previousRequirement = models.InvRequirement.objects.filter(OrderNumber=orderCard).values(*fields)
+    
     if previousRequirement:
         dfPreviousRequirement = pd.DataFrame(previousRequirement)
     else:
@@ -285,6 +286,11 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     dfRequirement.drop(inplace=True, columns=['Inventory'])
     dfRequirement['Ordered'] = np.where(dfRequirement['Ordered'].isna(), 0, dfRequirement['Ordered'])
     
+    dfRequirement = dfRequirement.groupby(['id', 'InventoryCode', 'Variant']).agg(
+        Quantity=('Quantity', 'mean'),
+        Ordered=('Ordered', 'sum'),
+    ).reset_index()
+    
     dfReceivedQty = pd.merge(left=dfReceivedQty, right=dfReceivedInvs, left_on='RecInvId', right_on='id', how='left')
     del dfReceivedInvs
     dfReceivedQty.drop(inplace=True, columns=['id','RecInvId'])
@@ -294,6 +300,12 @@ def ProcessOrderData(workOrder: models.WorkOrder):
                              right_on=['InventoryCode','Variant'], how='outer')
     del dfReceivedQty
     dfRequirement['Received'] = np.where(dfRequirement['Received'].isna(), 0, dfRequirement['Received'])
+
+    dfRequirement = dfRequirement.groupby(['id', 'InventoryCode', 'Variant']).agg(
+        Quantity=('Quantity', 'mean'),
+        Ordered=('Ordered', 'mean'),
+        Received=('Received', 'sum'),
+    ).reset_index()
     
     #Convert Inventory names to inventory code and names
     fields = ['Code','Name']
@@ -449,6 +461,11 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
         dfRequirement = pd.merge(left=dfRequirement, right=dfOrdered, left_on=['InventoryCode','Variant'],
                                 right_on=['Inventory','Variant'], how='outer')
         dfRequirement.drop(inplace=True, columns=['Inventory'])
+        
+        dfRequirement = dfRequirement.groupby(['InventoryCode', 'Variant']).agg(
+            Required=('Required', 'mean'),
+            Ordered=('Ordered', 'sum'),
+        ).reset_index()
     del dfOrdered, dfOrderedInvs
 
     if dfReceived.empty:
@@ -460,6 +477,12 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
 
         dfRequirement = pd.merge(left=dfRequirement, right=dfReceived, left_on=['InventoryCode','Variant'],
                                  right_on=['InventoryCode','Variant'], how='outer')
+        
+        dfRequirement = dfRequirement.groupby(['InventoryCode', 'Variant']).agg(
+            Required=('Required', 'mean'),
+            Ordered=('Ordered', 'mean'),
+            Received=('Received', 'sum'),
+        ).reset_index()
     del dfReceived, dfReceivedInvs
 
     fields = ['Code','Name']
@@ -474,11 +497,11 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
     del dfInventories
     dfRequirement.drop(inplace=True, columns=['Code'])
     dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
-
-    dfRequirement['id'] = None
     
     for col in ['Required','Ordered','Received']:
         dfRequirement[col] = np.where(dfRequirement[col].isna(), 0, dfRequirement[col])
+    
+    dfRequirement['id'] = None
 
     cols = [i for i in dfRequirement]
     requirement = [dict(zip(cols, i)) for i in dfRequirement.values]

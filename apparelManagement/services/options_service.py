@@ -98,6 +98,7 @@ def getInventories(request: HttpRequest):
     if request.method == 'GET':
         invGroup = request.GET.get('group',None)
         search = request.GET.get('search', '')
+        newFormat = request.GET.get('newFormat', None)
 
         if invGroup == 'Direct':
             groups = ['Fabric','Trim']
@@ -116,7 +117,8 @@ def getInventories(request: HttpRequest):
         if objects.count() < 1:
             return JsonResponse([], safe=False)
 
-        objects = objects[:15]
+        if newFormat != 'No':
+            objects = objects[:15]
         data = objects.values('Code','Name')
         dfData = pd.DataFrame(data)
         

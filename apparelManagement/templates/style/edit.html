@@ -325,7 +325,7 @@
             //Consumptions data, that was passed as JSON from view
             const consumptionData = {{ consJson|safe }};
             //Inventory Cards dropdowns
-            response = await fetch('/options/inventories?group=Direct');
+            response = await fetch('/options/inventories?group=Direct&newFormat=No');
             const inventories = await response.json();
             
             //Units dropdown
@@ -381,6 +381,8 @@
             } else {
                 url += `?group=Trim`;
             }
+            url += `&newFormat=No`;
+            
             //Get the inventories from server
             const response = await fetch(url);
             const inventories = await response.json();
@@ -435,14 +437,14 @@
             });            
         }
 
-        async function selectInv(source) {            
+        async function selectInv(source) {
             const selectedCode = source.children[0].children[0].textContent;
 
             const consTableRowNum = parseInt(source.parentElement.parentElement.children[0].getAttribute('row'));
-
+            
             const consTableRow = document.getElementById('consTable').children[0].children[consTableRowNum];
-
-            const invCodeBox = consTableRow.children[0].children[0];
+            
+            const invCodeBox = consTableRow.children[1].children[0];
             
             invCodeBox.value = selectedCode;
             
@@ -585,4 +587,4 @@
     <script> //To run when page loads. It should be at the end of the page.         
         changeView ('consTable');
     </script>
-{% endblock %} 
+{% endblock %}

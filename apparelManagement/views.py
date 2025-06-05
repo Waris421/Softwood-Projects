@@ -485,7 +485,6 @@ def GeneratePOFromWO (request: HttpRequest, pk):
     if request.method == 'POST':
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
-        print(data)
         dfData = generic_services.refineJson(data)
 
         try:
@@ -616,11 +615,13 @@ def AutoInventoryRequirement(request: HttpRequest):
         data = json.loads(request.body.decode('utf-8'))
         
         dfData, dfSupplier = generic_services.refineJson(data)
-        print(dfSupplier.iloc[0][0])
 
-        poNumber = purchase_order_service.GeneratePOfromAutoReq(dfData, dfSupplier.iloc[0][0])
-        
-        return HttpResponse(poNumber, status=200)
+        try:
+            poNumber = purchase_order_service.GeneratePOfromAutoReq(dfData, dfSupplier.iloc[0][0])   
+            return HttpResponse(poNumber, status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
     else:
         startingOrder = request.GET.get('startingOrder',None)
         endingOrder = request.GET.get('endingOrder',None)
@@ -800,7 +801,7 @@ def PrintPurchaseOrder(request: HttpRequest, pk: str):
         context = {'order':order, 'inv':inventory, 'alloc': allocation, 'summary': summary, 'theme': theme} 
 
         if requiredFormat == 'SUP':
-            return render(request, 'purchase_orderprint_supplier.html', context)
+            return render(request, 'purchase_order/print_supplier.html', context)
         elif requiredFormat=='ACC':
             return render(request, 'purchase_order/print_accounts.html', context)
         else:
