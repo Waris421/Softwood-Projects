@@ -185,7 +185,6 @@ def UpdateStyleCard(
     #Create dict from the provided data, to be able to save in database
     styleCard = dfStyle.iloc[0].to_dict()
     del dfStyle
-    styleCard.pop('SelectedTable')
     
     styleCard = models.StyleCard(**styleCard)
     styleCard.save()
@@ -278,11 +277,36 @@ def UpdateStyleCard(
 def ProcessStyleData(styleCard: models.StyleCard):   
     variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
     
-    consumption = models.StyleConsumption.objects.filter(Style=styleCard).values('id','InventoryCode','Consumption','Unit','Type',
-                                                                             'FinalCons','HasVariant','SizeDetails')
+    fields = ['id','InventoryCode','Consumption','Unit','Type','FinalCons','HasVariant','SizeDetails']
+    consumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
+    if consumption:
+        dfConsumption = pd.DataFrame(consumption)
+    else:
+        dfConsumption = pd.DataFrame(column = fields)
+    del consumption
+    
+    fields = ['Code','Name']
+    inventories = models.Inventory.objects.filter(Code__in=dfConsumption['InventoryCode'].to_list()).values(*fields)
+    if inventories:
+        dfInventories = pd.DataFrame(inventories)
+    else:
+        dfInventories = pd.DataFrame(columns=fields)
+    del inventories, fields
+    
+    dfConsumption = pd.merge(left=dfConsumption, right=dfInventories, left_on='InventoryCode', right_on='Code', how='left')
+    del dfInventories
+    dfConsumption.drop(inplace=True, columns=['Code'])
+    dfConsumption.rename(inplace=True, columns={'Name':'InventoryName'})
+
+    dfConsumption['InventoryName'] = dfConsumption['InventoryName'].astype(str)+' - '+dfConsumption['InventoryCode'].astype(str)
+
+    cols = [i for i in dfConsumption]
+    consumption = [dict(zip(cols, i)) for i in dfConsumption.values]
+    del dfConsumption
+
     if not consumption:
         consumption = [model_to_dict(models.StyleConsumption())]
 
-    route = models.StyleRoute.objects.filter(Style=styleCard).values('Sequence','Stage')
+    route = models.StyleRoute.objects.filter(Style=styleCard).values('Sequence','Stage').order_by('Sequence')
     
     return model_to_dict(styleCard), variants, consumption, route

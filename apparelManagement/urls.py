@@ -19,7 +19,7 @@ urlpatterns = [
     path('inv/code/gen/', views.GenerateInventoryCode, name='genInvCode'),
 
     path ('style',views.Style, name='Style'),
-    path ('style/add',views.AddStyle, name='AddStyle'),
+    path ('style/add',views.AddStyle, name='addStyle'),
     path('style/<str:pk>/edit/', views.UpdateStyle, name='editStyle'),
     path('style/<str:pk>/delete/', views.DeleteStyle, name='deleteStyle'),
     path('style/<str:pk>/copy/', views.CopyStyle, name='copyStyle'),

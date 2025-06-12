@@ -5,24 +5,24 @@
 {% endblock %} 
 
 {% block content %}
-    {% csrf_token %}
-    <p>
-        <form method="POST" id="inventoryForm" autocomplete="off">
-            <div class="row g-3">
-                <div class="card col-8 {{theme.border}}">
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center">
                     <div class="card-body">
-                        <h5 class="card-title">Inventory Card</h5>
-                        <div class="row {{theme.justify}} {{theme.align}}">
-                            <div class="col-4 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Code" class="form-label">Code:</label>
-                                <input type="text" class="{{theme.textInput}}" name="Code" id="id_Code" value="{{inv.Code}}" readonly>
+                        <h5 class="card-title {{theme.justify}}">Inventory Card</h5>
+                        <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                            <div class="flex col-[1/2] items-center">
+                                <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
+                                <input type="text" class="{{theme.textInput}}" name="Code" value="{{inv.Code}}" readonly>
                             </div>
-                            <div class="col-8 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Code" class="form-label">Name:</label>
-                                <input type="text" class="{{theme.textInput}}" name="Name" id="id_Name" value="{{inv.Name}}" required>
+                            <div class="flex col-[2/4] items-center">
+                                <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
+                                <input type="text" class="{{theme.textInput}}" name="Name" value="{{inv.Name}}" required>
                             </div>
-                            <div class="col-4 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Group" class="form-label">Group:</label>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Group:&nbsp; </label>
                                 <select id="id_Group" class="{{theme.dropdown}}" name="Group" required> 
                                     {% for option in groups %}
                                         <option value="{{option.value}}"
@@ -31,9 +31,10 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-4 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_UnitType" class="form-label">Unit Type:</label>
+                            <div class="flex col-[2/3] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Unit Type:&nbsp; </label>
                                 <select id="id_UnitType" class="{{theme.dropdown}}" name="UnitType" required onchange="getUnitsForGroup(this)">
+                                    <option value="">----------</option>
                                     {% for option in unitTypes %}
                                         <option value="{{option.value}}"
                                             {% if option.value == inv.Unit.Group.Name %} selected {%endif%}
@@ -41,8 +42,8 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-4 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Unit" class="form-label">Unit:</label>
+                            <div class="flex col-[3/4] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Unit:&nbsp; </label>
                                 <select id="id_Unit" class="{{theme.dropdown}}" name="Unit" required>
                                     {% for option in units %}
                                         <option value="{{option.value}}"
@@ -51,8 +52,8 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-2 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Audit" class="form-label">Audit:</label>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Audit:&nbsp; </label>
                                 <select id="id_Audit" class="{{theme.dropdown}}" name="AuditReq" required>
                                     {% for option in auditReq %}
                                         <option value="{{option.value}}"
@@ -61,24 +62,24 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-2 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Life" class="form-label">Life:</label>
-                                <input type="number" class="{{theme.textInput}}" value="{{inv.Life}}" name="Life" min="0" id="id_Life" required>
+                            <div class="flex col-[2/3] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Life:&nbsp; </label>
+                                <input type="number" class="{{theme.textInput}}" name="Life" min="0" id="id_Life" value="{{inv.Life}}"  required>
                             </div>
-                            <div class="col-4 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_LeadTime" class="form-label">Lead Time:</label>
-                                <input type="number" class="{{theme.textInput}}" value="{{inv.LeadTime}}" name="LeadTime" min="0" id="id_LeadTime" required>
+                            <div class="flex col-[3/4] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Lead Time:&nbsp; </label>
+                                <input type="number" class="{{theme.textInput}}" name="LeadTime" min="0" id="id_LeadTime" value="{{inv.LeadTime}}" required>
                             </div>
-                            <div class="col-4 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_MinStockLvl" class="form-label">Min Stock Level:</label>
-                                <input type="number" class="{{theme.textInput}}" value="{{inv.MinStockLvl}}" name="MinStockLvl" min="0" id="id_MinStockLvl" required>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Min Stock Level:&nbsp; </label>
+                                <input type="number" class="{{theme.textInput}}" name="MinStockLvl" min="0" id="id_MinStockLvl" value="{{inv.MinStockLvl}}" required>
                             </div>
-                            <div class="col-2 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_StandardPrice" class="form-label">Standard Price:</label>
-                                <input type="number" class="{{theme.textInput}}" value="{{inv.StandardPrice}}" name="StandardPrice" min="0" id="id_StandardPrice" required>
+                            <div class="flex col-[2/3] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Standard Price:&nbsp; </label>
+                                <input type="number" class="{{theme.textInput}}" name="StandardPrice" min="0" id="id_StandardPrice" step="0.01" value="{{inv.StandardPrice}}" required>
                             </div>
-                            <div class="col-3 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_Currency" class="form-label">Currency:</label>
+                            <div class="flex col-[3/4] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Currency:&nbsp; </label>
                                 <select id="id_Currency" class="{{theme.dropdown}}" name="Currency" required>
                                     {% for option in currencies %}
                                         <option value="{{option.value}}"
@@ -87,8 +88,8 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-2 g-3 {{theme.align}} {{theme.justify}}">
-                                <label for="id_InUse" class="form-label">In Use:</label>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">In Use:&nbsp; </label>
                                 <select id="id_InUse" class="{{theme.dropdown}}" name="InUse" required>
                                     {% for option in inUse %}
                                         <option value="{{option.value}}"
@@ -97,26 +98,61 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <button type="button" class="col g-4 {{theme.buttonSecondary}}" onclick="submitForms()">
-                                Save
-                            </button>
+                            <div class="flex col-[2/4] items-center">
+                                <button type="submit" class="{{theme.buttonBasic}} mx-2" >Save</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="card col-4 {{theme.border}}">
+
+                <div class="flex col-[3/4] items-center">
                     <div class="card-body">
-                        <h5 class="card-title">History</h5>
+                        <h5 class="card-title">Inventory Code Generator</h5>
+                        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}" onchange="getCodeParts(this)">
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Part 1:&nbsp; </label>
+                                <select id="id_Part1" class="{{theme.dropdown}}" name="Part1">
+                                    <option value="">--------</option>
+                                    {% for option in codeP1 %}
+                                        <option value="{{option.value}}"> {{option.text}} </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Part 2:&nbsp; </label>
+                                <select id="id_Part2" class="{{theme.dropdown}}" name="Part2"></select>
+                            </div>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Part 3:&nbsp; </label>
+                                <select id="id_Part3" class="{{theme.dropdown}}" name="Part3" ></select>
+                            </div>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Part 4:&nbsp; </label>
+                                <input type="text" class="{{theme.textInput}}" name="Part4" id="id_FinalCode" onkeyup="generateCode(this)">
+                            </div>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
+                                <input type="text" class="{{theme.textInput}}" name="GeneratedCode" id="id_FinalCode" readonly>
+                            </div>
+                            <div class="flex col-[1/2] items-center my-2">
+                                <a class="{{theme.buttonBasic}}" role="button" onclick="finaliseCode(this)">Finalise Code</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </form>
-    </p>
+        </div>
+    </form>
 
     <script>    //Get the inventory units from the selected groups
         async function getUnitsForGroup (source) {
             const group = source.value;
-            const response = await fetch('/options/unit/'+group);
-            const units = await response.json();
+            
+            let units = [];
+            if (group) {
+                const response = await fetch('/options/unit/'+group);
+                units = await response.json();
+            }
 
             const unitSelect = source.parentElement.nextElementSibling.children[1];
             unitSelect.innerHTML = '';
@@ -130,77 +166,91 @@
         }
     </script>
 
-    <script>    //To send data to server
-        async function submitForms() {
-            const allForms = document.forms;
+    <script>    //Handle Inventory Code Generator
+        async function getCodeParts(source) {
+            showMessage('This feature is under construction');
+            return;
+            const elements = source.children;
 
-            const inventoryForm = allForms['inventoryForm']; 
-
-            const inventory = inventoryForm.elements;
-
-            let data = {};
-             
-            //Prepare the data for Style Group
-            let group = 'inventory';
-            for (const element of inventory) {
-                if (element.name) {
-                    data[group+'_'+element.name] = element.value;
-                }   
+            let parts = {};
+            for (let i=0; i<4; i++) {
+                const value = elements[i].children[1].value;
+                parts['part_'+i] = value;
             }
-            await submitData(data);
+
+            const response = await submitCodeForCheck(parts);
+
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+                return;
+            }
+            const data = await response.json();
+
+            const part2Options = data.part2s;
+            if (part2Options) {
+                const part2Selected = data.part2;
+                await appendOptions('id_Part2', part2Options, part2Selected);
+            }
+            
+            const part3Options = data.part3s;
+            if (part3Options) {
+                const part3Selected = data.part3;
+                await appendOptions('id_Part3', part3Options, part3Selected);
+            }
+            generateCode(source.children[4].children[1]);
+        }
+
+        function generateCode(source) {
+            const elements = source.parentElement.parentElement.children;
+
+            const part1 = elements[0].children[1].value;
+            const part2 = elements[1].children[1].value;
+            const part3 = elements[2].children[1].value;
+            const part4 = elements[3].children[1].value;
+            const code = elements[4].children[1];
+
+            if (part1 && part2 && part3 && part4) {
+                code.value = part1+part2+part3+part4;
+            } else {
+                code.value = null;
+            }
         }
 
         //Convert data to Json and send to server
-        async function submitData(obj) {
+        async function submitCodeForCheck(obj) {
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
             
             const data = JSON.stringify(obj);
             
-            try {
-                const response = await fetch('', {
-                    method: 'POST',
-                    body: data,
-                    headers: { "X-CSRFToken": csrf},
-                  });
-                if (response.status == 200) {
-                    window.location.reload();
+            //console.log (csrf);
+            const response = await fetch('/inv/code/gen/', {
+              method: 'POST',
+              body: data,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            return response;
+        }
+
+        async function finaliseCode(source) {
+            const codeValue = source.parentElement.children[4].children[1].value;
+
+            if (codeValue) {
+                const response = await fetch('/inv/'+codeValue+'/check');
+
+                if (response.ok) {
+                    const codeBox = document.getElementById('id_Code');
+                    codeBox.value = codeValue;
                 } else {
-                    const errorMessage = await response.text()
+                    const errorMessage = await response.text();
                     showMessage(errorMessage);
                 }
-            } catch (error) {
-                alert(`Error occured. Check with administrator. Error: ${errorMessage}`);
+                
+            } else {
+                showMessage('Invalid Code');
             }
+            
         }
-
-        function formToTable(group, form, data){
-            let rows = form.querySelectorAll('.row');
-            //Remove unnecesary rows
-            rows = dropElements(rows);
-
-            for (const row of rows) {
-                let rowNum = row.getAttribute('row');
-                let cols = row.children;
-                //Remove unnecessary columns
-                cols = dropElements(cols, cols.length-1, cols.length-1);
-
-                for (const col of cols) {
-                    name = col.firstElementChild.name+'_'+rowNum;
-                    value = col.firstElementChild.value;
-                    data[group+'_'+name] = value;                    
-                }
-            }
-            return data;
-        }
-
-        function dropElements(obj, startFrom=0, endAt=0) {
-            const arr = Object.values(obj);
-
-            arr.splice(startFrom, endAt - startFrom + 1);
-
-            return arr;
-        }
-
     </script>
-
 {% endblock %}

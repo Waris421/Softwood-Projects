@@ -8,160 +8,188 @@
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     
     <!-- The main style form-->
-    <p>
-        <form method="POST" id="styleForm">
-            <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Code:&nbsp; </label>
+    <form method="POST" id="styleForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" value="{{style.StyleCode}}" name="StyleCode" readonly>
                 </div>
-                <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Name:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{style.StyleName}}" name="StyleName">
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{style.StyleName}}" name="StyleName" required>
                 </div>
-                <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Notes:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{style.Notes}}" name="Notes">  
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Notes:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{style.Notes}}" name="Notes">
                 </div>
-                <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Customer:&nbsp; </label>
-                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer"> </select>
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" required> </select>
                 </div>
-                <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Category:&nbsp; </label>
-                    <select id="id_Category" class="{{theme.dropdown}}" name="Category"> </select>
-                </div>
-                <div class="col col-md-4 {{theme.align}} {{theme.textJustify}}">
-                    <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
-                        Save
-                    </button>
-                </div>
-            </div>
-        </form>
-    </p>
-
-    <!-- Buttons to go to each of a style's detail table-->
-    <p>
-        <div class="row g-3 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-            <div class = "col btn-group {{theme.justify}}">
-                <button id="btn_variantTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantTable')">Variant</button>
-                <button id="btn_consTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consTable')">Consumption</button>
-                <button id="btn_routeTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeTable')">Route</button>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
+                    <select id="id_Category" class="{{theme.dropdown}}" name="Category" required> </select>
+                </div>  
+                <div class="flex col-[3/4] items-center">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+                </div>  
             </div>
         </div>
-    </p>
-    <!-- Variants Table -->
-    <div id="variantTable" name="variantTable" display="none">
-        <div class="row {{theme.border}}">
-            <div class="col-6">
-                <form method="POST" id="variantForm" autocomplete="off">
-                    <div class="row mt-0 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                        <div class="col-8">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Variant
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Actions
-                            </div>
-                        </div>
-                    </div>
-                    {% for data in var %}
-                        <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                            <div class="col-8">
-                                <input type="text" class="{{theme.textInput}}" value="{{data.VariantCode}}" name="Variant"> 
-                            </div>
-                            <div class="col-4">
-                                <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                                    <span>+</span>
-                                </button>
-                                <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                                    <span>-</span>
-                                </button>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </form>
-            </div>
-            <div class="col-6">
-                <div class="col-6">
-                    <img src="" class="img-fluid">
-                    There would be an image here.
-                </div>
-            </div>
+    </form>
+
+    <!-- Buttons to go to each of a style's detail table-->
+    <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+        <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+            <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
+            <button id="btn_consumptionForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consumptionForm')">Consumption</button>
+            <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
         </div>
     </div>
 
-    <!--Consumption Table-->
-    <div id="consTable" name="consTable" display="none">
-        <form method="POST" id="consumptionForm" autocomplete="off">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                <div class="col col-md-3">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Inventory
+    <!-- Variants Table -->
+    <form method="POST" id="variantsForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
                     </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Cons
-                    </div>
-                </div>
-                <div class="col col-md-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Cons Unit
-                    </div>
-                </div>
-                <div class="col col-md-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Type
-                    </div>
-                </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Variants?
-                    </div>
-                </div>
-                <div class="col col-md-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Size Details
-                    </div>
-                </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
-            {% for data in cons %}
-                <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                    <div>
-                        <input type="text" value="{{data.id}}" name="id" hidden>
+        </div>
+        {% for data in var %}
+            <div class="grid grid-cols-3 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.VariantCode}}" name="Variant" required> 
+                </div>
+                <div class="flex col-[3/4] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </form>
+
+    <!--Consumption Table-->
+    <form method="POST" id="consumptionForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
                     </div>
-                    <div class="col-3" chosen="true">
-                        <select class="{{theme.dropdown}}" id="id_InventoryCode_{{forloop.counter}}" name="InvCode">
-                        </select>
-                        <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Consumption
                     </div>
-                    <div class="col-1">
-                        <input type="number" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption">
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Cons. Unit
                     </div>
-                    <div class="col-2" chosen="true">
-                        <select class="{{theme.dropdown}}" id="id_Unit_{{forloop.counter}}" name="Unit">
-                        </select>
+                </div>
+                <div class="flex col-[7/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Type
                     </div>
-                    <div class="col-2">
-                        <select class="{{theme.dropdown}}" id="id_ConsType_{{forloop.counter}}" name="type">
-                        </select>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variants?
                     </div>
-                    <div class="col-1">
-                        <select class="{{theme.dropdown}}" id="id_HasVariant_{{forloop.counter}}" name="HasVariant">
-                        </select>
+                </div>
+                <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Size Details
                     </div>
-                    <div class="col-2">
-                        <input type="text" class="{{theme.textInput}}" value="{{data.SizeDetails}}" name="SizeDetails">
+                </div>
+                <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
                     </div>
-                    <div class="col-1">
+                </div>
+            </div>
+        </div>
+        {% for data in cons %}
+            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+                <div>
+                    <input type="text" value="{{data.id}}" name="id" hidden>
+                </div>
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <input type="text" value="{{data.InventoryCode}}" name="InvCode" hidden>
+                    <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InvName" required>
+                    <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption">
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_Unit_{{forloop.counter}}" name="Unit">
+                    </select>
+                </div>
+                <div class="flex col-[7/9] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_ConsType_{{forloop.counter}}" name="Type">
+                    </select>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_HasVariant_{{forloop.counter}}" name="HasVariant">
+                    </select>
+                </div>
+                <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.SizeDetails}}" name="SizeDetails">
+                </div>
+                <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </form>
+
+    <!--Production Route Table-->
+    <form method="POST" id="routeForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Sequence
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Stage
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            {% for data in route %}
+                <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Sequence}}" name="Sequence" required>
+                    </div>
+                    <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                        <select class="{{theme.dropdown}}" id="id_RouteType_{{forloop.counter}}" name="type"></select>
+                    </div>
+                    <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
                         <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                             <span>+</span>
                         </button>
@@ -171,134 +199,78 @@
                     </div>
                 </div>
             {% endfor %}
-        </form>
-    </div>
-
-    <!--Production Route Table-->
-    <div id="routeTable" name="routeTable">
-        <div class="row {{theme.border}}">
-            <div class="col-6">
-                <form method="POST" id="routeForm">
-                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                        <div class="col-5">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Sequence
-                            </div>
-                        </div>
-                        <div class="col-5">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Stage
-                            </div>
-                        </div>
-                        <div class="col-2">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Actions
-                            </div>
-                        </div>
-                    </div>
-                    {% for data in route %}
-                        <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                            <div class="col-5" deletable="true">
-                                <input type="number" class="{{theme.textInput}}" value="{{data.Sequence}}" name="Sequence">
-                            </div>
-                            <div class="col-5">
-                                <select class="{{theme.dropdown}}" id="id_RouteType_{{forloop.counter}}" name="type">
-                                </select>
-                            </div>
-                            <div class="col-2">
-                                <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                                    <span>+</span>
-                                </button>
-                                <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                                    <span>-</span>
-                                </button>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </form>
-            </div>
-            <div class="col-6">
-                There would be an image here
-            </div>
         </div>
-    </div>
+    </form>
 
     <!--Inventory search dialog box-->
-    <div class="modal fade" id="invSearchTable" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <input type="checkbox" id="invSearchTableToggle" class="modal-toggle" />
+    <div class="modal" id="invSearchTable">
         <div class="{{theme.dialogBox}}">
-            <div class="modal-content">
-                <div class="{{theme.dialogBoxHeader}}">
-                    <div class="{{theme.dialogBoxTitle}}" id="modalLabel">
-                        Inventory Cards
+            <div class="{{theme.dialogBoxHeader}}">
+                <h3 class="{{theme.dialogBoxTitle}}" id="modalLabel">
+                    Inventory Cards
+                </h3>
+                <label for="invSearchTableToggle" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</label>
+            </div>
+            <div class="{{theme.dialogBoxBody}}">
+                <div class="grid grid-cols-3 gap-4 mb-2 bg-gray-800 text-white p-2 rounded-md">
+                    <div class="text-center font-semibold">Filter 1</div>
+                    <div class="text-center font-semibold">Filter 2</div>
+                    <div class="text-center font-semibold">Filter 3</div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="applySearch(this)">
+                    <div hidden>
+                        <input readonly />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
                     </div>
                 </div>
-                <div class="{{theme.dialogBoxBody}}">
-                    <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white">
-                        <div class="col-4">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Filter 1
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Filter 2
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                                Filter 3
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}} {{theme.border}}" onkeyup="applySearch(this)">
-                        <div hidden>
-                            <input readonly>
-                        </div>
-                        <div class="col-4">
-                            <input type="text" class="{{theme.textInput}}">
-                        </div>
-                        <div class="col-4">
-                            <input type="text" class="{{theme.textInput}}">
-                        </div>
-                        <div class="col-4">
-                            <input type="text" class="{{theme.textInput}}">
-                        </div>
-                    </div>
-                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}} {{theme.border}} user-select-none" ondblclick="selectInv(this)">
-                        <div hidden>
-                            <span> ABCD</span>
-                        </div>
-                        <div class="col-4">
-                            <span class="{{theme.textInput}}"> </span>
-                        </div>
-                        <div class="col-4">
-                            <span class="{{theme.textInput}}"> </span>
-                        </div>
-                        <div class="col-4">
-                            <span class="{{theme.textInput}}"> </span>
-                        </div>
-                    </div>
+                <div class="grid grid-cols-3 gap-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer user-select-none"
+                    onclick="selectInv(this)"
+                    id="templateRow"
+                    style="display: none;"
+                >
+                <div hidden>
+                    <span></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
                 </div>
             </div>
+            <div id="inventoryListContainer"></div>
+        </div>
         </div>
     </div>
 
     <script> //To change view based on selected button
-        const tableIds = ['variantTable', 'consTable','routeTable'];
+        const formIds = ['consumptionForm', 'variantsForm','routeForm'];
 
-        function changeView(tableId){
-            let tables = [];
+        function changeView(formId){
+            let forms = [];
 
-            for (let i=0;i<tableIds.length;i++) {
-                tables[i] = document.getElementById (tableIds[i]);
-                const button = document.getElementById('btn_'+tableIds[i]);
-                if (tableId === tableIds[i]){
-                    tables[i].style.display = "";
-                    button.className = "{{theme.buttonSelected}}";
+            for (let i=0;i<formIds.length;i++) {
+                forms[i] = document.getElementById (formIds[i]);
+                const button = document.getElementById(`btn_${formIds[i]}`);
+                if (formId === formIds[i]){
+                    forms[i].hidden = false;
+                    button.className = `{{theme.buttonSelected}}`;
                 } else {
-                    tables[i].style.display = "none";
-                    button.className = "{{theme.buttonBasic}}";
-                }          
+                    forms[i].hidden = true;
+                    button.className = `{{theme.buttonBasic}}`;
+                }
             }
         }
     </script>
@@ -311,11 +283,6 @@
             let response = await fetch('/options/customers');
             const customers = await response.json();
             await appendOptions('id_Customer', customers, "{{style.Customer}}");
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Customer").chosen({
-                search_contains: true,
-                width: "100%"
-            });
             
             //Style Categories dropdown
             response = await fetch('/options/categories');
@@ -324,9 +291,6 @@
             
             //Consumptions data, that was passed as JSON from view
             const consumptionData = {{ consJson|safe }};
-            //Inventory Cards dropdowns
-            response = await fetch('/options/inventories?group=Direct&newFormat=No');
-            const inventories = await response.json();
             
             //Units dropdown
             response = await fetch('/options/units');
@@ -342,7 +306,6 @@
 
             //Apply the relevant dropdowns on all rows of consumption
             for (const [index, data] of consumptionData.entries()) {
-                await appendOptions(`id_InventoryCode_${index+1}`, inventories, data.InventoryCode);
                 await appendOptions(`id_Unit_${index+1}`, units, data.Unit);
                 await appendOptions(`id_ConsType_${index+1}`, consTypes, data.Type);
                 await appendOptions(`id_HasVariant_${index+1}`, yesOrNo, data.HasVariant);
@@ -360,8 +323,8 @@
                 await appendOptions(`id_RouteType_${index+1}`, routeTypes, data.Stage);
             }
 
-            //Apply search on dropdown where needed
-            await addSearchBox();
+            changeView ('consumptionForm');
+
             hideLoadingIcon();
             });
 
@@ -369,6 +332,7 @@
 
     <script>    //To handle inventory search box
         async function openInvSearch(source) {
+            showLoadingIcon();
             //Filter out the inventories from server based on selected group
             const type = source.parentElement.parentElement.children[3].children[0].value;
             const invTableRowNum = source.parentElement.parentElement.getAttribute('row');
@@ -389,69 +353,58 @@
             //Remove the frist row, as that is blank
             inventories.shift();
 
-            //Get the inventory search box template
-            const searchTable = document.getElementById('invSearchTable');
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
 
-            //Set the row number of inventory table in the dialogbox header to be used later on
-            const searchTableHeader = searchTable.children[0].children[0].children[0];
-            searchTableHeader.setAttribute('row',invTableRowNum);
-            
-            //Get all the rows
-            const searchTableBody = searchTable.children[0].children[0].children[1];
-            const rows= searchTableBody.children;
-            const filterRow = searchTableBody.children[1];
-            const templateRow = searchTableBody.children[2];
-
-            //Remove any preivously added rows
-            for (let i = searchTableBody.children.length - 1; i >= 2; i--) {
-                rows[i].remove();
+            const modalLabelElement = document.getElementById('modalLabel');
+            if (modalLabelElement) {
+                modalLabelElement.setAttribute('data-row-number', invTableRowNum);
             }
-            
-            //Remove any values from the template row.
-            for (const col of templateRow.children) {
-                col.children[0].textContent = null;
-            }
-            //Set it's display style to nothing
-            templateRow.style.display = '';
 
-            //Create copies of the template for each inventory and append to the table
+            const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
+            const templateRow = document.getElementById('templateRow');
+            const inventoryListContainer = document.getElementById('inventoryListContainer');
+
+            inventoryListContainer.innerHTML = '';
+
+            const filterInputs = filterRow.querySelectorAll('input[type="text"]');
+
             for (const inventory of inventories) {
                 const newRow = templateRow.cloneNode(true);
+                newRow.style.display = 'grid';
+                newRow.removeAttribute('id');
 
                 newRow.children[0].children[0].textContent = inventory.value;
                 newRow.children[1].children[0].textContent = inventory.text;
                 newRow.children[2].children[0].textContent = inventory.text;
                 newRow.children[3].children[0].textContent = inventory.text;
 
-                searchTableBody.appendChild(newRow);
+                inventoryListContainer.appendChild(newRow);
             }
-
-            applySearch(filterRow);
-
-            //convert the table to a bootstrap modal and show it to user.
-            new bootstrap.Modal(searchTable).show();
-
-            //Put cursor in the first column of the filter row
-            searchTable.addEventListener('shown.bs.modal', () => {
-                filterRow.children[1].children[0].focus();
-            });            
+            
+            invSearchTableToggle.checked = true;
+            hideLoadingIcon();
         }
 
         async function selectInv(source) {
+            showLoadingIcon();
             const selectedCode = source.children[0].children[0].textContent;
+            const selectedName = source.children[1].children[0].textContent;
 
-            const consTableRowNum = parseInt(source.parentElement.parentElement.children[0].getAttribute('row'));
+            const consTableRowNum = parseInt(source.parentElement.parentElement.parentElement.children[0].children[0].getAttribute('data-row-number'));
             
-            const consTableRow = document.getElementById('consTable').children[0].children[consTableRowNum];
+            const consTableRow = document.getElementById('consumptionForm').children[consTableRowNum];
             
             const invCodeBox = consTableRow.children[1].children[0];
+            const invNameBox = consTableRow.children[1].children[1];        
             
             invCodeBox.value = selectedCode;
+            invNameBox.value = selectedName;
             
             const id = invCodeBox.id;
-            $("#"+id).trigger('chosen:updated');
 
-            $('#invSearchTable').modal('hide');
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = false;
+            hideLoadingIcon();
         }
 
         function applySearch(source) {
@@ -466,7 +419,7 @@
 
             const searchTableBody = source.parentElement;
             //Get all rows except first 2
-            const rows = searchTableBody.querySelectorAll('.row:not(:nth-child(-n+2))');
+            const rows = searchTableBody.querySelector('#inventoryListContainer').children;
             
             for (const row of rows) {
                 //Make an array of all true values, with same length as number of search terms
@@ -491,13 +444,30 @@
     <script> //To send data to server
         async function submitForms() {
             showLoadingIcon();
+            
+            //Get all the forms in the page
             const allForms = document.forms;
 
+            //Make sure that there are no invalid inputs
+            let formsValidityFlag = true;
+            for (const form of allForms) {
+                if (!form.checkValidity()) {
+                    formsValidityFlag = false;
+                    break;
+                }
+            }
+            if (!formsValidityFlag) {
+                hideLoadingIcon();
+                showMessage('Some required fields are missing', 5, `{{theme.errorBox}}`);
+                return;
+            }
+
+            //Get the forms that we need to send to backend.
             const styleForm = allForms['styleForm']; 
-            const variantForm = allForms['variantForm'];
+            const variantsForm = allForms['variantsForm'];
             const consumptionForm = allForms['consumptionForm'];
             const routeForm = allForms['routeForm'];
-            
+
             const style = styleForm.elements;
 
             let data = {};
@@ -511,32 +481,20 @@
             }
 
             //Prepare the data for each Group
-            data = formToTable('variant', variantForm, data);
+            data = formToTable('variant', variantsForm, data);
             data = formToTable('cosumption', consumptionForm, data);
             data = formToTable('route', routeForm, data);
-
-            const tableIds = ['variantTable', 'consTable','routeTable'];
-
-            let selectedTable = null
-            for (const id of tableIds) {
-                const table = document.getElementById(id);
-                const tableDisplay = table.style.display;
-                if (tableDisplay != 'none') {
-                    selectedTable = id;
-                }
-            }
-            data['style_SelectedTable'] = selectedTable;
             
-            const response = await submitData(data)
+            const response = await submitData(data);
 
-            hideLoadingIcon();
-            
             if (response.ok) {
-                showMessage('Success');
+                showMessage('Saved Successfully', 3, `{{theme.successBox}}`);
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);
             }
+
+            hideLoadingIcon();            
         }
 
         //Convert data to Json and send to server
@@ -556,7 +514,7 @@
         }
 
         function formToTable(group, form, data){
-            let rows = form.querySelectorAll('.row');
+            let rows = form.querySelectorAll('[row]');
             //Remove unnecesary rows
             rows = dropElements(rows);
 
@@ -582,9 +540,5 @@
 
             return arr;
         }
-    </script>
-
-    <script> //To run when page loads. It should be at the end of the page.         
-        changeView ('consTable');
     </script>
 {% endblock %}

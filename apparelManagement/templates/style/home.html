@@ -6,49 +6,38 @@
 
 {% block content %}
   <div class="{{theme.border}}">
-    <p>
-      <div class="row g-3 {{theme.justify}} {{theme.align}}">
-        <div class="col col-md-4 {{theme.textJustify}}">
-          <form action="{% url 'Style' %}" method="get">
-            <select name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-              <option value="">  ---------  </option>
-              {% for data in customers %}
-              <option value="{{ data }}"
-                  {% if data == selectedCustomer %}
-                  selected
-                  {% endif %}>
-                  {{ data }}
-              </option>
-              {% endfor %}
-              </select>
-            <input type="hidden" name="search_term" value="{{ searchTerm }}">
-          </form>
+    <form action="{% url 'Style' %}" method="get">
+      <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+        <div class="flex flex-col col-[1/3] items-center">
+          <select name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+            <option value="">--Customer--</option>
+            {% for data in customers %}
+            <option value="{{ data }}"
+                {% if data == selectedCustomer %}
+                selected
+                {% endif %}>
+                {{ data }}
+            </option>
+            {% endfor %}
+          </select>
         </div>
-
-        <div class="col btn-group {{theme.textJustify}}">
-          <a class="{{theme.buttonBasic}}" href="/style/add" role="button">Add Style</a>
+        <div class="flex flex-col col-[3/5] items-center">
+          <input type="text" class="{{theme.textInput}}" name="searchTerm" placeholder="Search" value="{{searchTerm}}">
+        </div>
+        <div class="flex col-[5/6] btn-group {{theme.align}} justify-end ml-1">
+          <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+        </div>
+        <div class="flex col-[6/13] btn-group {{theme.align}} justify-end ml-1">
+          <a class="{{theme.buttonBasic}}" href="{% url 'addStyle' %}" role="button">Add Style</a>
           <a id="copyCardButton" class="{{theme.buttonBasic}}" role="button">Copy Style</a>
           <a id="editCardButton" class="{{theme.buttonBasic}}" role="button">Edit Style</a>
           <a id="deleteCardButton" class="{{theme.buttonBasic}}" role="button">Delete Style</a>
         </div>
-      </div> 
-    </p>
-    <p>
-      <div class="row g-0 {{theme.justify}} {{theme.align}}">
-        <div class="col col-md-10 {{theme.textJustify}}">
-          <form action="{% url 'Style' %}" method="get">
-            <input type="text" class="{{theme.textInput}} w-100" name="search_term" placeholder="Search styles" value="{{searchTerm}}">
-            <input type="hidden" name="customerFilter" value="{{ selectedCustomer }}">
-        </div>
-        <div class="col col-md-2 {{theme.textJustify}}">
-            <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-        </div>
-          </form> 
       </div>
-    </p> 
+    </form>
   </div>
 
-  <div id ="style_Table">   
+  <div id ="style_Table" class="mt-6">   
     <table class="{{theme.table}}">  
       <tr class = "{{theme.tableHead}}">
         <th scope="col">Select</th>
@@ -60,8 +49,8 @@
       </tr>
       <tbody id="tableData" class = "{{theme.tableBody}}">
         {% for data in style %}
-        <tr>
-          <td><input type="radio" name="item_checkbox"></td>
+        <tr class="{{theme.tableBodyRow}}">
+          <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
           <td class="code">{{ data.StyleCode }}</td>
           <td>{{ data.StyleName }}</td>
           <td>{{ data.Customer_id }}</td>
@@ -72,79 +61,43 @@
       </tbody>
     </table>
   </div>
+  
+  <div class="{{ theme.pagination }}">
+     <div class="btn-group">
+      {% if page_obj.has_previous %}
+          <a href="?page=1&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Previous</a>
+      {% else %}
+          <button class="btn btn-sm" disabled>First</button>
+          <button class="btn btn-sm" disabled>Previous</button>
+      {% endif %}
 
-  <div class="{{theme.pagination}}">
-    {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}&customerFilter={{ selectedCustomer }}&search_term={{ searchTerm }}"
-      class = "{{theme.linkPaginaton}}">
-        Previous
-      </a>
-    {% else %}
-      <a>
-        Previous
-      </a>
-    {% endif %} &nbsp|&nbsp
-    {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}&customerFilter={{ selectedCustomer }}&search_term={{ searchTerm }}"
-      class = "{{theme.linkPaginaton}}">
-        Next
-      </a>
+      {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Last</a>
       {% else %}
-        <a>
-          Next
-        </a>
-    {% endif %} &nbsp|&nbsp
-    {% if page_obj.has_previous %}
-      <a href="?page=1&customerFilter={{ selectedCustomer }}&search_term={{ searchTerm }}"
-      class = "{{theme.linkPaginaton}}">
-        First
-      </a>
-      {% else %}
-        <a>
-          First
-        </a>
-    {% endif %} &nbsp|&nbsp
-    {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.paginator.num_pages }}&customerFilter={{ selectedCustomer }}&search_term={{ searchTerm }}"
-      class = "{{theme.linkPaginaton}}">
-        Last
-      </a>
-      {% else %}
-        <a>
-          Last
-        </a>
-    {% endif %} &nbsp|&nbsp
-    
-    <form action="" method="get">
-      <select name="page" onchange="this.form.submit()" class="{{theme.dropdownPagination}}">
-        {% for page_num in page_obj.paginator.page_range %}
-          <option value="{{ page_num }}" 
-            {% if page_num == page_obj.number %}
-              selected
-            {% endif %}>
-              {{ page_num }}
-          </option>
-        {% endfor %}
-      </select>
-      <input type="hidden" name="customerFilter" value="{{ selectedCustomer }}">
-      <input type="hidden" name="search_term" value="{{ searchTerm }}">
-    </form>
+          <button class="btn btn-sm" disabled>Next</button>
+          <button class="btn btn-sm" disabled>Last</button>
+      {% endif %}
+     </div>
   </div>
 
-  <script>  //To change the edit card button based on selection in radio
-      $("#tableData").on("click", "input[type='radio']", function() { 
-          //Get the code against seletion
-          const selectedCode = $(this).closest("tr").find("td.code").text();
+  <script>  //Update the buttons based on the selection in radio
+    const dataTable = document.getElementById('tableData');
+    dataTable.addEventListener('click', (event) => {
+      if (event.target.type === 'radio' && event.target.name === 'item_checkbox') {
+        const radio = event.target;
+        const selectedCode = radio.closest('tr').querySelector('td.code').textContent.trim();
 
-          //Find and link the edit card button to the selected code
-          var button = $("#copyCardButton");           
-          button.attr("href", "/style/" + selectedCode + "/copy");
-          
-          button = $("#editCardButton");           
-          button.attr("href", "/style/" + selectedCode + "/edit");
+        var button = document.getElementById("copyCardButton");
+        button.href = '/style/'+ selectedCode + '/copy/';
 
-          button = $("#deleteCardButton");
-          button.attr("href", "/style/" + selectedCode + "/delete");
-      });          
+        button = document.getElementById("editCardButton");
+        button.href = '/style/'+ selectedCode + '/edit/';
+
+        button = document.getElementById("deleteCardButton");
+        button.href = '/style/'+ selectedCode + '/delete/';
+      }
+    });       
   </script>
 {% endblock %}

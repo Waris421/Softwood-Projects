@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
+from django.urls import reverse
 
 import json
 
@@ -79,13 +80,12 @@ def AddInv (request: HttpRequest):
         return HttpResponse('Access Denied', status=403)
        
     if request.method == 'POST':
-        #Convert the json to a dict
-        jsonData = json.loads(request.body.decode('utf-8'))
+        fields = ['Code', 'Name', 'Group', 'Unit', 'AuditReq', 'Life', 'LeadTime', 'MinStockLvl', 'StandardPrice', 'Currency', 'InUse']
+        data = {field: request.POST.get(field) for field in fields}
 
-        dfInventory = generic_services.refineJson(jsonData)
         try:
-            inventoryCode = inventory_card_service.AddInventory(dfInventory)
-            return HttpResponse(inventoryCode, status=200)
+            inventoryCode = inventory_card_service.AddInventory(data)
+            return redirect(reverse('editInv', kwargs={'pk': inventoryCode}))
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
@@ -131,15 +131,13 @@ def UpdateInv(request: HttpRequest, pk: str):
         return HttpResponse('Resource not found', status=400)
 
     if request.method == 'POST':
-        #Convert the json to a dict
-        jsonData = json.loads(request.body.decode('utf-8'))
-
-        dfInventory = generic_services.refineJson(jsonData)
-
+        fields = ['Code', 'Name', 'Group', 'Unit', 'AuditReq', 'Life', 'LeadTime', 'MinStockLvl', 'StandardPrice', 'Currency', 'InUse']
+        data = {field: request.POST.get(field) for field in fields}
         try:
-            inventory_card_service.EditInventory(dfInventory, inv)
-            return HttpResponse('OK', status=200)
+            inventory_card_service.EditInventory(data, inv)
+            return redirect(reverse('editInv', kwargs={'pk': pk}))
         except Exception as e:
+            print(e)
             return HttpResponse(e, status=400)
     else:
         groups, unitTypes, auditReq, inUse, currencies,  codeP1  = inventory_card_service.getInventoryCardDropDowns()
@@ -277,8 +275,7 @@ def UpdateStyle (request: HttpRequest, pk: str):
 
         try:
             style_card_service.UpdateStyleCard(dfStyle, dfVariants, dfConsumption, dfRoute)
-            selectedTable = dfStyle['SelectedTable'][0]
-            return HttpResponse(selectedTable, status=200)
+            return HttpResponse('OK', status=200)
         except Exception as e:
             print(e)
             context = {'error': str(e)}
@@ -322,39 +319,43 @@ def CopyStyle(request: HttpRequest, pk: str):
     style = models.StyleCard.objects.get(StyleCode=pk)
 
     if request.method == 'POST':
-        SourceCode = request.POST.get('source')
-        TargetCode = request.POST.get('target')
+        sourceCode = request.POST.get('source')
+        targetCode = request.POST.get('target')
+
+        if not targetCode:
+            context = {'message': 'No Code provided','theme': theme, 'source':style.StyleCode}
+            return render(request, 'style/copy.html', context)
 
         try:
-            models.StyleCard.objects.get(StyleCode=TargetCode)
-            context = {'message': 'Code Already Exsits','theme': theme}
-            return render (request, 'blank.html',context)
+            models.StyleCard.objects.get(StyleCode=targetCode)
+            context = {'message': 'Code Already Exsits','theme': theme, 'source':style.StyleCode}
+            return render(request, 'style/copy.html', context)
         except models.StyleCard.DoesNotExist:
-            styleObj = models.StyleCard.objects.get(StyleCode=SourceCode)
-            styleObj.StyleCode = TargetCode
+            styleObj = models.StyleCard.objects.get(StyleCode=sourceCode)
+            styleObj.StyleCode = targetCode
             styleObj.save()
 
-            styleObj = models.StyleCard.objects.get(StyleCode=TargetCode)
+            styleObj = models.StyleCard.objects.get(StyleCode=targetCode)
 
-            sourceVariants = models.StyleVariant.objects.filter(Style=SourceCode)
+            sourceVariants = models.StyleVariant.objects.filter(Style=sourceCode)
             for variant in sourceVariants:
                 variant.pk = None
                 variant.Style = styleObj
                 variant.save()
             
-            sourceConsumptions = models.StyleConsumption.objects.filter(Style=SourceCode)
+            sourceConsumptions = models.StyleConsumption.objects.filter(Style=sourceCode)
             for consumption in sourceConsumptions:
                 consumption.pk = None
                 consumption.Style = styleObj
                 consumption.save()
             
-            sourceRoutes = models.StyleRoute.objects.filter(Style=SourceCode)
+            sourceRoutes = models.StyleRoute.objects.filter(Style=sourceCode)
             for route in sourceRoutes:
                 route.pk = None
                 route.Style = styleObj
                 route.save()
             
-            return redirect(f'/style/{TargetCode}/edit')
+            return redirect(f'/style/{targetCode}/edit')
         except Exception as e:
             context = {'message': f'Error: {e}', 'theme': theme}
             return render (request, 'blank.html',context)

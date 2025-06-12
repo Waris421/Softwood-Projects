@@ -7,74 +7,72 @@
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     <!-- The main style form-->
-    <p>
-        <form method="POST" id="styleForm" autocomplete="off">
-            <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Code:&nbsp; </label>
+    <form method="POST" id="styleForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" name="StyleCode" required>
                 </div>
-                <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Name:&nbsp; </label>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" name="StyleName" required>
                 </div>
-                <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Notes:&nbsp; </label>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Notes:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" name="Notes">
                 </div>
-                <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Customer:&nbsp; </label>
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
                     <select id="id_Customer" class="{{theme.dropdown}}" name="Customer"> </select>
                 </div>
-                <div class="col-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Category:&nbsp; </label>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
                     <select id="id_Category" class="{{theme.dropdown}}" name="Category"> </select>
-                </div>
-                <div class="col-4 {{theme.align}} {{theme.textJustify}}">
-                    <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
-                        Save
-                    </button>
-                </div>
-            </div>
-        </form>
-    </p>
-     <!-- Buttons to go to each of a style's detail table-->
-    <p>
-        <div class="row g-3 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-            <div class = "col btn-group {{theme.justify}}">
-                <button id="btn_variantTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantTable')">Variant</button>
-                <button id="btn_routeTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeTable')">Route</button>
+                </div>  
+                <div class="flex col-[3/4] items-center">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="SendForm()">Save</button>
+                </div>    
             </div>
         </div>
-    </p>
-      
-    <div id="variantTable" name="variantTable">
-        <form method="POST" id="variantForm" autocomplete="off">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                <div class="col-5">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+    </form>
+    
+    <!-- Buttons to go to each of a style's detail table-->
+    <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+        <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+            <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
+            <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+        </div>
+    </div>
+    
+    <!-- Variants Table -->
+    <form method="POST" id="variantsForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant 1
                     </div>
                 </div>
-                <div class="col-5">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant 2
                     </div>
                 </div>
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
-            <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
-                <div class="col-5">
+            <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                     <input type="text" class="{{theme.textInput}}" name="Variant1" required>
                 </div>
-                <div class="col-5">
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
                     <input type="text" class="{{theme.textInput}}" name="Variant2" required>
                 </div>
-                <div class="col-1">
+                <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                         <span>+</span>
                     </button>
@@ -83,37 +81,37 @@
                     </button>
                 </div>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 
-    <div id="routeTable" name="routeTable">
-        <form method="POST" id="routeForm">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                <div class="col-5">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+    <!-- Route Table -->
+    <form method="POST" id="routeForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Sequence
                     </div>
                 </div>
-                <div class="col-5">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Stage
                     </div>
                 </div>
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
-            <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
-                <div class="col-5" deletable="true">
-                    <input type="number" class="{{theme.textInput}}" name="Sequence" required>
+            <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="Sequence" required>
                 </div>
-                <div class="col-5">
-                    <select class="{{theme.dropdown}}" id="id_RouteType_1" name="type">
-                    </select>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_RouteType_1" name="type"></select>
                 </div>
-                <div class="col-1">
+                <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                         <span>+</span>
                     </button>
@@ -122,26 +120,25 @@
                     </button>
                 </div>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 
     <script> //To change view based on selected button
-        const tableIds = ['variantTable','routeTable'];
+        const formIds = ['variantsForm','routeForm'];
 
-        function changeView(tableId){
-            let tables = [];
+        function changeView(formId){
+            let forms = [];
 
-            for (let i=0;i<tableIds.length;i++) {
-                tables[i] = document.getElementById (tableIds[i]);
-                const button = document.getElementById('btn_'+tableIds[i]);
-                if (tableId === tableIds[i]){
-                    tables[i].style.display = "";
-                    button.className = "{{theme.buttonSelected}}";
+            for (let i=0;i<formIds.length;i++) {
+                forms[i] = document.getElementById (formIds[i]);
+                const button = document.getElementById(`btn_${formIds[i]}`);
+                if (formId === formIds[i]){
+                    forms[i].hidden = false;
+                    button.className = `{{theme.buttonSelected}}`;
                 } else {
-                    tables[i].style.display = "none";
-                    button.className = "{{theme.buttonBasic}}";
+                    forms[i].hidden = true;
+                    button.className = `{{theme.buttonBasic}}`;
                 }
-                
             }
         }
     </script>
@@ -236,31 +233,26 @@
             let response = await fetch('/options/customers');
             const customers = await response.json();
             await appendOptions('id_Customer', customers);
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Customer").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             //Style Categories dropdown
             response = await fetch('/options/categories');
             const categories = await response.json();
+            const emptyRow = {
+                "value": "",
+                "text": "-----------"
+            }
+            categories.unshift(emptyRow);
             await appendOptions('id_Category', categories);
 
             //Production stages dropdown
             response = await fetch('/options/prodstages');
             const routeTypes = await response.json();
+            routeTypes.unshift(emptyRow)
             await appendOptions(`id_RouteType_1`, routeTypes);
 
-            addSearchBox();
-
-            delete response;
+            changeView('variantsForm');
 
             hideLoadingIcon();
         });
-    </script>
-
-    <script> //To run when page loads. It should be at the end of the page.  
-        changeView ('variantTable');
     </script>
 {% endblock %}

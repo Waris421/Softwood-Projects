@@ -70,63 +70,37 @@ def GetInventories (group: str, stockFilter: str):
     data = [dict(zip(cols, i)) for i in dfInventory.values]
     return data
 
-def AddInventory (dfInventory: pd.DataFrame):
+def AddInventory (data: Dict[str, str]):
     '''
     Creates a new inventory card based on the provided data in dataframe.
     '''
-    code = dfInventory['Code'][0]
+    code = data['Code']
 
     try:
-        previousEntry = models.Inventory.objects.get(Code=code)
-    except:
-        previousEntry = None
-    
-    if previousEntry:
+        models.Inventory.objects.get(Code=code)
         raise NameError('Inventory Code already exists')
+    except:
+        pass
 
-    row = dfInventory.iloc[0]  
-    del dfInventory  
-    inventory = {
-        'Code': code,
-        'Name': row['Name'],
-        'Group': row['Group'],
-        'Unit': row['Unit'],
-        'AuditReq': row['AuditReq'],
-        'Life': row['Life'],
-        'LeadTime': row['LeadTime'],
-        'MinStockLvl': row['MinStockLvl'],
-        'StandardPrice': row['StandardPrice'],
-        'InUse': row['InUse'],
-        'Currency': row['Currency']
-    }
-    del row
-      
-    inventory['Unit'] = models.Unit.objects.get(Name=inventory['Unit'])
-    inventory['Currency'] = models.Currency.objects.get(Code=inventory['Currency'])
-    
-    inventory = models.Inventory(**inventory)
+    data['Unit'] = models.Unit.objects.get(Name=data['Unit'])
+    data['Currency'] = models.Currency.objects.get(Code=data['Currency'])
+
+    inventory = models.Inventory(**data)
+    del data
     inventory.save()
     return inventory.Code
 
 def EditInventory (
-        dfInventory: pd.DataFrame,
+        data: Dict[str, str],
         inventory: models.Inventory
 ):
     '''
     To update the given inventory card based on the provided dataframe.
     '''
-    row = dfInventory.iloc[0]
+    data['Unit'] = models.Unit.objects.get(Name=data['Unit'])
+    data['Currency'] = models.Currency.objects.get(Code=data['Currency'])
 
-    if row['Code'] != inventory.Code:
-        raise ValueError ('Data Integrity error')
-    del inventory
-    
-    row['Unit'] = models.Unit.objects.get(Name=row['Unit'])
-    row['Currency'] = models.Currency.objects.get(Code=row['Currency'])
-
-    row.drop('UnitType',inplace=True)
-
-    inventory = models.Inventory(**row)
+    inventory = models.Inventory(**data)
     inventory.save()
 
 def getInventoryCardDropDowns ():

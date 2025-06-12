@@ -1,73 +1,76 @@
 theme = {
-    #Page theme
-    'navigationBar': 'navbar sticky-top navbar-expand-lg navbar-dark bg-dark',
-    'pageBody': 'container-fluid',
+    'navigationBar': 'navbar bg-gray-900 text-white dark:bg-gray-800 dark:text-gray-200',
+    'navigationDropdown':'dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50',
+    'pageBody': 'container mx-auto p-4 dark:text-gray-200',
     
     #Text and Text Box Theme
-    'border': 'border border-dark rounded',
-    'justify': 'justify-content-center',
-    'align': 'align-items-center',
+    'border': 'border rounded border-base-content/20 dark:border-neutral-content/20',
+    'justify': 'justify-center',
+    'align': 'items-center',
     'textJustify': 'text-center',
-    'primaryHeading': 'h1',
-    'secondaryHeading': 'h4',
+    'primaryHeading': 'text-2xl font-bold',
+    'secondaryHeading': 'text-base',
     
     #Table Theme
-    'table': 'table table-striped table-lg table-bordered table-hover text-center align-middle',
-    'tableHead': 'table-dark',
-    'tableBody': 'table-striped',
-    
+    'table': 'table table-xs table-zebra',
+    'tableHead': 'bg-base-200 dark:bg-base-800 text-center align-middle',
+    'tableBody': 'text-center align-middle',
+    'tableBodyRow': 'hover:bg-gray-300',
+
     #Pagination
-    'pagination': 'pagination align-center',
-    'dropdownPagination': 'form-select-sm font-size: 5px;',
-    'linkPaginaton': 'link-secondary',
+    'pagination': 'flex justify-center mt-4',
+    'dropdownPagination': 'text-xs py-1 px-2 border rounded',
+    'linkPaginaton': 'join-item btn',
     
     #Buttons
-    'buttonBasic': 'btn btn-lg btn-dark bg-gradient text-white',
-    'buttonSelected': 'btn btn-lg btn-dark bg-gradient text-white opacity-50',
-    'buttonSecondary': 'btn btn-success bg-gradient btn-lg',
-    'plusButton': 'btn btn-transparent btn-sm text-success border border-success',
-    'minusButton': 'btn btn-transparent btn-sm text-danger border border-danger',
+    'buttonBasic': """flex flex-grow btn rounded-btn h-[4rem] text-lg bg-gradient-to-b from-blue-500 to-blue-700 dark:bg-gradient-to-b
+                    dark:from-blue-600 dark:to-blue-800 hover:opacity-80""",
+    'buttonSelected': """flex flex-grow btn rounded-btn h-[4rem] text-lg bg-gradient-to-b from-blue-700 to-blue-900 dark:bg-gradient-to-b
+                    dark:from-blue-800 dark:to-blue-950 shadow-inner shadow-black/30 opacity-95""",
+    'buttonSecondary': 'flex flex-grow btn rounded-btn h-[4rem] text-white bg-gradient-to-b from-green-500 to-green-600 hover:opacity-60',
+    'plusButton': 'btn btn-sm btn-outline btn-success dark:btn-success-content dark:border-success-content dark:text-success-content',
+    'minusButton': 'btn btn-sm btn-outline btn-danger dark:btn-danger-content dark:border-danger-content dark:text-danger-content',
     
     #Dropdowns
-    'dropdown': 'form-select form-select-sm rounded text-center border border-dark',
+    'dropdown': 'select select-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
 
     #Text Input
-    'textInput': 'form-control form-control-sm rounded text-center border border-dark',
+    'textInput': 'input input-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
 
-    #Checkboxes
-    'checkbox': 'form-check form-check-input border border-dark',
+    'checkbox': 'checkbox',
+    'radio': 'radio',
+    'range': 'range',
     
     #Links
-    'link': 'link-secondary',
+    'link': 'text-base-content/60 hover:text-base-content dark:text-base-content/40 dark:hover:text-base-content',
+    'hyperLink': 'link link-primary',
 
     #Loading Icon
-    'loadingIcon': 'spinner-border',
+    'loadingIcon': 'loading loading-ring loading-xl',
 
     #Dialog Box
-    'dialogBox': 'modal-dialog modal-dialog-centered modal-xl',
-    'dialogBoxHeader': 'modal-header d-flex justify-content-center bg-dark bg-gradient text-white',
-    'dialogBoxTitle': 'modal-title fs-1',
-    'dialogBoxBody': 'modal-body',
-    'dialogBoxFooter': 'modal-footer d-flex justify-content-center',
+    'dialogBox': 'modal-box w-11/12 max-w-5xl',
+    'dialogBoxHeader': 'modal-header flex justify-between items-center p-4 border-b border-gray-200',
+    'dialogBoxTitle': 'font-bold text-3xl text-center',
+    'dialogBoxBody': 'modal-body p-6',
+    'dialogBoxFooter': 'modal-action justify-center p-4',
 
     #Message Box
-    'messageBox': 'alert alert-warning alert-dismissible fade text-center',
-
-    #Notifications
-    'notificationHeader': 'card-header bg-dark bg-gradient text-white',
-    'notificationTitle': 'card-title',
-    'notificationBody': 'card-body',
-    'notificationFooter': 'card-text text-muted small',
-
-    #Print Settings
-    'titleBold': 'fs-lg fw-bold',
-    'headingBold': 'fs-md fw-bold',
-    'headingNormal': 'fs-md',
-    'content': 'font-size: 0.6rem;',
+    'errorBox': 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative transition duration-300 opacity-100',
+    'successBox': 'bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative transition duration-300 opacity-100',
+    'messageBoxBody': 'block sm:inline',
+    'messageBoxClose': 'absolute top-0 bottom-0 right-0 px-4 py-3',
 
     #True/False Representation
-    'trueClass': 'material-symbols-outlined text-success fs-4',
+    'trueFalseHeading': 'indicator',
+    'trueClass': 'indicator-item badge badge-success',
     'trueValue': 'thumb_up',
-    'falseClass': 'material-symbols-outlined text-danger fs-4',
+    'falseClass': 'indicator-item badge badge-error',
     'falseValue': 'thumb_down',
-    }
+
+    #Chart Colors
+    'red': '#DC143C',
+    'redPrimary': '#DC143C',
+    'redSecondary': '#FF6347',
+    'green': '#228B22',
+}
