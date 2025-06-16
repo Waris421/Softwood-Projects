@@ -49,8 +49,6 @@ urlpatterns = [
     path('purchasereceipt', views.PurchaseReceipt, name='purchaseRec'),
     path('purchasereceipt/add', views.AddPurchaseReceipt, name='addRec'),
     path('purchasereceipt/<int:pk>/edit', views.EditPurchaseReceipt, name='editRec'),
-    path('purchasereceipt/<int:pk>/copy', views.CopyPurchaseReceipt, name='copyRec'),
-    path('purchasereceipt/<int:pk>/delete', views.DeletePurchaseReceipt, name='deleteRec'),
     path('purchasereceipt/alloc/get', views.GetReceiptAllocation, name='getRecAllocation'),
 
     path('purchasedemand', views.PurchaseDemand, name='purchaseDemand'),

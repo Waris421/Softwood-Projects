@@ -6,44 +6,36 @@
 
 {% block content %}
     <div class="{{theme.border}}">
-        <p>
-            <div class="row g-3 {{theme.justify}} {{theme.align}}">
-                <div class="col {{theme.textJustify}}">
-                    <form action="{% url 'POs' %}" method="get">
-                        <select id="supplierFilter" name="supplierFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-                            <option value="">  ---------  </option>
-                        </select>
-                        <input type="hidden" name="searchTerm" value="{{ searchTerm }}">
-                        <input type="hidden" name="poNumber" value="{{ selectedPO }}">
-                    </form>
+        <form action="{% url 'POs' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Supplier:</span>
+                    <select id="supplierFilter" name="supplierFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
                 </div>
-                <div class="col btn-group {{theme.textJustify}}">
-                    <a class="{{theme.buttonBasic}}" href="/purchaseorder/add" role="button" target="_blank">Add Order</a>
+                <div class="flex flex-col col-[3/5] items-center">
+                    <span class="text-sm text-gray-500 mb-1">PO Number:</span>
+                    <input type="number" class="{{theme.textInput}} w-100" name="poFilter" value="{{selectedPO}}">
+                </div>
+                <div class="flex flex-col col-[5/7] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="searchTerm" value="{{searchTerm}}">
+                </div>
+                <div class="flex col-[7/8] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                </div>
+                <div class="flex col-[8/13] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <a class="{{theme.buttonBasic}}" href="{% url 'addPO' %}" role="button">Add Order</a>
                     <a id="copyOrderButton" class="{{theme.buttonBasic}}" role="button">Copy Order</a>
-                    <a id="editOrderButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Edit Order</a>
+                    <a id="editOrderButton" class="{{theme.buttonBasic}}" role="button">Edit Order</a>
                     <a id="deleteOrderButton" class="{{theme.buttonBasic}}" role="button">Delete Order</a>
                 </div>
             </div>
-        </p>
-        <p>
-            <div class="row g-0 {{theme.justify}} {{theme.align}}">
-                <div class="col col-md-2 {{theme.textJustify}}">
-                    <form action="{% url 'POs' %}" method="get">
-                        <input type="number" class="{{theme.textInput}} w-100" name="poFilter" placeholder="PO Number" value="{{selectedPO}}">
-                </div>
-                <div class="col col-md-8 {{theme.textJustify}}">
-                    <input type="text" class="{{theme.textInput}} w-100" name="searchTerm" placeholder="Search Orders" value="{{searchTerm}}">
-                </div>
-                <div class="col col-md-2 {{theme.textJustify}}">
-                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-                </div>
-                    <input type="hidden" name="supplierFilter" value="{{ selectedSupplier }}">
-                    </form>
-            </div>
-        </p>
+        </form>
     </div>
 
-    <div id ="purchaseOrderTable">
+    <div id ="purchaseOrderTable" class="mt-6">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
                 <th scope="col">Select</th>
@@ -53,10 +45,10 @@
                 <th scope="col">Inventory (Top 3)</th>
                 <th scope="col">Work Order (Top 3)</th>
             </tr>
-            <tbody id="tableData" class = "{{theme.tableBody}}">
+            <tbody id="tableData" class="{{theme.tableBody}}">
                 {% for data in order %}
-                    <tr>
-                        <td><input type="radio" name="item_checkbox"></td>
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
                         <td class="order">{{ data.PONumber }}</td>
                         <td>{{ data.DeliveryDate }}</td>
                         <td>{{ data.Supplier }}</td>
@@ -68,21 +60,41 @@
         </table>
     </div>
 
+    <div class="{{ theme.pagination }}">
+        <div class="btn-group">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Previous</a>
+        {% else %}
+            <button class="btn btn-sm" disabled>First</button>
+            <button class="btn btn-sm" disabled>Previous</button>
+        {% endif %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Last</a>
+        {% else %}
+            <button class="btn btn-sm" disabled>Next</button>
+            <button class="btn btn-sm" disabled>Last</button>
+        {% endif %}
+        </div>
+    </div>
+
     <script>//To change the buttons based on selection in radio
-        $("#tableData").on("click", "input[type='radio']", function() {
-            //Get the code against seletion
-            const selectedCode = $(this).closest("tr").find("td.order").text();
-            
-            //Find and link the edit card button to the selected code
-            var button = $("#copyOrderButton");           
-            button.attr("href", "/purchaseorder/" + selectedCode + "/copy");
-            
-            button = $("#editOrderButton");           
-            button.attr("href", "/purchaseorder/" + selectedCode + "/edit");
-  
-            button = $("#deleteOrderButton");
-            button.attr("href", "/purchaseorder/" + selectedCode + "/delete");
-        });
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            const radio = event.target;
+            const selectedOrder = radio.closest('tr').querySelector('td.order').textContent.trim();
+
+            var button = document.getElementById("copyOrderButton");
+            button.href = '/purchaseorder/'+ selectedOrder + '/copy';
+
+            button = document.getElementById("editOrderButton");
+            button.href = '/purchaseorder/'+ selectedOrder + '/edit';
+
+            button = document.getElementById("deleteOrderButton");
+            button.href = '/purchaseorder/'+ selectedOrder + '/delete';
+        }); 
     </script>
 
     <script>//To run when the page loads
@@ -91,11 +103,6 @@
             let response = await fetch('/options/suppliers');
             const customers = await response.json();
             await appendOptions('supplierFilter', customers, '{{selectedSupplier}}');
-            //Apply Search Box
-            $("#supplierFilter").chosen({
-                search_contains: true,
-                width: "100%"
-            });
         });
     </script>
 {% endblock %}

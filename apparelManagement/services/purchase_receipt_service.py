@@ -80,6 +80,7 @@ def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
     return data
 
 def GetPOData(purchaseOrder: models.PurchaseOrder):
+    print(purchaseOrder)
     fields = ['id','Inventory','Variant','Quantity']
     poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder).values(*fields)
     if poInventories:
@@ -216,7 +217,7 @@ def EditPurchaseReceipt (
     del previousInventories
     
     if allocId:
-        previousAllocations = models.RecAllocation.objects.filter(RecInvId=allocId).values('WorkOrder')
+        previousAllocations = models.RecAllocation.objects.filter(RecInvId=allocId).values('id','WorkOrder')
         dfPreviousAllocations = pd.DataFrame(previousAllocations)
         del previousAllocations
     else:

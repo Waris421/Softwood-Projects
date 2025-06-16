@@ -115,7 +115,7 @@ def AddPurchaseDemand(
     if not demand['Demandee']:
         raise ValueError ('No name is Provided')
     
-    dfInventory = dfInventory[dfInventory['InvCode'].str.len() > 0]
+    dfInventory = dfInventory[dfInventory['InventoryCode'].str.len() > 0]
     dfInventory = dfInventory[dfInventory['Quantity'].str.len() > 0]
     dfInventory['Quantity'] = dfInventory['Quantity'].astype(float)
     dfInventory = dfInventory[dfInventory['Quantity'] > 0]
@@ -141,8 +141,10 @@ def AddPurchaseDemand(
     except Exception as e:
         raise ValueError(e)
 
-    dfInventory['Inventory'] = convertTexttoObject(models.Inventory, dfInventory['InvCode'], 'Code')
-    dfInventory.drop(inplace=True, columns=['InvCode'])
+    print(dfInventory)
+    dfInventory['Inventory'] = convertTexttoObject(models.Inventory, dfInventory['InventoryCode'], 'Code')
+    dfInventory.drop(inplace=True, columns=['InventoryCode', 'InventoryName'])
+    dfInventory.rename(inplace=True, columns={'VariantCode':'Variant'})
 
     dfInventory['Currency'] = convertTexttoObject(models.Currency, dfInventory['Currency'], 'Code')
 
@@ -172,7 +174,7 @@ def EditPurchaseDemand(
         raise ValueError ('No name is Provided')
     
     dfPDInventory = dfPDInventory.replace('null', '')
-    dfPDInventory = dfPDInventory[dfPDInventory['InvCode'].str.len() > 0]
+    dfPDInventory = dfPDInventory[dfPDInventory['InventoryCode'].str.len() > 0]
     if dfPDInventory.empty:
         raise ValueError ('Please select an inventory')
     
@@ -191,11 +193,11 @@ def EditPurchaseDemand(
     for key, value in demand.items():
         setattr(purchaseDemand, key, value)
     del demand
-    #purchaseDemand.save()
+    purchaseDemand.save()
     
     dfPDInventory['id'] = np.where(dfPDInventory['id'].str.len()==0, np.nan, dfPDInventory['id'])
     dfPDInventory['id'] = dfPDInventory['id'].astype('Int64')
-    dfPDInventory.rename(inplace=True, columns={'InvCode':'Inventory'})
+    dfPDInventory.rename(inplace=True, columns={'InventoryCode':'Inventory'})
     dfPDInventory = pd.merge(left=dfPDInventory, right=dfPrevioiusInventories, on='id', how='left')
 
     try:
@@ -228,8 +230,29 @@ def ProcessDemandData(purchaseDemand: models.PurchaseDemand):
     if not demand['PONumber']:
         demand['PONumber'] = ''
 
-    inventories = models.PDInventory.objects.filter(PDNumber=purchaseDemand)
-    inventories = inventories.values('id','Inventory','Variant','Quantity','Price','Currency','Forex')
+    fields = ['id','Inventory','Variant','Quantity','Price','Currency','Forex']
+    pdInventories = models.PDInventory.objects.filter(PDNumber=purchaseDemand).values(*fields)
+    if pdInventories:
+        dfPDInventories = pd.DataFrame(pdInventories)
+    else:
+        dfPDInventories = pd.DataFrame(columns=fields)
+    del pdInventories
+
+    fields = ['Code', 'Name']
+    inventories = models.Inventory.objects.filter(Code__in=dfPDInventories['Inventory'].to_list()).values(*fields)
+    if inventories:
+        dfInventories = pd.DataFrame(inventories)
+    else:
+        dfInventories = pd.DataFrame(columns=fields)
+    del inventories, fields
+
+    dfPDInventories = pd.merge(left=dfPDInventories, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
+    del dfInventories
+    dfPDInventories.drop(inplace=True, columns=['Code'])
+    dfPDInventories.rename(inplace=True, columns={'Name':'InventoryName'})
+
+    cols = [i for i in dfPDInventories]
+    inventories = [dict(zip(cols, i)) for i in dfPDInventories.values]
 
     return demand, inventories
 

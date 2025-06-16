@@ -8,159 +8,158 @@
     {% csrf_token %}                        <!--This is to protect against CSRF attacks-->
     
     <!-- The main Receipt form-->
-    <p>
-        <form method="POST" id="receiptForm" autocomplete="off">
-            <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>PO:&nbsp; </label>
+    <form method="POST" id="receiptForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-8 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">PO:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{receipt.PONumber}}" name="PONumber" readonly>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>GRN:&nbsp; </label>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">GRN:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{receipt.id}}" name="GRNNumber" readonly>
                     <input type="text" id="recId" name="recId" value="" class="" hidden>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Date:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{receipt.ReceiptDate|date:'m/d/Y'}}" name="ReceiptDate" id="receiptDate" readonly>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Date:&nbsp; </label>
+                    <input value="{{receipt.ReceiptDate|date:'Y-m-d'}}" class="{{theme.textInput}}" name="ReceiptDate" readonly>
                 </div>
-                <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Invoice:&nbsp; </label>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Invoice:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" value="{{receipt.Invoice}}" name="Invoice">
                 </div>
-                <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Vehicle:&nbsp; </label>
+                <div class="flex col-[7/9] items-center">
+                    <label class="mx-2 whitespace-nowrap">Vehicle:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" value="{{receipt.Vehicle}}" name="Vehicle">
                 </div>
-                <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Supplier:&nbsp; </label>
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
                     <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier"> </select>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Bilty#:&nbsp; </label>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Bilty#:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" value="{{receipt.Bilty}}" name="Bilty">
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Amount:&nbsp; </label>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Amount#:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{receipt.BiltyValue}}" name="BiltyValue">
                 </div>
-                <div class="col-2 btn-group {{theme.align}} {{theme.textJustify}}">
-                    <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
+                <div class="flex col-[7/9] btn-group items-center">
+                    <button class="{{theme.buttonBasic}}" onclick="submitForms()" type="button">
                         Save
                     </button>
-                    <button id="print" class="{{theme.buttonSecondary}}" onclick="showSelectionBox()" type="button">
+                    <button class="{{theme.buttonSecondary}}" type="button">
                         Print
                     </button>
                 </div>
             </div>
-        </form>
-    </p>
+        </div>
+    </form>
 
     <!-- Receipt Inventory Table -->
-    <div id="inventoryTable" name="invTable">
-        <form method="POST" id="inventoryForm" autocomplete="off">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                <div class="col-4">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Item Name
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-11 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
                     </div>
                 </div>
-                <div class="col-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant
                     </div>
                 </div>
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Quantity
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Qty
                     </div>
                 </div>
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Approval
                     </div>
                 </div>
-                <div class="col-3">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[8/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Comments
                     </div>
                 </div>
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
             {% for data in inv %}
-                <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
+                <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                     <div hidden>
-                        <input name="id" value="{{data.id}}">
+                        <input type="number" value="{{data.id}}" name="id">
                     </div>
-                    <div class="col-4">
+                    <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName" readonly>
                     </div>
-                    <div class="col-2">
-                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
+                    <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant">
                     </div>
-                    <div class="col-1">
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
                         <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
                     </div>
-                    <div class="col-1 d-flex {{theme.justify}} {{theme.align}}"{{theme.aligh}}>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
                         {% if data.Approval %}
                             <span class="{{theme.trueClass}}">{{theme.trueValue}}</span>
                         {% else %}
-                        <span class="{{theme.falseClass}}">{{theme.falseValue}}</span>
+                            <span class="{{theme.falseClass}}">{{theme.falseValue}}</span>
                         {% endif %}
                     </div>
-                    <div class="col-3">
+                    <div class="flex col-[8/11] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.QualityComments}}" readonly>
                     </div>
-                    <div class="col-1">
+                    <div class="flex col-[11/12] space-x-1 {{theme.align}} {{theme.justify}}">
                         <button class="{{theme.plusButton}}" type="button" onclick="openAllocation(this)">
                             <span class="material-symbols-outlined">more_vert</span>
                         </button>
                     </div>
                 </div>
             {% endfor %}
-        </form>
-    </div>
+        </div>
+    </form>
 
     <!--Allocation dialog box-->
-    <form method="POST" id="allocationForm" autocomplete="off">
-        <div class="modal fade" id="allocationTable" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <input type="checkbox" id="allocationToggle" class="modal-toggle" />
+    <div class="modal" role="dialog" id="allocationTable">
+        <form method="POST" id="allocationForm" autocomplete="off">
             <div class="{{theme.dialogBox}}">
                 <div class="modal-content">
                     <div class="{{theme.dialogBoxHeader}}">
-                        <div class="{{theme.dialogBoxTitle}}" id="modalLabel">
-                            Allocation
-                        </div>
+                        <h3 class="{{theme.dialogBoxTitle}}">Allocation</h3>
                     </div>
                     <div class="{{theme.dialogBoxBody}}">
-                        <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                            <div class="col col-md-5">
-                                <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                        <div class="grid grid-cols-4 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                                     Order#
                                 </div>
                             </div>
-                            <div class="col col-md-4">
-                                <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                            <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                                     Quantity
                                 </div>
                             </div>
-                            <div class="col col-md-2">
-                                <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                            <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                                     Actions
                                 </div>
                             </div>
-                        </div>
-                        <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
-                            <div class="col col-md-5" chosen="true">
-                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder"></select>
+                         </div>
+                         <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onchange="getDefaultQty(this)"></select>
                             </div>
-                            <div class="col col-md-4">
+                            <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
                                 <input type="number" class="{{theme.textInput}}" value="" name="Quantity" min="0" onchange="changeQty()">
                             </div>
-                            <div class="col col-md-2">
+                            <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
                                 <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                                     <span>+</span>
                                 </button>
@@ -168,24 +167,24 @@
                                     <span>-</span>
                                 </button>
                             </div>
-                        </div>
+                         </div>
                     </div>
                     <div class="{{theme.dialogBoxFooter}}">
-                        <label>Total Qty:&nbsp; </label>
-                        <div id="totalQuantity"></div>
+                        <label class="font-semibold">Total Qty:&nbsp; </label>
+                        <div id="totalQuantity" class="mr-4"></div>
 
-                        <label>|| Allocted Qty:&nbsp; </label>
-                        <div id="allocatedQuantity"></div>
+                        <label class="font-semibold">|| Allocted Qty:&nbsp; </label>
+                        <div id="allocatedQuantity" class="mr-4"></div>
 
-                        <label>|| Free Qty:&nbsp; </label>
-                        <div id="freeQuantity"></div>
-                        
-                        <button type="button" class="{{theme.buttonSecondary}}" data-bs-dismiss="modal" onclick="closeAllocation()">OK</button>
+                        <label class="font-semibold">|| Free Qty:&nbsp; </label>
+                        <div id="freeQuantity" class="mr-4"></div>
+
+                        <button type="button" class="{{theme.buttonBasic}}" onclick="closeAllocation()">OK</button>
                     </div>
                 </div>
             </div>
-        </div>
-    </form>
+        </form>
+    </div>
 
     <script> //To run when the page loads
         window.addEventListener('load', async () => {
@@ -196,17 +195,10 @@
             let response = await fetch('/options/suppliers');
             const suppliers = await response.json();
             await appendOptions('id_Supplier', suppliers, "{{receipt.Supplier}}");
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Supplier").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             response = await fetch('/options/workorders');
             const workOrders = await response.json();
             await appendOptions('id_WorkOrder_1', workOrders);
-
-            await addSearchBox();
 
             //Remove loading animation
             hideLoadingIcon();
@@ -215,13 +207,16 @@
 
     <script>    //To handle allocation box
         async function openAllocation(source) {
-            //Get the entry id.
+            showLoadingIcon();
+            
             const id = source.parentElement.parentElement.children[0].children[0].value;
-            //get the allocation from server.
+
             let allocation;
+
+            //get the allocation from server.
             try {
                 allocation = await getAllocation(id);
-            } catch(e) {
+            } catch (e) {
                 showMessage(e);
                 hideLoadingIcon();
                 return ;
@@ -230,10 +225,10 @@
             //Get the format of the allocation table
             const allocationTable = document.getElementById('allocationTable');
 
-            const title = allocationTable.children[0].children[0].children[0].children[0];
+            const title = allocationTable.querySelector('.modal-header');
             title.textContent += `#${id}`;
             
-            const allocationArea = allocationTable.children[0].children[0].children[1];
+            const allocationArea = allocationTable.querySelector('.modal-body');
 
             const previousRows = allocationArea.children;
 
@@ -251,16 +246,15 @@
             
             const rows = allocationArea.children;
             
-            removeSearchBox();
             for (let i=1; i<rows.length; i++) {
                 const workOrderBox = rows[i].children[0].children[0];
-                workOrderBox.value = (allocation[i-1].WorkOrder);
-
                 const qtyBox = rows[i].children[1].children[0];
-                qtyBox.value = (allocation[i-1].Quantity);
 
+                if (allocation.length) {
+                    workOrderBox.value = (allocation[i-1].WorkOrder);
+                    qtyBox.value = (allocation[i-1].Quantity);
+                }
             }
-            addSearchBox();
 
             //The dummy box that contains inventory the currently selected inventory code
             const referenceBox = document.getElementById('recId');
@@ -270,7 +264,7 @@
             const totalQty = parseFloat(source.parentElement.parentElement.children[3].children[0].value);
 
             //Get the footer to set the summary
-            const footer = allocationTable.children[0].children[0].children[2];
+            const footer = allocationTable.children[0].children[0].children[0].children[2];
 
             //Set the value of total quantity.
             const totalQtyBox = footer.querySelector('#totalQuantity');
@@ -282,17 +276,18 @@
 
             //Set the value of free qty to the difference of total and allocated quantity
             const freeQtyBox = footer.querySelector('#freeQuantity');
-            freeQtyBox.textContent = totalQty.toFixed(2);
-            
-            //convert the table tconsole.log(source.parentElement.parentElement);o a bootstrap modal and show it to user.
-            new bootstrap.Modal(allocationTable).show();
+            freeQtyBox.textContent = totalQty;
+
+            document.getElementById('allocationToggle').checked = true;
 
             changeQty();
+
+            hideLoadingIcon();
         }
 
         function changeQty() {
             //Get the modal
-            const dialogBox = document.getElementById('allocationTable').children[0].children[0];
+            const dialogBox = document.getElementById('allocationTable').children[0].children[0].children[0];
             
             //Get all the rows in an array
             const rows = Array.from(dialogBox.children[1].children);
@@ -309,7 +304,7 @@
                     allocQty = allocQty + quantity;
                 }
             }
-            allocQty = allocQty.toFixed(2)
+            allocQty = allocQty.toFixed(2);
 
             const footer = dialogBox.children[2];
             
@@ -324,8 +319,7 @@
         async function getAllocation(id) {
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
             
-            const obj = {'id':id};
-            const data = JSON.stringify(obj);
+            const data = JSON.stringify({'id':id});
 
             const response = await fetch('/purchasereceipt/alloc/get', {
                 method: 'POST',
@@ -333,39 +327,41 @@
                 headers: { "X-CSRFToken": csrf},
             });
 
-            if (response.ok) {
+            if (response.ok){
                 return response.json();
             } else {
                 const errorMessage = await response.text();
 
                 throw errorMessage;
             }
-            
         }
 
         async function closeAllocation() {
             //Get the selected inventory code and variant
-            const recIdValue = document.getElementById('recId').value;
+            const id = document.getElementById('recId').value;
 
             //Get the total allocated qty.
-            const footer = document.getElementById('allocationTable').children[0].children[0].children[2];
+            const footer = document.getElementById('allocationTable').children[0].children[0].children[0].children[2];
             const allocatedQty = parseFloat(footer.querySelector('#allocatedQuantity').textContent);
 
             //Get the rows of inventory table.
-            const InvTableRows = Array.from(document.getElementById('inventoryTable').children[0].children);
+            const InvTableRows = Array.from(document.getElementById('inventoryForm').children[0].children);
             InvTableRows.splice(0,1);
             
             for (const row of InvTableRows) {
                 const idBox = row.children[0].children[0];
                 const qtyBox = row.children[3].children[0];
                 
-                if (idBox.value == recIdValue) {
+                if (idBox.value == id) {
                     const totalQty = parseFloat(qtyBox.value);
+
                     if (totalQty < allocatedQty) {
                         qtyBox.value = allocatedQty;
                     }
                 }
             }
+
+            document.getElementById('allocationToggle').checked = false;
             await submitForms();
         }
     </script>
@@ -470,7 +466,7 @@
         }
 
         function formToTable(group, form, data){
-            let rows = form.querySelectorAll('.row');
+            let rows = form.querySelectorAll('[row]');
             //Remove unnecesary rows
             rows = dropElements(rows);
 

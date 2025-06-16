@@ -122,6 +122,7 @@ def AddWorkOrder(
     return orderNumber
 
 def UpdateWorkOrder(
+        workOrder: models.WorkOrder,
         dfOrder: pd.DataFrame,
         dfVariants: pd.DataFrame,
         dfRequirement: pd.DataFrame,
@@ -138,19 +139,17 @@ def UpdateWorkOrder(
     except:
         raise LookupError('Work Order not found.')
     
-    dfVariants = dfVariants[dfVariants['Name'].str.len()>0]
+    dfVariants = dfVariants[dfVariants['VariantCode'].str.len()>0]
     dfVariants = dfVariants[dfVariants['Quantity'].str.len()>0]
 
     #Raise error if no variants are provided
-    if not dfVariants['Name'].str.len().sum():
+    if not dfVariants['VariantCode'].str.len().sum():
         raise ValueError('No Variant is provided')
 
     dfOrder['Style'] = convertTexttoObject(models.StyleCard, dfOrder['Style'], 'StyleCode')
     dfOrder['Customer'] = convertTexttoObject(models.Customer, dfOrder['Customer'], 'Name')
     dfOrder['Currency'] = convertTexttoObject(models.Currency, dfOrder['Currency'], 'Code')
-
-    dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%m/%d/%Y")
-    dfOrder['OrderDate'] = pd.to_datetime(dfOrder["OrderDate"], format="%m/%d/%Y")
+    dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%Y-%m-%d")
     
     #Below fields would be kept same as already existing
     dfOrder['Merchandiser'] = currentData.Merchandiser
@@ -161,18 +160,15 @@ def UpdateWorkOrder(
     dfOrder.drop(inplace=True, columns=['Quantity'])
 
     orderCard = dfOrder.iloc[0].to_dict()
+    del dfOrder
     
-    try:
-        orderCard = models.WorkOrder(**orderCard)
-        #orderCard.save()
-    except models.WorkOrder.DoesNotExist:
-        raise ValueError(f"Order Number: {orderNumber}, doesn't exist.")
-    except Exception as e:
-        #Raise any other error, if found to be safe.
-        raise LookupError(f"Error saving Order: {e}")
+    for key, value in orderCard.items():
+        setattr(workOrder, key, value)
+    
+    workOrder.save()
     
     fields = ['id','Name']
-    previousVariants = models.OrderVariant.objects.filter(OrderNumber=orderCard).values(*fields)
+    previousVariants = models.OrderVariant.objects.filter(OrderNumber=workOrder).values(*fields)
     if previousVariants:
         dfPreviousVariants = pd.DataFrame(previousVariants)
     else:
@@ -180,7 +176,7 @@ def UpdateWorkOrder(
     del previousVariants, fields
 
     fields = ['id','InventoryCode','Variant']
-    previousRequirement = models.InvRequirement.objects.filter(OrderNumber=orderCard).values(*fields)
+    previousRequirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
     
     if previousRequirement:
         dfPreviousRequirement = pd.DataFrame(previousRequirement)
@@ -189,10 +185,11 @@ def UpdateWorkOrder(
     del previousRequirement
 
     dfVariants['Quantity'] = dfVariants['Quantity'].astype(int)
+    dfVariants.rename(inplace=True, columns={'VariantCode':'Name'})
 
     dfVariants = pd.merge(left=dfVariants, right=dfPreviousVariants, on='Name', how='left')
 
-    dfVariants['OrderNumber'] = orderCard
+    dfVariants['OrderNumber'] = workOrder
 
     try:
         updateModelWithDF(models.OrderVariant, dfVariants, dfPreviousVariants)
@@ -206,12 +203,12 @@ def UpdateWorkOrder(
         dfRequirement['Quantity'] = dfRequirement['Quantity'].astype(float)
         dfRequirement = dfRequirement[dfRequirement['Quantity']>0]
 
-        dfRequirement.drop(inplace=True, columns=['Ordered','Received','InventoryName',''])
+        dfRequirement.drop(inplace=True, columns=['Ordered','InventoryName',''])
         
         dfRequirement = pd.merge(left=dfRequirement, right=dfPreviousRequirement, on=['InventoryCode','Variant'], how='left')
 
         dfRequirement['InventoryCode'] = convertTexttoObject(models.Inventory, dfRequirement['InventoryCode'], 'Code')
-        dfRequirement['OrderNumber'] = orderCard
+        dfRequirement['OrderNumber'] = workOrder
         
         dfRequirement['id_x'] = np.where(dfRequirement['id_x'].str.len()==0, np.nan, dfRequirement['id_x'])
 
@@ -635,6 +632,8 @@ def PrintWO (order: models.WorkOrder):
     dfVariants.rename(inplace=True, columns={'Quantity':'POQuantity'})
     dfVariants['CutQuantity'] = dfVariants['POQuantity'] * (1+(order.ExcessCut/100))
     dfVariants['CutQuantity'] = np.ceil(dfVariants['CutQuantity']).astype(int)
+    #TODO: Get the actual cut qty form core sheet.
+    dfVariants['ActualCut'] = '-'
 
     dfVariants[['Variant1', 'Variant2']] = dfVariants['Name'].str.split('-', n=1, expand=True)
     dfVariants.drop(inplace=True, columns=['Name'])

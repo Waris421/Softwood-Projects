@@ -5,15 +5,34 @@
 {% endblock %}
 
 {% block content %}
-    <br><br>
-    <form method="POST" >
-        {% csrf_token %}          <!--This is to protect against CSRF attacks-->
-        <input id = "source" type="text" class="{{theme.textInput}}" name="source" value="{{source.id}}">
-        <p class="help-text">Source PD#:</p> 
-        <p class="{{theme.textInput}}">{{source.Demandee}} ({{source.Department.Name}})</p>
-        <p class="help-text">Details:</p> 
-        <button type="submit" class="btn btn-dark">
-        Create Copy
-        </button>
-    </form> 
+    <div class="card w-full max-w-md bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+        <div class="card-body">
+            <h2 class="card-title text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">Copying Purchase Order</h2>
+            <form method="POST" autocomplete="off">
+                {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+                <div class="form-control mb-4">
+                    <label class="mx-2 whitespace-nowrap">Copy From:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" name="source" value="{{source.id}}" readonly>
+                    <input type="text" class="{{theme.textInput}}" value="{{source.Demandee}} ({{source.Department.Name}})" readonly>
+                </div>
+                <div class="form-control mt-8">
+                    <div class="flex btn-group {{theme.align}} justify-end ml-1">
+                        <button type="submit" class="{{theme.buttonBasic}}" name="confirm" value="true">
+                            Create Copy
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>    //To show error if provided
+        window.addEventListener('load', async () => {
+            const errorMessage = "{{message}}";
+            const errorBox = document.getElementById('error')
+            if (errorMessage) {
+                showMessage(errorMessage);
+            }
+        });
+    </script>
 {% endblock %}

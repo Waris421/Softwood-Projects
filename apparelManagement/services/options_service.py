@@ -98,6 +98,7 @@ def getInventories(request: HttpRequest):
     if request.method == 'GET':
         invGroup = request.GET.get('group',None)
         search = request.GET.get('search', '')
+        searches = request.GET.getlist('searches', [])
         newFormat = request.GET.get('newFormat', None)
 
         if invGroup == 'Direct':
@@ -113,6 +114,11 @@ def getInventories(request: HttpRequest):
         
         if search:
             objects = objects.filter(Q(Name__icontains=search) | Q(Code__icontains=search))
+        
+        if searches:
+            for search in searches:
+                if search:
+                    objects = objects.filter(Q(Name__icontains=search) | Q(Code__icontains=search))
 
         if objects.count() < 1:
             return JsonResponse([], safe=False)

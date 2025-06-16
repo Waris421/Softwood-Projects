@@ -4,36 +4,27 @@
     Purchase Demands
 {% endblock %}
 
-{% block content %}
+{% block content %}    
     <div class="{{theme.border}}">
         {% csrf_token %}
-        <p>
-            <div class="row g-3 {{theme.justify}} {{theme.align}}">
-                <div class="col {{theme.textJustify}}">
-                    <form action="{% url 'purchaseDemand' %}" method="get">
-                        <select id="departmentFilter" name="departmentFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-                            <option value="">  ---------  </option>
-                        </select>
-                        <input type="hidden" name="searchTerm" value="{{ searchTerm }}">
-                        <input type="hidden" name="poNumber" value="{{ selectedPO }}">
-                    </form>
+        <form action="{% url 'purchaseDemand' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Department:</span>
+                    <select id="departmentFilter" name="departmentFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
                 </div>
-                <div class="col btn-group {{theme.textJustify}}">
-                    <a class="{{theme.buttonBasic}}" href="/purchasedemand/add" role="button" target="_blank">Add New</a>
-                    <a id="copyDemandButton" class="{{theme.buttonBasic}}" role="button">Copy</a>
-                    <a id="editDemandButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Edit</a>
-                    <a id="deleteDemandButton" class="{{theme.buttonBasic}}" role="button">Delete</a>
-                    <a id="approveDemandButton" class="{{theme.buttonBasic}}" role="button">Approve</a>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Demand#:</span>
+                    <input type="number" class="{{theme.textInput}} w-100" name="demandFilter" value="{{selectedDemand}}">
                 </div>
-            </div>
-        </p>
-        <p>
-            <div class="row g-0 {{theme.justify}} {{theme.align}}">
-                <div class="col-2 {{theme.textJustify}}">
-                    <form action="{% url 'purchaseDemand' %}" method="get">
-                        <input type="number" class="{{theme.textInput}} w-100" name="demandFilter" placeholder="Demand Number" value="{{selectedDemand}}">
+                <div class="flex flex-col col-[4/6] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}} w-100" name="searchTerm" value="{{searchTerm}}">
                 </div>
-                <div class="col-2 {{theme.textJustify}}">
+                <div class="flex flex-col col-[6/8] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Approval:</span>
                     <select name="statusFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
                         <option value="OnApp" {% if selectedStatus == "OnApp" %}selected{% endif %}> Pending Approval  </option>
                         <option value="OnPO" {% if selectedStatus == "OnPO" %}selected{% endif %}> Pending PO  </option>
@@ -41,20 +32,24 @@
                         <option value="Close" {% if selectedStatus == "Close" %}selected{% endif %}> Closed  </option>
                     </select>
                 </div>
-                <div class="col-6 {{theme.textJustify}}">
-                    <input type="text" class="{{theme.textInput}} w-100" name="searchTerm" placeholder="Search Demands" value="{{searchTerm}}">
-                </div>
-                <div class="col-2 {{theme.textJustify}}">
+                <div class="flex col-[8/13] btn-group {{theme.align}} justify-end ml-1 mt-2">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-                    <a class="{{theme.buttonBasic}}" role="button" onclick="makePO()">Make PO</a>
+                    <a class="{{theme.buttonBasic}}" href="{% url 'addPD' %}" role="button">Add New</a>
                 </div>
-                    <input type="hidden" name="departmentFilter" value="{{ selectedDepartment }}">
-                    </form>
             </div>
-        </p>
+            <div class="grid grid-cols-5 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/6] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <a id="copyDemandButton" class="{{theme.buttonBasic}}" role="button">Copy</a>
+                    <a id="editDemandButton" class="{{theme.buttonBasic}}" role="button">Edit</a>
+                    <a id="deleteDemandButton" class="{{theme.buttonBasic}}" role="button">Delete</a>
+                    <a id="makePOButton" class="{{theme.buttonBasic}}" role="button" onclick="makePO()">Make PO</a>
+                    <a id="approveDemandButton" class="{{theme.buttonBasic}}" role="button">Approve</a>
+                </div>
+            </div>
+        </form>
     </div>
 
-    <div id ="purchaseDemandTable">
+    <div id ="purchaseDemandTable" class="mt-6">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
                 <th scope="col">Select</th>
@@ -68,8 +63,8 @@
             </tr>
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in demand %}
-                    <tr>
-                        <td><input type="radio" name="item_checkbox"></td>
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
                         <td class="demand">{{ data.PDNumber }}</td>
                         <td>{{ data.PONumber }}</td>
                         <td>{{ data.DemandDate }}</td>
@@ -84,22 +79,22 @@
     </div>
 
     <script>//To change the buttons based on selection in radio
-        $("#tableData").on("click", "input[type='radio']", function() {
-            //Get the code against seletion
-            const selectedCode = $(this).closest("tr").find("td.demand").text();
-            
-            //Find and link the edit card button to the selected code
-            var button = $("#copyDemandButton");           
-            button.attr("href", "/purchasedemand/" + selectedCode + "/copy");
-            
-            button = $("#editDemandButton");           
-            button.attr("href", "/purchasedemand/" + selectedCode + "/edit");
-  
-            button = $("#deleteDemandButton");
-            button.attr("href", "/purchasedemand/" + selectedCode + "/delete");
-            
-            button = $("#approveDemandButton");
-            button.attr("href", "/purchasedemand/" + selectedCode + "/approve");
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            const radio = event.target;
+            const selectedCode = radio.closest('tr').querySelector('td.demand').textContent.trim();
+
+            var button = document.getElementById("copyDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/copy";
+
+            button = document.getElementById("editDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/edit";
+
+            button = document.getElementById("deleteDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/delete";
+
+            button = document.getElementById("approveDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/approve";
         });
     </script>
 
@@ -111,9 +106,7 @@
             showDropDown(suppliers, convertToPO, null, true);
         }
 
-        async function convertToPO() {
-            const supplier = document.getElementById('id_selectDropDown').value;
-
+        async function convertToPO(supplier) {
             const table = document.getElementById('purchaseDemandTable').querySelector('table');
             const radios = table.querySelectorAll('input[name="item_checkbox"]');
 
@@ -162,11 +155,6 @@
             let response = await fetch('/options/departments');
             const departments = await response.json();
             await appendOptions('departmentFilter', departments, '{{selectedDepartment}}');
-            //Apply Search Box
-            $("#departmentFilter").chosen({
-                search_contains: true,
-                width: "100%"
-            });
         });
     </script>
 {% endblock %}

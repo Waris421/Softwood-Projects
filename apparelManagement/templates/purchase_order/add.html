@@ -6,92 +6,94 @@
 
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    
     <!-- The main Order form-->
-    <p>
-        <form method="POST" id="orderForm" autocomplete="off">
-            <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="col col-md-4 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Supplier:&nbsp; </label>
+    <form method="POST" id="orderForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
                     <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier"> </select>
                 </div>
-                <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Delivery Date:&nbsp; </label>
-                    <input id="DeliveryDate" type="text" class="{{theme.textInput}}" name="DeliveryDate">
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Delivery Date:&nbsp; </label>
+                    <input id="DeliveryDate" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" name="DeliveryDate">
                 </div>
-                <div class="col col-md-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Tax:&nbsp; </label>
+                <div class="flex col-[5/6] items-center">
+                    <label class="mx-2 whitespace-nowrap">Tax %:&nbsp; </label>
                     <input type="number" name="Tax" class="{{theme.textInput}}">
                 </div>
-                <div class="col col-md-1 {{theme.align}} {{theme.textJustify}}">
-                    <button id="submit" class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">          <!--Save Button-->
-                        Save
-                    </button>
-                </div>
+                <div class="flex col-[6/7] items-center">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="SendForm()">Save</button>
+                </div>   
             </div>
-        </form>
-    </p>
+        </div>
+    </form>
     
     <!--Inventory Table-->
-    <div id="inventoryTable" name="invTable">
-        <form method="POST" id="inventoryForm" autocomplete="off">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">    
-                <div class="col col-md-4">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Inventory Code
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-8 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
                     </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant
                     </div>
                 </div>
-                <div class="col col-md-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Quantity
                     </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Price
                     </div>
                 </div>
-                <div class="col col-md-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Currency
                     </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Forex
                     </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
-            <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="1">
-                <div class="col col-md-4" chosen="true">
-                    <select class="{{theme.dropdown}}" id="id_InventoryCode_1" name="InvCode"></select>
+            <div class="grid grid-cols-8 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div hidden>
+                    <input name="InventoryCode">
+                </div> 
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="InventoryName" readonly>
                     <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
                 </div>
-                <div class="col col-md-1">
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
                     <input type="text" class="{{theme.textInput}}" name="VariantCode">
                 </div>
-                <div class="col col-md-2">
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
                     <input type="number" class="{{theme.textInput}}" name="Quantity">
                 </div>
-                <div class="col col-md-1">
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
                     <input type="number" class="{{theme.textInput}}" name="Price">
                 </div>
-                <div class="col col-md-2">
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
                     <select class="{{theme.dropdown}}" id="id_Currency_1" name="Currency"></select>
                 </div>
-                <div class="col col-md-1">
-                    <input type="text" class="{{theme.textInput}}" name="Forex">
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" name="Forex">
                 </div>
-                <div class="col col-md-1">
+                <div class="flex col-[8/9] space-x-1 {{theme.align}} {{theme.justify}}">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                         <span>+</span>
                     </button>
@@ -100,7 +102,60 @@
                     </button>
                 </div>
             </div>
-        </form>
+        </div>
+    </form>
+
+    <!--Inventory search dialog box-->
+    <input type="checkbox" id="invSearchTableToggle" class="modal-toggle" />
+    <div class="modal" id="invSearchTable">
+        <div class="{{theme.dialogBox}}">
+            <div class="{{theme.dialogBoxHeader}}">
+                <h3 class="{{theme.dialogBoxTitle}}" id="modalLabel">
+                    Inventory Cards
+                </h3>
+                <label for="invSearchTableToggle" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</label>
+            </div>
+            <div class="{{theme.dialogBoxBody}}">
+                <div class="grid grid-cols-3 gap-4 mb-2 bg-gray-800 text-white p-2 rounded-md">
+                    <div class="text-center font-semibold">Filter 1</div>
+                    <div class="text-center font-semibold">Filter 2</div>
+                    <div class="text-center font-semibold">Filter 3</div>
+                </div>
+                <div id="invBoxSearchContainer" class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="handleSearchInput(this)">
+                    <div hidden>
+                        <input readonly />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer user-select-none"
+                    onclick="selectInv(this)"
+                    id="templateRow"
+                    style="display: none;"
+                >
+                <div hidden>
+                    <span></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+            </div>
+            <div id="inventoryListContainer"></div>
+        </div>
+        </div>
     </div>
 
     <script> //To run after page loads.
@@ -111,28 +166,112 @@
             let response = await fetch('/options/suppliers');
             const styles = await response.json();
             await appendOptions('id_Supplier', styles);
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Supplier").chosen({
-                search_contains: true,
-                width: "100%"
-            });
-
-            //Inventory Cards dropdowns
-            response = await fetch('/options/inventories');
-            const inventories = await response.json();
-            await appendOptions('id_InventoryCode_1', inventories);
 
             //Current dropdowns
             response = await fetch('/options/currencies');
             const currencies = await response.json();
             await appendOptions('id_Currency_1', currencies, 'PKR');
 
-            addSearchBox();
-
-            delete response;
-
             hideLoadingIcon();
         });
+    </script>
+
+    <script>    //To handle inventory search box
+        async function openInvSearch(source) {
+            const invTableRowNum = source.parentElement.parentElement.getAttribute('row');
+
+            const searchContainer = document.getElementById('invBoxSearchContainer');
+
+            await applySearch(searchContainer);
+
+            const modalLabelElement = document.getElementById('modalLabel');
+            if (modalLabelElement) {
+                modalLabelElement.setAttribute('data-row-number', invTableRowNum);
+            }
+        }
+
+        function appendInventories(inventories) {
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+
+            const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
+            const templateRow = document.getElementById('templateRow');
+            const inventoryListContainer = document.getElementById('inventoryListContainer');
+
+            inventoryListContainer.innerHTML = '';
+
+            const filterInputs = filterRow.querySelectorAll('input[type="text"]');
+
+            for (const inventory of inventories) {
+                const newRow = templateRow.cloneNode(true);
+                newRow.style.display = 'grid';
+                newRow.removeAttribute('id');
+
+                newRow.children[0].children[0].textContent = inventory.value;
+                newRow.children[1].children[0].textContent = inventory.text;
+                newRow.children[2].children[0].textContent = inventory.text;
+                newRow.children[3].children[0].textContent = inventory.text;
+
+                inventoryListContainer.appendChild(newRow);
+            }
+            
+            invSearchTableToggle.checked = true;
+        }
+
+        function selectInv(source) {
+            const selectedCode = source.children[0].children[0].textContent;
+            const selectedName = source.children[1].children[0].textContent;
+
+            const consTableRowNum = parseInt(source.parentElement.parentElement.parentElement.children[0].children[0].getAttribute('data-row-number'));
+            
+            const consTableRow = document.getElementById('inventoryForm').children[0].children[consTableRowNum];
+            
+            const invCodeBox = consTableRow.children[0].children[0];
+            const invNameBox = consTableRow.children[1].children[0];
+            
+            invCodeBox.value = selectedCode;
+            invNameBox.value = selectedName;
+
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = false;
+        }
+
+        //Wait for half a second after user types to avoid multiple server queries
+        let searchTimeout;
+        const DEBOUNCE_DELAY = 500;
+        async function handleSearchInput(source) {
+            // Clear any existing timeout to reset the timer
+            clearTimeout(searchTimeout);
+
+            // Set a new timeout
+            searchTimeout = setTimeout(async () => {
+                await applySearch(source);
+            }, DEBOUNCE_DELAY);
+        }
+
+        async function applySearch(source) { 
+            showLoadingIcon();           
+            const columns = source.children;
+            
+            // Get all the search terms
+            let searchTerms = [];
+            for (const column of columns) {
+                //Convert search term to lower case and append to the array
+                searchTerms.push(column.children[0].value.toLowerCase());
+            }
+
+            let url = `{% url 'InventoryList' %}`;
+            const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
+            url = `${url}?${queryString}`;
+            
+            //Get the inventories from server
+            const response = await fetch(url);
+            const inventories = await response.json();
+            //Remove the frist row, as that is blank
+            inventories.shift();
+
+            appendInventories(inventories);
+            hideLoadingIcon();
+        }
     </script>
 
     <script> //To send data to server
@@ -210,9 +349,5 @@
 
             return arr;
         }
-    </script>
-
-    <script> //To run at the start of the page. This should be at the end of the page.
-        $('#DeliveryDate').datepicker();
     </script>
 {% endblock %}

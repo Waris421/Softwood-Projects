@@ -7,228 +7,210 @@
 {% block content %}
     {% csrf_token %}                        <!--This is to protect against CSRF attacks-->        
     <!-- The main Order form-->
-    <p>
-        <form method="POST" id="orderForm" autocomplete="off">
-            <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Order#:&nbsp; </label>
+    <form method="POST" id="orderForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-12 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Order#:&nbsp; </label>
                     <input id="id_Order" type="text" class="{{theme.textInput}}" value="{{order.OrderNumber}}" name="OrderNumber" readonly>
                 </div>
-                <div class="col-3 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Style:&nbsp; </label>
+                <div class="flex col-[4/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Order#:&nbsp; </label>
                     <select id="id_Style" class="{{theme.dropdown}}" name="Style"></select>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Customer:&nbsp; </label>
-                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer"></select>
+                <div class="flex col-[7/9] items-center">
+                    <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer"> </select>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>OD:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{order.OrderDate|date:'m/d/Y'}}" name="OrderDate" id="orderDate">
+                <div class="flex col-[9/11] items-center">
+                    <label class="mx-2 whitespace-nowrap">DD:&nbsp; </label>
+                    <input name="DeliveryDate" id="datepicker-format" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" value="{{order.OrderDate|date:'Y/m/d'}}" placeholder="Select date">
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>DD:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{order.DeliveryDate|date:'m/d/Y'}}" name="DeliveryDate" id="deliveryDate">
-                </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Type:&nbsp; </label>
+                <div class="flex col-[11/13] items-center">
+                    <label class="mx-2 whitespace-nowrap">Type:&nbsp; </label>
                     <select id="id_Type" class="{{theme.dropdown}}" name="Type"></select>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Price:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{order.Price}}" name="Price">
-                </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Currency:&nbsp; </label>
+            </div>
+            <div class="grid grid-cols-12 my-2 {{theme.justify}} {{theme.align}} mt-2">
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Currency:&nbsp; </label>
                     <select id="id_Currency" class="{{theme.dropdown}}" name="Currency"></select>
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Wastage%:&nbsp; </label>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Price:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" value="{{order.Price}}" name="Price">
+                </div>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Wastage%:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{order.ExcessCut}}" name="ExcessCut">
                 </div>
-                <div class="col-2 d-flex {{theme.align}} {{theme.justify}}">
-                    <label>Quantity:&nbsp; </label>
+                <div class="flex col-[7/9] items-center">
+                    <label class="mx-2 whitespace-nowrap">Quantity:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{order.Quantity}}" name="Quantity" id="id_orderQty" readonly>
                 </div>
-                <div class="col-2 btn-group {{theme.align}} {{theme.textJustify}}">
-                    <a id="submit" class="{{theme.buttonSecondary}}" role="button" onclick="submitForms()">Save</a>
+                <div class="flex col-[9/13] items-center">
+                    <a id="submit" class="{{theme.buttonBasic}}" role="button" onclick="submitForms()">Save</a>
                     <a class="{{theme.buttonSecondary}}" role="button" onclick="showPrintBox()">Print</a>
                 </div>
             </div>
-        </form>
-    </p>
-    <!-- The action Buttons -->
-    <p>
-        <div class="row g-3 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-            <div class = "col btn-group {{theme.justify}}">
-                <a class="{{theme.buttonSecondary}}" href="/purchaseorder/autogen?startingOrder={{order.WorkOrderNumber}}"
-                    role="button" target="_blank">Auto Req.</a>
-                <button id="btn_calculatReq" class="{{theme.buttonSecondary}}" type="button" onclick="showSelectionBox()">
-                    Generate PO
-                </button>
-                <button id="btn_calculatReq" class="{{theme.buttonSecondary}}" type="button" onclick="calculateRequirement()">
-                    Calculate Req.
-                </button>
-            </div>
-            <div class = "col btn-group {{theme.justify}}">
-                <button id="btn_requirementTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('requirementTable')">Requirement</button>
-                <button id="btn_variantTable" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantTable')">Variants</button>
-            </div>
         </div>
-    </p>
+    </form>
 
-    <!-- Order Inventory Requirement -->
-    <div>
-        <div id="requirementTable" name="reqTable" style="max-height: 300px; min-height: 300px; overflow-y: auto;">
-            <form method="POST" id="requirementForm" autocomplete="off">
-                <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white sticky-top" row="0">    
-                    <div class="col-1">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            <input class="form-check-input" type="checkbox" value="" onclick="selectAll(this)">
-                        </div>
-                    </div>
-                    <div class="col-3">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            Inventory
-                        </div>
-                    </div>
-                    <div class="col-2">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            Variant
-                        </div>
-                    </div>
-                    <div class="col-2">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            Required
-                        </div>
-                    </div>
-                    <div class="col-2">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            Ordered
-                        </div>
-                    </div>
-                    <div class="col-1">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            Received
-                        </div>
-                    </div>
-                    <div class="col-1">
-                        <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                            Actions
-                        </div>
-                    </div>
-                </div>
-                {% for data in req %}
-                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}" onclick="getContextForRequirement(this)">
-                        <div class="col-1">
-                            <input class="form-check-input" type="checkbox">
-                        </div>
-                        <div hidden>
-                            <input value="{{data.id}}" name="id">
-                        </div>
-                        <div hidden>
-                            <input value="{{data.InventoryCode}}" name="InventoryCode">
-                        </div>
-                        <div class="col-3">
-                            <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName">
-                        </div>
-                        <div class="col-2">
-                            <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant">
-                        </div>
-                        <div class="col-2">
-                            <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
-                        </div>
-                        <div class="col-2">
-                            <input type="number" class="{{theme.textInput}}" value="{{data.Ordered}}" name="Ordered">
-                        </div>
-                        <div class="col-1">
-                            <input type="number" class="{{theme.textInput}}" value="{{data.Received}}" name="Received">
-                        </div>
-                        <div class="col-1">
-                            <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                                <span>+</span>
-                            </button>
-                            <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                                <span>-</span>
-                            </button>
-                        </div>
-                    </div>
-                {% endfor %}
-            </form>
+    <!-- The action Buttons -->
+    <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+        <div class="flex col-[1/3] btn-group {{theme.align}} justify-end ml-1">
+            <a class="{{theme.buttonSecondary}}" href="/purchaseorder/autogen?startingOrder={{order.OrderNumber}}"
+                role="button" target="_blank">Auto Req.</a>
+            <button id="btn_calculatReq" class="{{theme.buttonSecondary}}" type="button" onclick="showSelectionBox()">
+                Generate PO
+            </button>
+            <button id="btn_calculatReq" class="{{theme.buttonSecondary}}" type="button" onclick="calculateRequirement()">
+                Calculate Requirement
+            </button>
         </div>
-        <div style="max-height: 300px; overflow-y: auto;" id="requirementDetails" class="{{theme.border}}" hidden>
-            <div class="row {{theme.justify}} {{theme.textJustify}} bg-dark text-white sticky-top">
-                <div class="col">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Receipt No.
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Type
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Date
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Total Qty
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Allocated Qty
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        Destination
-                    </div>
-                </div>    
-            </div>
+        <div class="flex col-[3/4] btn-group {{theme.align}} justify-end ml-1">
+            <button id="btn_requirementForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('requirementForm')">Requirement</button>
+            <button id="btn_variantForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantForm')">Variants</button>
         </div>
     </div>
 
+    <!-- Order Inventory Requirement -->
+    <form method="POST" id="requirementForm" autocomplete="off" hidden>
+        <div class="flex-1 overflow-y-auto {{theme.border}}">
+            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
+                    </div>
+                </div>
+                <div class="flex col-[2/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[7/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Required
+                    </div>
+                </div>
+                <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Ordered
+                    </div>
+                </div>
+                <div class="flex col-[11/13] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Received
+                    </div>
+                </div>
+            </div>
+            {% for data in req %}
+                <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}" onclick="getContextForRequirement(this)">
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}">
+                    </div>
+                    <div hidden>
+                        <input value="{{data.id}}" name="id">
+                    </div>
+                    <div hidden>
+                        <input value="{{data.InventoryCode}}" name="InventoryCode">
+                    </div>
+                    <div class="flex col-[2/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName" readonly>
+                    </div>
+                    <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
+                    </div>
+                    <div class="flex col-[7/9] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity" readonly>
+                    </div>
+                    <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Ordered}}" name="Ordered" readonly>
+                    </div>
+                    <div class="flex col-[11/13] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Received}}" name="Received" readonly>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <div id="requirementHistory" class="hidden h-1/5 overflow-y-auto {{theme.border}}">
+            <div class="grid grid-cols-7 mt-4 px-3 {{theme.border}} {{theme.tableHead}}">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Receipt No.
+                    </div>
+                </div>
+                <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Type
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Date
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Total Qty
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Allocated Qty
+                    </div>
+                </div>
+                <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Destination
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
     <!-- Order Variants -->
-    <div id="variantTable" name="varTable">
-        <form method="POST" id="variantForm" autocomplete="off">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">    
-                <div class="col col-md-3">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+    <form method="POST" id="variantForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-7 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant Name
                     </div>
                 </div>
-                <div class="col col-md-3">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Quantity
                     </div>
                 </div>
-                <div class="col col-md-3">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Description
                     </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
             {% for data in var %}
-                <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                    <div class="col col-md-3">
-                        <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="Name"> 
+                <div class="grid grid-cols-7 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="VariantCode">
                     </div>
-                    <div class="col col-md-3">
-                        <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity" onchange="calculateQuantity()"> 
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity" onchange="calculateQuantity()">
                     </div>
-                    <div class="col col-md-3">
-                        <input type="text" class="{{theme.textInput}}" value="{{data.Description}}" name="Description"> 
+                    <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" name="Description" value="{{data.Description}}">
                     </div>
-                    <div class="col col-md-1">
+                    <div class="flex col-[7/8] space-x-1 {{theme.align}} {{theme.justify}}">
                         <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                             <span>+</span>
                         </button>
@@ -238,26 +220,25 @@
                     </div>
                 </div>
             {% endfor %}
-        </form>
-    </div>
+        </div>
+    </form>
 
     <script> //To change view based on selected button
-        const tableIds = ['variantTable', 'requirementTable'];
+        const formIds = ['variantForm', 'requirementForm'];
 
-        function changeView(tableId){
-            let tables = [];
+        function changeView(formId){
+            let forms = [];
 
-            for (let i=0;i<tableIds.length;i++) {
-                tables[i] = document.getElementById (tableIds[i]);
-                const button = document.getElementById('btn_'+tableIds[i]);
-                if (tableId === tableIds[i]){
-                    tables[i].style.display = "";
-                    button.className = "{{theme.buttonSelected}}";
+            for (let i=0;i<formIds.length;i++) {
+                forms[i] = document.getElementById (formIds[i]);
+                const button = document.getElementById(`btn_${formIds[i]}`);
+                if (formId === formIds[i]){
+                    forms[i].hidden = false;
+                    button.className = `{{theme.buttonSelected}}`;
                 } else {
-                    tables[i].style.display = "none";
-                    button.className = "{{theme.buttonBasic}}";
+                    forms[i].hidden = true;
+                    button.className = `{{theme.buttonBasic}}`;
                 }
-                
             }
         }
 
@@ -271,21 +252,11 @@
             let response = await fetch('/options/styles');
             const styles = await response.json();
             await appendOptions('id_Style', styles, "{{order.StyleCode}}");
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Style").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             //Customer dropdown
             response = await fetch('/options/customers');
             const customers = await response.json();
             await appendOptions('id_Customer', customers, "{{order.Customer}}");
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Customer").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             //Order Types dropdown
             response = await fetch('/options/ordertypes');
@@ -298,7 +269,7 @@
             await appendOptions('id_Currency', currencies, "{{order.currency}}");
 
             //Apply search on dropdown where needed
-            await addSearchBox();
+            //await addSearchBox();
 
             hideLoadingIcon();
         });
@@ -314,7 +285,7 @@
             
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
-            const objects = document.getElementById('requirementTable').children[0].children;
+            const objects = document.getElementById('requirementForm').children[0].children;
             const reqTableRows = Array.from(objects).slice(1);
 
             for (let i=1; i<reqTableRows.length; i++) {
@@ -366,8 +337,6 @@
                 table.appendChild(copy);
             }
 
-            addSearchBox();
-
             unsavedDataFlag = true;
             
             hideLoadingIcon();
@@ -377,21 +346,21 @@
     <script> //To get context for requirement
         async function getContextForRequirement(row) {
             const table = row.parentElement;
-            const detailsTable = table.parentElement.parentElement.children[1];
+            const detailsTable = document.getElementById('requirementHistory');
 
             //Remove highlight from all rows
             for (const child of table.children) {
-                child.classList.remove('bg-secondary');
+                child.classList.remove('bg-accent-content');
             }
 
             //Make the row highlighted
             const classList = row.classList;
-            if (classList.length < 5) {
-                classList.add('bg-secondary')
+            if (classList.length < 10) {
+                classList.add('bg-accent-content')
             }
 
-            const inventory = row.children[1].children[0].value;
-            const variant = row.children[2].children[0].value;
+            const inventory = row.children[2].children[0].value;
+            const variant = row.children[4].children[0].value;
             const workOrder = window.location.pathname.split('/')[2];
             
             let data = {
@@ -414,17 +383,27 @@
                 for (let i = detailsTable.children.length - 1; i > 0; i--) {
                     detailsTable.removeChild(detailsTable.children[i]);
                 }
+                const colWidths = {
+                    'ReceiptNo': 'col-[1/2]',
+                    'Type': 'col-[2/5]',
+                    'ReceiptDate': 'col-[5/7]',
+                    'TotalQuantity': 'col-[7/9]',
+                    'AllocatedQuantity': 'col-[9/11]',
+                    'Supplier': 'col-[11/13]',
+                };
                 
                 for (const data of history) {
                     const row = document.createElement('div');
-                    row.className = "row mt-1 {{theme.justify}} {{theme.textJustify}}"; 
+                    row.className = `grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}`; 
+                    
+                    
                     const sequence = ['ReceiptNo','Type','ReceiptDate','TotalQuantity','AllocatedQuantity','Supplier']; 
                     for (const heading of sequence) {
                         const col = document.createElement('div');
-                        col.className = "col";
+                        col.className = `flex ${colWidths[heading]} {{theme.align}} {{theme.justify}}`;
 
                         const cell = document.createElement('input');
-                        cell.className = "{{theme.textInput}}";
+                        cell.className = `{{theme.textInput}}`;
                         cell.type = "text";
                         cell.value = data[heading];
                         cell.readOnly = true;
@@ -435,14 +414,13 @@
                             cell.addEventListener('click', () => {
                                 window.open('/'+data['url'], '_blank'); // Open in new tab
                             });
-                        }
-                        
+                        }                      
                         col.appendChild(cell);
                         row.appendChild(col);        
                     }
                     detailsTable.appendChild(row);
                 }
-                detailsTable.hidden = false;
+                detailsTable.classList.remove('hidden');
             } else {
                 detailsTable.hidden = true;
                 const errorMessage = await response.text();
@@ -455,14 +433,14 @@
         function selectAll(box) {
             const checkStatus = box.checked;
 
-            const table = box.parentElement.parentElement.parentElement.parentElement.parentElement;
+            const table = document.getElementById('requirementForm');
             const numberOfRows = table.children[0].children.length;
 
             for (let i=1; i<numberOfRows;i++) {
                 const row = table.querySelector('[row="'+i+'"]');
                 const rowCheck = row.children[0].children[0];
-                const required = row.children[3].children[0].value;
-                const ordered = row.children[4].children[0].value;
+                const required = row.children[5].children[0].value;
+                const ordered = row.children[6].children[0].value;
 
                 rowCheck.checked = false;
 
@@ -501,11 +479,8 @@
             showDropDown(options, printWO, selectedOption);
         }
 
-        async function printWO() {
+        async function printWO(selectedFormat) {
             showLoadingIcon();
-            //Get the foramt selected by user
-            const dialogBox = document.getElementById('dropdown');
-            const selectedFormat = dialogBox.children[0].children[0].children[1].children[0].children[0].value;
 
             const orderBox = document.getElementById('id_Order');
             const orderNumber = parseInt(orderBox.value);
@@ -528,9 +503,15 @@
 
                 const win = window.open(pdfURL, '_blank');
 
-                win.onafterprint = function() {
+                if (win) {
+                    win.onafterprint = function() {
+                        URL.revokeObjectURL(pdfURL);
+                    };
+                    win.focus();
+                } else {
+                    showMessage('Please allow pop-up access from browser');
                     URL.revokeObjectURL(pdfURL);
-                };
+                }              
             } else {
                 errorMessage = await response.text();
                 showMessage(errorMessage);
@@ -547,19 +528,17 @@
 
             showDropDown(suppliers, generatePO, null, true);
         }
-        async function generatePO(){
-            const dialogBox = document.getElementById('dropdown');
-            const supplier = dialogBox.children[0].children[0].children[1].children[0].children[0].value;
-
+        async function generatePO(supplier){
             const workOrder = window.location.pathname.split('/')[2];
             if (supplier == 'null') {
-                alert('Please select a supplier.');
+                showMessage('Please select a supplier.');
                 showSelectionBox();
                 return;
             }
 
             const requirementForm = document.getElementById('requirementForm');
-            const rows = requirementForm.children;
+            const rows = requirementForm.children[0].children;
+            console.log(rows);
 
             let selectedRows = [];
 
@@ -667,7 +646,7 @@
             if (response.ok) {
                 unsavedDataFlag = false;
 
-                showMessage('Saved Successfully');
+                showMessage('Saved Successfully', 3, '{{theme.successBox}}');
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);
@@ -675,7 +654,7 @@
         }
 
         function formToTable(group, form, data){
-            let rows = form.querySelectorAll('.row');
+            let rows = form.querySelectorAll('[row]');
             //Remove unnecesary rows
             rows = dropElements(rows);
 
@@ -704,9 +683,6 @@
     </script>
 
     <script> //To run at the start of the page. This should be at the end of the page.
-        changeView('requirementTable')
-
-        $('#orderDate').datepicker();
-        $('#deliveryDate').datepicker();
+        changeView('requirementForm');
     </script>
 {% endblock %}

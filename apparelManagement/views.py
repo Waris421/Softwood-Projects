@@ -358,7 +358,7 @@ def CopyStyle(request: HttpRequest, pk: str):
             return redirect(f'/style/{targetCode}/edit')
         except Exception as e:
             context = {'message': f'Error: {e}', 'theme': theme}
-            return render (request, 'blank.html',context)
+            return render(request, 'style/copy.html', context)
     else:
         context = {'source':style.StyleCode, 'theme': theme}
         return render(request, 'style/copy.html', context)
@@ -427,7 +427,7 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         dfOrder, dfVariants, dfRequirement = generic_services.refineJson(jsonData)
 
         try:
-            work_order_service.UpdateWorkOrder(dfOrder, dfVariants, dfRequirement)
+            work_order_service.UpdateWorkOrder(orderObject, dfOrder, dfVariants, dfRequirement)
             return HttpResponse('OK', status=200)
         except Exception as e:
             print(e)
@@ -478,6 +478,7 @@ def GetRequirementHistory (request: HttpRequest):
         requirement = work_order_service.GetRequirementHistory(inventoryCode, variant, workOrder)
         return requirement
     except Exception as e:
+        print(e)
         return HttpResponse(e, status=400)
     
 @login_required(login_url='/login')
@@ -573,6 +574,12 @@ def CopyWorkOrder(request: HttpRequest, pk):
     if request.method == 'POST':
         SourceNumber = request.POST.get('source')
         TargetNumber = request.POST.get('target')
+        print(TargetNumber)
+
+        if (not TargetNumber) or (not SourceNumber):
+            context = {'message': 'Error: Missing source or target', 'source':order.OrderNumber, 'theme': theme}
+            return render(request, 'work_order/copy.html', context)
+
         try:
             models.WorkOrder.objects.get(OrderNumber=TargetNumber)
             return HttpResponse('Work order already exists', status=400)
@@ -599,8 +606,8 @@ def CopyWorkOrder(request: HttpRequest, pk):
             notifications_service.AddWorkOrder(TargetNumber)
             return redirect(f'/workorder/{TargetNumber}/edit')
         except Exception as e:
-            context = {'message': f'Error: {e}', 'theme': theme}
-            return render (request, 'blank.html',context)
+            context = {'message': f'Error: {e}', 'source':order.OrderNumber, 'theme': theme}
+            return render(request, 'work_order/copy.html', context)
 
     else:
         context = {'source':order.OrderNumber, 'theme': theme}
@@ -800,7 +807,7 @@ def PrintPurchaseOrder(request: HttpRequest, pk: str):
         order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject)
         
         context = {'order':order, 'inv':inventory, 'alloc': allocation, 'summary': summary, 'theme': theme} 
-
+        
         if requiredFormat == 'SUP':
             return render(request, 'purchase_order/print_supplier.html', context)
         elif requiredFormat=='ACC':
@@ -919,11 +926,11 @@ def AddPurchaseReceipt(request: HttpRequest):
 
         try:
             purchaseOrder = models.PurchaseOrder.objects.get(id=poNumber)
+            inventory = purchase_receipt_service.GetPOData(purchaseOrder)
         except:
-            purchaseOrder = models.PurchaseOrder()
-        
-        inventory = purchase_receipt_service.GetPOData(purchaseOrder)
+            inventory = []   
 
+        print(inventory)
         context = {
             'inventory': inventory,'poNumber': poNumber,
             'theme': theme
@@ -976,63 +983,6 @@ def GetReceiptAllocation(request: HttpRequest):
     allocation = purchase_receipt_service.GetReceiptAllocation(recInventory)
     
     return JsonResponse(allocation, safe=False)
-
-@login_required(login_url='/login')
-def CopyPurchaseReceipt (request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.InventoryReciept, type='add'):
-        return HttpResponse('Access Denied', status=403)
-
-    receipt = models.InventoryReciept.objects.get(id=pk)
-
-    if request.method == 'POST':
-        SourceNumber = request.POST.get('source')
-        receipt = models.InventoryReciept.objects.get(id=SourceNumber)
-
-        receipt.id = None
-        receipt.save()
-
-        recInventories = models.RecInventory.objects.filter(ReceiptNumber=SourceNumber)
-
-        for inventory in recInventories:
-            oldId = inventory.id
-            inventory.id = None
-            inventory.ReceiptNumber = receipt
-            inventory.save()
-            
-            invAllocations = models.RecAllocation.objects.filter(RecInvId=oldId)
-            for allocation in invAllocations:
-                allocation.id = None
-                allocation.RecInvId = inventory
-                allocation.save()
-        return redirect(f'/purchasereceipt/{receipt.id}/edit')
-    else:
-       context = {'source':receipt, 'theme': theme}
-       return render(request, 'purchase_receipt/copy.html', context)
-
-@login_required(login_url='/login')
-def DeletePurchaseReceipt (request: HttpRequest, pk: int):
-    try:
-        receipt = models.InventoryReciept.objects.get(id=pk)
-    except:
-        return HttpResponse('Resource not found', status=400)
-
-    if not auth_service.hasPermission(request, models.InventoryReciept, type='delete'):
-        return HttpResponse('Access Denied', status=403)
-
-
-    if request.method == 'POST':
-        if 'confirm' in request.POST:
-            try:
-                receipt.delete()
-                return redirect('/purchasereceipt')
-            except Exception as e:
-                context = {'object':receipt, 'confirm':True, 'theme': theme, 'error':e}
-                return render(request, 'purchase_receipt/delete.html', context)
-        else:
-            return redirect('/purchasereceipt')
-    else:
-        context = {'object':receipt, 'confirm':True, 'theme': theme}
-        return render(request, 'purchase_receipt/delete.html', context)
 
 @login_required(login_url='/login')
 def PurchaseDemand (request: HttpRequest):

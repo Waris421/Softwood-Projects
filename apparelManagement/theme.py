@@ -27,15 +27,17 @@ theme = {
                     dark:from-blue-600 dark:to-blue-800 hover:opacity-80""",
     'buttonSelected': """flex flex-grow btn rounded-btn h-[4rem] text-lg bg-gradient-to-b from-blue-700 to-blue-900 dark:bg-gradient-to-b
                     dark:from-blue-800 dark:to-blue-950 shadow-inner shadow-black/30 opacity-95""",
-    'buttonSecondary': 'flex flex-grow btn rounded-btn h-[4rem] text-white bg-gradient-to-b from-green-500 to-green-600 hover:opacity-60',
+    'buttonSecondary': 'flex flex-grow btn rounded-btn h-[4rem] text-lg text-white bg-gradient-to-b from-green-500 to-green-600 hover:opacity-60',
     'plusButton': 'btn btn-sm btn-outline btn-success dark:btn-success-content dark:border-success-content dark:text-success-content',
     'minusButton': 'btn btn-sm btn-outline btn-danger dark:btn-danger-content dark:border-danger-content dark:text-danger-content',
+    'emptyButton': 'flex flex-grow btn btn-ghost',
     
     #Dropdowns
     'dropdown': 'select select-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
 
     #Text Input
     'textInput': 'input input-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
+    'textInputLarge': 'textarea textarea-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
 
     'checkbox': 'checkbox',
     'radio': 'radio',
@@ -63,10 +65,18 @@ theme = {
 
     #True/False Representation
     'trueFalseHeading': 'indicator',
-    'trueClass': 'indicator-item badge badge-success',
+    'trueClass': 'material-symbols-outlined',
     'trueValue': 'thumb_up',
-    'falseClass': 'indicator-item badge badge-error',
+    'falseClass': 'material-symbols-outlined',
     'falseValue': 'thumb_down',
+
+    #Print formats
+    'titleBold': 'text-4xl font-bold',
+    'headingNormal': 'text-xl',
+    'headingBold': 'text-xl font-bold',
+    'content': 'text-[10px]',
+    'footer': 'text-sm',
+    'rowEntry': 'flex p-2 flex-grow flex-shrink basis-0 min-w-[100px] sm:min-w-[120px]',
 
     #Chart Colors
     'red': '#DC143C',

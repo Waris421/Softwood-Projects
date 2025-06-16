@@ -417,7 +417,7 @@ def EditPurchaseOrder(
 
     dfOrder['Supplier'] = convertTexttoObject(models.Supplier, dfOrder['Supplier'], 'Name')
 
-    dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%m/%d/%Y")
+    dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%Y-%m-%d")
 
     dfOrder['Tax'] = dfOrder['Tax'].astype(float)
 
@@ -522,8 +522,29 @@ def ProcessOrderData(orderObject: models.PurchaseOrder):
     order = model_to_dict(orderObject)
     order['OrderDate'] = orderObject.OrderDate
 
-    inventories = models.POInventory.objects.filter(PONumber=orderObject)
-    inventories = inventories.values('id','Inventory','Variant','Quantity','Price','Currency','Forex')
+    fields = ['id','Inventory','Variant','Quantity','Price','Currency','Forex']
+    poInventories = models.POInventory.objects.filter(PONumber=orderObject).values(*fields)
+    if poInventories:
+        dfPOInventories = pd.DataFrame(poInventories)
+    else:
+        dfPOInventories = pd.DataFrame(columns=fields)
+    del poInventories
+
+    fields = ['Code', 'Name']
+    inventories = models.Inventory.objects.filter(Code__in=dfPOInventories['Inventory'].to_list()).values(*fields)
+    if inventories:
+        dfInventories = pd.DataFrame(inventories)
+    else:
+        dfInventories = pd.DataFrame(columns=fields)
+    del inventories, fields
+
+    dfPOInventories = pd.merge(left=dfPOInventories, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
+    del dfInventories
+    dfPOInventories.drop(inplace=True, columns=['Code'])
+    dfPOInventories.rename(inplace=True, columns={'Name':'InventoryName'})
+
+    cols = [i for i in dfPOInventories]
+    inventories = [dict(zip(cols, i)) for i in dfPOInventories.values]
     
     return order, inventories
 

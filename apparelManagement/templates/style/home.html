@@ -11,14 +11,14 @@
         <div class="flex flex-col col-[1/3] items-center">
           <select name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
             <option value="">--Customer--</option>
-            {% for data in customers %}
-            <option value="{{ data }}"
+              {% for data in customers %}
+                <option value="{{ data }}"
                 {% if data == selectedCustomer %}
                 selected
                 {% endif %}>
-                {{ data }}
-            </option>
-            {% endfor %}
+                    {{ data }}
+                </option>
+              {% endfor %}
           </select>
         </div>
         <div class="flex flex-col col-[3/5] items-center">
@@ -47,7 +47,7 @@
         <th scope="col">Category</th>
         <th scope="col">Notes</th>   
       </tr>
-      <tbody id="tableData" class = "{{theme.tableBody}}">
+      <tbody id="tableData" class="{{theme.tableBody}}">
         {% for data in style %}
         <tr class="{{theme.tableBodyRow}}">
           <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>

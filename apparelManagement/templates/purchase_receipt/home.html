@@ -6,47 +6,33 @@
 
 {% block content %}
     <div class="{{theme.border}}">
-        <p>
-            <div class="row g-3 {{theme.justify}} {{theme.align}}">
-                <div class="col {{theme.textJustify}}">
-                    <form action="{% url 'purchaseRec' %}" method="get">
-                        <select id="supplierFilter" name="supplierFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-                            <option value="">  ---------  </option>
-                        </select>
-                        <input type="hidden" name="searchTerm" value="{{ searchTerm }}">
-                        <input type="hidden" name="poNumber" value="{{ selectedPO }}">
-                    </form>
+        <form action="{% url 'purchaseRec' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-8 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Supplier:</span>
+                    <select id="supplierFilter" name="supplierFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
                 </div>
-                <div class="col btn-group {{theme.textJustify}}">
-                    <a class="{{theme.buttonBasic}}" href="/purchasereceipt/add" role="button" target="_blank">Add Receipt</a>
-                    <a id="copyReceiptButton" class="{{theme.buttonBasic}}" role="button">Copy Receipt</a>
-                    <a id="editReceiptButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Edit Receipt</a>
-                    <a id="deleteReceiptButton" class="{{theme.buttonBasic}}" role="button">Delete Receipt</a>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Rec. No.:</span>
+                    <input type="number" class="{{theme.textInput}}" name="recFilter" value="{{selectedRec}}">
                 </div>
-            </div>
-        </p>
-        <p>
-            <div class="row g-0 {{theme.justify}} {{theme.align}}">
-                <div class="col-2 {{theme.textJustify}}">
-                    <form action="{% url 'purchaseRec' %}" method="get">
-                        <input type="number" class="{{theme.textInput}} w-100" name="recFilter" placeholder="Receipt Number" value="{{selectedRec}}">
+                <div class="flex flex-col col-[4/6] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="searchTerm" value="{{searchTerm}}">
                 </div>
-                <div class="col-8 {{theme.textJustify}}">
-                    <input type="text" class="{{theme.textInput}} w-100" name="searchTerm" placeholder="Search Receipts" value="{{searchTerm}}">
-                </div>
-                <div class="col-2 {{theme.textJustify}}">
+                <div class="flex col-[6/9] btn-group {{theme.align}} justify-end ml-1 mt-2">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonSecondary}}" href="{% url 'addRec' %}" role="button">Add Receipt</a>
                 </div>
-                    <input type="hidden" name="supplierFilter" value="{{ selectedSupplier }}">
-                    </form>
             </div>
-        </p>
+        </form>
     </div>
 
-    <div id ="purchaseOrderTable">
+    <div id ="purchaseOrderTable" class="mt-6">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
-                <th scope="col">Select</th>
                 <th scope="col">Receipt Number</th>
                 <th scope="col">PO Number</th>
                 <th scope="col">Receipt Date</th>
@@ -56,9 +42,8 @@
             </tr>
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in receipt %}
-                    <tr>
-                        <td><input type="radio" name="item_checkbox"></td>
-                        <td class="receipt">{{ data.ReceiptNumber }}</td>
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td class="{{theme.hyperLink}}"><a href="{% url 'editRec' pk=data.ReceiptNumber %}">{{ data.ReceiptNumber }}</a></td>
                         <td>{{ data.PONumber }}</td>
                         <td>{{ data.ReceiptDate }}</td>
                         <td>{{ data.Supplier }}</td>
@@ -70,34 +55,12 @@
         </table>
     </div>
 
-    <script>//To change the buttons based on selection in radio
-        $("#tableData").on("click", "input[type='radio']", function() {
-            //Get the code against seletion
-            const selectedCode = $(this).closest("tr").find("td.receipt").text();
-            
-            //Find and link the edit card button to the selected code
-            var button = $("#copyReceiptButton");           
-            button.attr("href", "/purchasereceipt/" + selectedCode + "/copy");
-            
-            button = $("#editReceiptButton");           
-            button.attr("href", "/purchasereceipt/" + selectedCode + "/edit");
-  
-            button = $("#deleteReceiptButton");
-            button.attr("href", "/purchasereceipt/" + selectedCode + "/delete");
-        });
-    </script>
-
     <script>//To run when the page loads
         window.addEventListener('load', async () => {
             //Supplier dropdown
             let response = await fetch('/options/suppliers');
             const customers = await response.json();
             await appendOptions('supplierFilter', customers, '{{selectedSupplier}}');
-            //Apply Search Box
-            $("#supplierFilter").chosen({
-                search_contains: true,
-                width: "100%"
-            });
         });
     </script>
 {% endblock %}
