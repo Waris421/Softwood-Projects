@@ -2,30 +2,28 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
+from django.apps import apps
 
 import json
 
+from core.services import auth_service, generic_services
+from core.services.theme import theme
+
 from . import models
-from .services import auth_service, generic_services, notifications_service
+from .services import notifications_service
 from .services import inventory_card_service, style_card_service, work_order_service
 from .services import purchase_receipt_service, purchase_order_service, purchase_demand_service
 from .services import requisition_service, issuance_service
-from .theme import theme
-
-@login_required(login_url='/login')
-def blank (request: HttpRequest):
-    context = {'theme': theme}
-    return render (request, 'blank.html', context)
 
 @login_required(login_url='/login')
 def home (request: HttpRequest):
     notifications = notifications_service.GetNotifications(request.user)
-
+    
     context = {
         'data': json.dumps(list(notifications)),
-        'theme': theme
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
-    return render(request, 'app_home.html', context)
+    return render(request, 'apparelManagement/home.html', context)
 
 @login_required(login_url='/login')
 def GetNotificationDetails(request: HttpRequest, pk: int):
@@ -71,7 +69,7 @@ def Inventory (request: HttpRequest):
     context = {'inv': data.object_list, 'page_obj': data,
                'searchTerm': searchTerm, 'groups': groups, 'selectedGroup': groupFilter,
                'stockFilter': stockFilter,
-               'theme': theme}
+               'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
     return render (request, 'inventory/home.html',context)
 
 @login_required(login_url = '/login')
@@ -94,7 +92,7 @@ def AddInv (request: HttpRequest):
         context = {
             'groups': groups, 'unitTypes': unitTypes, 'auditReq': auditReq, 'inUse': inUse,'currencies': currencies,
             'codeP1': codeP1,
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
             }
         
         return render (request, 'inventory/add.html', context)
@@ -153,7 +151,7 @@ def UpdateInv(request: HttpRequest, pk: str):
             'inv': inv, 'units': units,
             'groups': groups, 'unitTypes': unitTypes, 'auditReq': auditReq, 'inUse': inUse,'currencies': currencies,
             'codeP1': codeP1,
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'inventory/edit.html', context)
 
@@ -173,12 +171,12 @@ def DeleteInv(request: HttpRequest, pk: int):
                 inv.delete()
                 return redirect('/inv')
             except Exception as e:
-                context = {'object': inv, 'confirm': True, 'theme': theme, 'error': e}
+                context = {'object': inv, 'confirm': True, 'theme': theme, 'error': e, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
                 return render(request, 'inventory/delete.html', context)
         else:
             return redirect('/inv')
     else:
-        context = {'object':inv, 'confirm':True, 'theme': theme}
+        context = {'object':inv, 'confirm':True, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/delete.html', context)
 
 @login_required(login_url = '/login')
@@ -191,12 +189,12 @@ def CopyInv (request: HttpRequest, pk: str):
         targetCode = request.POST.get('target')
 
         if not targetCode:
-            context = {'message': 'No Code provided','theme': theme, 'code': pk}
+            context = {'message': 'No Code provided','theme': theme, 'code': pk, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'inventory/copy.html', context)
 
         try:
             models.Inventory.objects.get(Code=targetCode)
-            context = {'message': 'Code Already Exists','theme': theme, 'code': pk}
+            context = {'message': 'Code Already Exists','theme': theme, 'code': pk, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'inventory/copy.html', context)
         except:
             Inventory = models.Inventory.objects.get(Code=sourceCode)
@@ -205,7 +203,7 @@ def CopyInv (request: HttpRequest, pk: str):
 
             return redirect(f'/inv/{targetCode}/edit')
     else:
-        context = {'theme': theme, 'code': pk}
+        context = {'theme': theme, 'code': pk, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/copy.html', context)
 
 @login_required(login_url = '/login')
@@ -225,7 +223,7 @@ def Style (request: HttpRequest):
         data = generic_services.paginate(Style, pageNumber)
 
         context = {'style': data.object_list, 'page_obj': data
-                ,'theme': theme
+                ,'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
                 ,'customers': customers, 'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
         return render(request, 'style/home.html', context)
@@ -253,7 +251,7 @@ def AddStyle (request: HttpRequest):
          
     else:
         context = {
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'style/add.html', context)
 
@@ -286,7 +284,7 @@ def UpdateStyle (request: HttpRequest, pk: str):
                    'var':variants,
                    'cons':consumption, 'consJson': json.dumps(list(consumption)),
                    'route':route, 'routeJson':json.dumps(list(route)),
-                   'theme':theme}
+                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/edit.html', context)
 
 @login_required(login_url='/login')
@@ -308,7 +306,7 @@ def DeleteStyle(request: HttpRequest, pk: str):
             return redirect('/style')
     
     else:
-        context = {'object':style, 'confirm':True, 'theme': theme}
+        context = {'object':style, 'confirm':True, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/delete.html', context)
 
 @login_required(login_url='/login')
@@ -323,12 +321,12 @@ def CopyStyle(request: HttpRequest, pk: str):
         targetCode = request.POST.get('target')
 
         if not targetCode:
-            context = {'message': 'No Code provided','theme': theme, 'source':style.StyleCode}
+            context = {'message': 'No Code provided','theme': theme, 'source':style.StyleCode, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'style/copy.html', context)
 
         try:
             models.StyleCard.objects.get(StyleCode=targetCode)
-            context = {'message': 'Code Already Exsits','theme': theme, 'source':style.StyleCode}
+            context = {'message': 'Code Already Exsits','theme': theme, 'source':style.StyleCode, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'style/copy.html', context)
         except models.StyleCard.DoesNotExist:
             styleObj = models.StyleCard.objects.get(StyleCode=sourceCode)
@@ -360,7 +358,7 @@ def CopyStyle(request: HttpRequest, pk: str):
             context = {'message': f'Error: {e}', 'theme': theme}
             return render(request, 'style/copy.html', context)
     else:
-        context = {'source':style.StyleCode, 'theme': theme}
+        context = {'source':style.StyleCode, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/copy.html', context)
 
 @login_required(login_url='/login')
@@ -380,7 +378,7 @@ def WorkOrder (request: HttpRequest):
     data = generic_services.paginate(Order, pageNumber)
 
     context = {'order': data.object_list, 'page_obj': data
-               ,'theme': theme
+               ,'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
                , 'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
     return render(request, 'work_order/home.html', context)
@@ -405,7 +403,7 @@ def AddWorkOrder(request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'work_order/add.html', context)
 
@@ -437,7 +435,7 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         context = {'order':order,
                    'var':variants,
                    'req':requirement, 'reqJson':json.dumps(list(requirement)),
-                   'theme':theme}
+                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'work_order/edit.html', context)
 
@@ -517,12 +515,12 @@ def DeleteWorkOrder(request: HttpRequest, pk: int):
                 notifications_service.DeleteWorkOrder(order, orderNumber)
                 return redirect('/workorder')
             except Exception as e:
-                context = {'object':order, 'confirm':True, 'theme': theme, 'error': e}
+                context = {'object':order, 'confirm':True, 'theme': theme, 'error': e, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
                 return render(request, 'work_order/delete.html', context)
         else:
             return redirect('/workorder')
     else:
-        context = {'object':order, 'confirm':True, 'theme': theme}
+        context = {'object':order, 'confirm':True, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/delete.html', context)
 
 @login_required(login_url='/login')
@@ -577,7 +575,7 @@ def CopyWorkOrder(request: HttpRequest, pk):
         print(TargetNumber)
 
         if (not TargetNumber) or (not SourceNumber):
-            context = {'message': 'Error: Missing source or target', 'source':order.OrderNumber, 'theme': theme}
+            context = {'message': 'Error: Missing source or target', 'source':order.OrderNumber, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'work_order/copy.html', context)
 
         try:
@@ -606,11 +604,11 @@ def CopyWorkOrder(request: HttpRequest, pk):
             notifications_service.AddWorkOrder(TargetNumber)
             return redirect(f'/workorder/{TargetNumber}/edit')
         except Exception as e:
-            context = {'message': f'Error: {e}', 'source':order.OrderNumber, 'theme': theme}
+            context = {'message': f'Error: {e}', 'source':order.OrderNumber, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'work_order/copy.html', context)
 
     else:
-        context = {'source':order.OrderNumber, 'theme': theme}
+        context = {'source':order.OrderNumber, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/copy.html', context)
 
 @login_required(login_url='/login')
@@ -645,8 +643,10 @@ def AutoInventoryRequirement(request: HttpRequest):
 
         requirement, invs = purchase_order_service.PrepareDataForAutoReq(startingOrder, endingOrder)
 
-        context = {'theme':theme, 'startingOrder':startingOrder, 'endingOrder':endingOrder, 'search':searchTerm,
-                   'requirement':requirement}   
+        context = {
+            'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            'startingOrder':startingOrder, 'endingOrder':endingOrder, 'search':searchTerm,
+            'requirement':requirement}   
         #This is in response to a bug where the code was giving error when there was no inventory in the list.
         if invs:
             context.update({'invs':json.dumps(list(invs))})
@@ -675,7 +675,7 @@ def PurchaseOrder(request:HttpRequest):
     data = generic_services.paginate(Order, pageNumber)
 
     context = {'order': data.object_list, 'page_obj': data
-               ,'theme': theme
+               ,'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
                , 'searchTerm': searchTerm, 'selectedSupplier': supplierFilter, 'selectedPO':poFilter}
     
     return render(request, 'purchase_order/home.html', context)
@@ -699,7 +699,7 @@ def AddPurchaseOrder(request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'purchase_order/add.html', context)
 
@@ -726,9 +726,11 @@ def EditPurchaseOrder(request: HttpRequest, pk):
             return HttpResponse(e, status=400)
     else:
         order, inventory=purchase_order_service.ProcessOrderData(orderObject)
-        context = {'order':order,
-                   'inv':inventory, 'invJson':json.dumps(list(inventory)),
-                   'theme':theme}
+        context = {
+            'order':order,
+            'inv':inventory, 'invJson':json.dumps(list(inventory)),
+            'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            }
         
         return render(request, 'purchase_order/edit.html', context)
 
@@ -844,7 +846,10 @@ def CopyPurchaseOrder (request: HttpRequest, pk):
                 allocation.save()
         return redirect(f'/purchaseorder/{po.id}/edit')
     else: 
-        context = {'source':po, 'theme': theme}
+        context = {
+            'source':po,
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            }
         return render(request, 'purchase_order/copy.html', context)
 
 @login_required(login_url='/login')
@@ -863,12 +868,17 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
                 order.delete()
                 return redirect('/purchaseorder')
             except Exception as e:
-                context = {'object':order, 'confirm':True, 'theme': theme, 'error':e}
+                context = {'object':order, 'confirm':True, 'error': e, 
+                           'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+                           }
                 return render(request, 'purchase_order/delete.html', context)
         else:
             return redirect('/purchaseorder')
     else:
-        context = {'object':order, 'confirm':True, 'theme': theme}
+        context = {
+            'object':order, 'confirm':True,
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            }
         return render(request, 'purchase_order/delete.html', context)
 
 @login_required(login_url='/login')
@@ -898,7 +908,7 @@ def PurchaseReceipt(request: HttpRequest):
     
     context = {
         'receipt': data.object_list, 'receiptObj': data,
-        'theme':theme,
+        'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         'searchTerm': searchTerm, 'selectedSupplier': supplierFilter, 'selectedRec':recFilter}
     return render(request, 'purchase_receipt/home.html', context)
 
@@ -933,7 +943,7 @@ def AddPurchaseReceipt(request: HttpRequest):
         print(inventory)
         context = {
             'inventory': inventory,'poNumber': poNumber,
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'purchase_receipt/add.html', context)
 
@@ -964,7 +974,7 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
 
         context = {'receipt':receipt,
                    'inv':inventory, 'invJson':json.dumps(list(inventory)),
-                   'theme':theme}
+                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'purchase_receipt/edit.html', context)
 
@@ -1007,7 +1017,7 @@ def PurchaseDemand (request: HttpRequest):
     
     context = {
         'demand': data.object_list, 'demandObj': data,
-        'theme':theme,
+        'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         'selectedDepartment': departmentFilter, 'searchTerm': searchTerm, 'selectedStatus': statusFilter,
         'selectedDemand': pdNumber
         }
@@ -1035,7 +1045,7 @@ def AddPurchaseDemand (request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'purchase_demand/add.html', context)
 
@@ -1069,7 +1079,7 @@ def EditPurchaseDemand (request: HttpRequest, pk: int):
 
         context = {'demand':demand,
                    'inv':inventories, 'invJson': json.dumps(list(inventories)),
-                   'theme':theme}
+                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'purchase_demand/edit.html', context)
 
@@ -1098,7 +1108,10 @@ def CopyPurchaseDemand (request: HttpRequest, pk:int):
             inventory.save()
         return redirect(f'/purchasedemand/{demand.id}/edit')
     else:
-       context = {'source':demand, 'theme': theme}
+       context = {
+           'source':demand,
+           'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+           }
        return render(request, 'purchase_demand/copy.html', context)
 
 @login_required(login_url='/login')
@@ -1120,12 +1133,18 @@ def DeletePurchaseDemand (request: HttpRequest, pk: int):
                 demand.delete()
                 return redirect('/purchasedemand')
             except Exception as e:
-                context = {'object':demand, 'confirm':True, 'theme': theme, 'error': e}
+                context = {
+                    'object':demand, 'confirm':True,
+                    'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name), 
+                    'error': e}
                 return render(request, 'purchase_demand/delete.html', context)
         else:
             return redirect('/purchasedemand')
     else:
-        context = {'object':demand, 'confirm':True, 'theme': theme}
+        context = {
+            'object':demand, 'confirm':True,
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            }
         return render(request, 'purchase_demand/delete.html', context)
 
 @login_required(login_url='/login')
@@ -1151,7 +1170,9 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
         try:
             demand, context = purchase_demand_service.GetDataForPDApproval(demand)
             
-            context = {'demand': demand, 'context': context, 'theme': theme}
+            context = {
+                'demand': demand, 'context': context,
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
             
             return render(request, 'purchase_demand/approve.html', context)
         except Exception as e:
@@ -1205,7 +1226,7 @@ def Requisition (request: HttpRequest):
 
     context = {
     'req': data.object_list, 'demandObj': data,
-    'theme':theme,
+    'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     'selectedDepartment': departmentFilter, 'searchTerm': searchTerm, 'selectedStatus': statusFilter,
     'selectedRequisition': requisitionNumber
     }
@@ -1238,7 +1259,7 @@ def AddRequisitionForOrder (request: HttpRequest):
         
         context = {
                 'order':order, 'search':searchTerm, 'department': department,
-                'theme': theme
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
             }
         
         if order:
@@ -1287,7 +1308,7 @@ def AddRequisitionForInv (request: HttpRequest):
         context = {
             'entries': data,
             'department': department,'selectedGroup':group, 'selectedInv': inventory,
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
 
         return render(request, 'requisition/add_inv.html', context)
@@ -1327,7 +1348,7 @@ def Issuance (request: HttpRequest):
 
     context = {
         'issue': issuances,
-        'theme':theme,
+        'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         'selectedDepartment': departmentFilter, 'searchTerm': searchTerm,
         'selectedIssuance': issuanceNumber
         }
@@ -1358,5 +1379,8 @@ def AddIssuance (request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         invs = issuance_service.ProcessRequisitionData(requisition)
-        context = {'req':requisition, 'invs': invs, 'theme': theme}
+        context = {
+            'req':requisition,'invs': invs,
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            }
         return render(request, 'issuance/add.html', context)

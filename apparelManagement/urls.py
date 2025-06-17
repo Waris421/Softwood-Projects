@@ -1,11 +1,11 @@
 from django.urls import path
 from . import views
-from .services import options_service
+from core.services import options_service
+
+app_name = 'apparelManagement'
 
 urlpatterns = [
-    path ('apparel', views.home, name = 'apparel'),
- 
-    path ('blank',views.blank, name='blank'),           #A blank page to display any messages
+    path('apparel', views.home, name = 'apparel'),
 
     path('notification/<int:pk>/view', views.GetNotificationDetails, name='notifDetails'),
     path('notification/<int:pk>/read', views.ReadNotification, name='notifRead'),

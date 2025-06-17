@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.forms.models import model_to_dict
 
 from .. import models
-from . import generic_services
+from core.services import generic_services
 
 def GetOperations(sectionFilter: str, machineType: str, skillLevel: str, ratePerSAM: str):
     operations = models.Operation.objects

@@ -4,8 +4,8 @@ import numpy as np
 from django.forms import model_to_dict
 
 from .. import models
-from .generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
-from .auth_service import canApprovePD
+from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
+from core.services.auth_service import canApprovePD
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)

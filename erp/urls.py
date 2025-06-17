@@ -3,13 +3,14 @@ from django.urls import path, include
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from core.services.theme import theme
 
 @login_required(login_url='/login')
 def home(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not allowed', status=403)
     
-    return render(request, 'erp_home.html')
+    return render(request, 'erp_home.html', context={'theme': theme})
 
 urlpatterns = [
     path('', home),

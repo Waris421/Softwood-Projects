@@ -7,13 +7,16 @@ import json
 
 from .theme import theme
 from . import models
-from .services.generic_services import refineJson, applySearch, paginate
+from core.services import auth_service
+from core.services.generic_services import refineJson, applySearch, paginate
 from .services import customer_service, calling_service
+
+APP_NAME = 'Mark'
 
 @login_required(login_url='/login')
 def Home(request: HttpRequest):
     context = {
-        'theme': theme
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
     }
 
     return render (request, 'marketing/home.html', context)
@@ -39,7 +42,7 @@ def CustomerData (request: HttpRequest):
         'customers': customers.object_list, 'page_obj': customers,
         'assignFilter': assignFilter, 'search': search,
         'countries': countries, 'countryFilter': countryFilter,
-        'theme': theme
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
     }
     return render (request, 'customers/home.html', context)
 
@@ -59,7 +62,9 @@ def AddCustomer (request: HttpRequest):
             print(e)
             return HttpResponse(e, status=400)
     else:
-        context = {'theme': theme}
+        context = {
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+            }
 
         return render(request, 'customers/add.html', context)
 
@@ -88,7 +93,7 @@ def EditCustomer(request: HttpRequest, pk: int):
 
         context = {
             'customerData': customerData, 'contactData': contactData,
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
         }
         
         return render(request, 'customers/edit.html', context)
@@ -141,6 +146,6 @@ def CallHistory(request: HttpRequest):
         context = {
             'startDate': startDate, 'endDate': endDate, 'customerFilter': customerFilter, 'search':search,
             'customers': customers,
-            'theme': theme
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
         }
         return render(request, 'calls/home.html', context)

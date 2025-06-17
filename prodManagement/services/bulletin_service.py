@@ -4,7 +4,7 @@ import numpy as np
 from django.forms.models import model_to_dict
 
 from .. import models
-from . import generic_services
+from core.services import generic_services
 
 def calculateSortedContribution(series: pd.Series):
     total = series.sum()

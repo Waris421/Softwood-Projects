@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% load static %}
+    Fashion OS
+{% endblock title %}
+
+{% block content %}
+    <div class="container mx-auto mt-5">
+        <div class="flex justify-center space-x-4">
+            <a href="/apparel" class="border-4 border-black">
+                <img src="{% static 'Procurement.png' %}" alt="Procurement" class="h-[350px]">
+            </a>
+            <a href="/quality" class="border-4 border-black">
+                <img src="{% static 'Quality Control.png' %}" alt="Quality Control" class="h-[350px]">
+            </a>
+            <a href="/productivity" class="border-4 border-black">
+                <img src="{% static 'Production.png' %}" alt="Producutivity" class="h-[350px]">
+            </a>
+        </div>
+        <div class="flex justify-center mt-4">
+            <a href="/marketing" class="border-4 border-black">
+                <img src="{% static 'Marketing.png' %}" alt="Marketing" class="h-[350px]">
+            </a>
+        </div>
+    </div>
+{% endblock content %}

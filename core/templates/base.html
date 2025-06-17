@@ -47,61 +47,21 @@
     <div class="{{theme.navigationBar}}">
       <div class="navbar-start w-full">
         <ul class="menu menu-horizontal px-1">
-          <li><a href="{% url 'apparel' %}">Dashboard</a></li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">Inventory</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'Inv' %}?groupFilter=Trim">View All</a></li>
-              <li><a href="{% url 'addInv' %}">Add New</a></li>
-            </ul>
-          </li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">StyleCard</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'Style' %}">View All</a></li>
-              <li><a href="{% url 'addStyle' %}">Add New</a></li>
-            </ul>
-          </li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">Work Order</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'WOs' %}">View All</a></li>
-              <li><a href="{% url 'addWO' %}">Add New</a></li>
-              <li><a href="{% url 'autoReq' %}">Auto Requirement</a></li>
-            </ul>
-          </li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">Purchase Demand</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'purchaseDemand' %}">View All</a></li>
-              <li><a href="{% url 'addPD' %}">Add New</a></li>
-            </ul>
-          </li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">Inventory Order</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'POs' %}">View All</a></li>
-              <li><a href="{% url 'addPO' %}">Add New</a></li>
-            </ul>
-          </li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">Inventory Receipt</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'purchaseRec' %}">View All</a></li>
-              <li><a href="{% url 'addRec' %}">Add New</a></li>
-            </ul>
-          </li>
-          <li class="dropdown dropdown-hover">
-            <label tabindex="0" class="cursor-pointer">Issuance</label>
-            <ul tabindex="0" class="{{theme.navigationDropdown}}">
-              <li><a href="{% url 'requisition' %}">View Requests</a></li>
-              <li><a href="{% url 'addRequisitionForOrder' %}">Request For Order</a></li>
-              <li><a href="{% url 'addRequisitionForInv' %}">Request For Item</a></li>
-              <li><a href="{% url 'issue' %}">View Issuances</a></li>
-            </ul>
-          </li>
+          {% for group in navLinks %}
+            <li class="dropdown dropdown-hover">
+              {% if group.views|length > 0 %}
+                <label tabindex="0" class="cursor-pointer">{{ group.groupName }}</label>
+                <ul tabindex="0" class="{{theme.navigationDropdown}}">
+                  {% for item in group.views %}
+                    <li><a href="{% url item.viewName %}">{{item.displayName}}</a></li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <li><a href="{% url group.viewName %}">{{group.groupName}}</a></li>
+              {% endif %}
+            </li>
+          {% endfor %}
         </ul>
-        
       </div>
       <div class="navbar-end">
         <ul class="menu menu-horizontal px-1 items-center">

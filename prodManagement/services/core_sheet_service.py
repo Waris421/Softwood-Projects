@@ -6,7 +6,7 @@ from django.db.models import Max
 from django.forms import model_to_dict
 
 from .. import models
-from . import generic_services
+from core.services import generic_services
 
 def GetCoreSheetList(workOrder: models.WorkOrder):
     fields = ['OrderNumber','StyleCode','Customer','Merchandiser','ExcessCut']

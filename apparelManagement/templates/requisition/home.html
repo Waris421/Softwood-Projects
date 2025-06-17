@@ -6,7 +6,7 @@
 
 {% block content %}
     <div class="{{theme.border}}">
-        <form action="{% url 'requisition' %}" method="get" autocomplete="off">
+        <form action="{% url 'apparelManagement:requisition' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-7 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/3] items-center">
                     <span class="text-sm text-gray-500 mb-1">Department:</span>
@@ -33,8 +33,8 @@
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
                 </div>
                 <div class="flex col-[1/8] btn-group {{theme.align}} justify-end ml-1 mt-2">
-                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'addRequisitionForOrder' %}">Add For Order</a>
-                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'addRequisitionForInv' %}">Add For Inventory</a>
+                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'apparelManagement:addRequisitionForOrder' %}">Add For Order</a>
+                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'apparelManagement:addRequisitionForInv' %}">Add For Inventory</a>
                     <a id="addIssueButton" class="{{theme.buttonSecondary}}" role="button">Issue</a>
                 </div>
             </div>

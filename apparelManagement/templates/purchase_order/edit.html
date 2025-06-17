@@ -519,7 +519,7 @@
                 searchTerms.push(column.children[0].value.toLowerCase());
             }
 
-            let url = `{% url 'InventoryList' %}`;
+            let url = `{% url 'apparelManagement:InventoryList' %}`;
             const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
             url = `${url}?${queryString}`;
             

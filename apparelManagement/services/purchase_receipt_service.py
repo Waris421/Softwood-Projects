@@ -3,8 +3,8 @@ import numpy as np
 
 from django.forms import model_to_dict
 
-from .. import models, theme
-from .generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
+from .. import models
+from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)

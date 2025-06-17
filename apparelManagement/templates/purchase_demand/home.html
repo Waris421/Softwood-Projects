@@ -7,7 +7,7 @@
 {% block content %}    
     <div class="{{theme.border}}">
         {% csrf_token %}
-        <form action="{% url 'purchaseDemand' %}" method="get" autocomplete="off">
+        <form action="{% url 'apparelManagement:purchaseDemand' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/3] items-center">
                     <span class="text-sm text-gray-500 mb-1">Department:</span>
@@ -34,7 +34,7 @@
                 </div>
                 <div class="flex col-[8/13] btn-group {{theme.align}} justify-end ml-1 mt-2">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-                    <a class="{{theme.buttonBasic}}" href="{% url 'addPD' %}" role="button">Add New</a>
+                    <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:addPD' %}" role="button">Add New</a>
                 </div>
             </div>
             <div class="grid grid-cols-5 {{theme.justify}} {{theme.align}}">

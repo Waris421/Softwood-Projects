@@ -7,7 +7,7 @@ from typing import Dict
 import warnings
 
 from .. import models
-from .generic_services import truncateTime
+from core.services.generic_services import truncateTime
 
 def createNotifications (notification: Dict, groupName: 'str'):
     '''

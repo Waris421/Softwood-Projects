@@ -7,7 +7,7 @@ from django.forms.models import model_to_dict
 from typing import Dict
 
 from .. import models
-from . import generic_services
+from core.services import generic_services
 
 def calculateTimePassed(row: pd.Series):
     if row['YearsPassed'] > 0:

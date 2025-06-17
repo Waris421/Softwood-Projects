@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 
 from apparelManagement import models as appModels
 from .. import models
-from .generic_services import concatenateValues, convertTexttoObject, updateModelWithDF
+from core.services.generic_services import concatenateValues, convertTexttoObject, updateModelWithDF
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)

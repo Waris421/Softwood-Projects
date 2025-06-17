@@ -3,7 +3,7 @@ import numpy as np
 
 from .. import models
 
-from .generic_services import concatenateValues
+from core.services.generic_services import concatenateValues
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)

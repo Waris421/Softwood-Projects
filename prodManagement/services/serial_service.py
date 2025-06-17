@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from .. import models
 from ..theme import theme
-from . import generic_services
+from core.services import generic_services
 
 def getScanData(
         startDate = None,

@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .services import options_service
+from core.services import options_service
 
 urlpatterns = [
     path ('marketing', views.Home, name = 'marketing'),

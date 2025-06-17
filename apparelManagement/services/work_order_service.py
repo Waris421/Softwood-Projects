@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.forms import model_to_dict
 
 from .. import models
-from .generic_services import convertTexttoObject, updateModelWithDF
+from core.services.generic_services import convertTexttoObject, updateModelWithDF
 
 pd.options.mode.chained_assignment = None
 

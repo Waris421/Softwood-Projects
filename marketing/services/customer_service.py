@@ -5,7 +5,7 @@ from django.http import HttpRequest
 from django_countries import countries
 
 from .. import models
-from .generic_services import askAI, dfToListOfDicts, updateModelWithDF
+from core.services.generic_services import askAI, dfToListOfDicts, updateModelWithDF
 
 def getCountryName(code: str):
     """Get the country name from it's country code. If code isn't found, then None is returned."""

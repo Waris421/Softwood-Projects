@@ -5,7 +5,7 @@ from datetime import date
 from django.contrib.auth.models import User
 
 from .. import models
-from .generic_services import askAI, dfToListOfDicts, updateModelWithDF
+from core.services.generic_services import askAI, dfToListOfDicts, updateModelWithDF
 
 def GetCallHistory(startDateText: str, endDateText: str, customerFilter: str, user: User):
     if startDateText:

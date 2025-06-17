@@ -5,7 +5,7 @@ from django.utils.timezone import localtime
 
 from .. import models
 
-from .generic_services import convertTexttoObject, concatenateValues, LOCAL_TIMEZONE
+from core.services.generic_services import convertTexttoObject, concatenateValues, LOCAL_TIMEZONE
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
