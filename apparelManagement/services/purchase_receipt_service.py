@@ -166,6 +166,8 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame):
         recInventory = models.RecInventory(**recInventory)
         recInventory.save()
         
+        if allocation.empty:
+            continue
         shortfallPercentage = recInventory.Quantity/allocation['Quantity'].sum()
 
         if shortfallPercentage < 1:

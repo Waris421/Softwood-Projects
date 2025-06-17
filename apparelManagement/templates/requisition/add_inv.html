@@ -7,100 +7,97 @@
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     <!-- Selection Form -->
-    <p>
-        <form method="GET" id="reqForm" autocomplete="off">
-            <div class="row g-3 bg-info {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="col-2 {{theme.align}} {{theme.justify}}">
-                    <label>Group:&nbsp; </label>
+
+    <form method="GET" id="reqForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Group:&nbsp; </label>
                     <select id="id_Group" class="{{theme.dropdown}}" name="Group" onchange="changeInvDropdown(this)"></select>
                 </div>
-                <div class="col-4 {{theme.align}} {{theme.justify}}">
-                    <label>Inventory*:&nbsp; </label>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Inventory:&nbsp; </label>
                     <select id="id_Inventory" class="{{theme.dropdown}}" name="Inventory"></select>
                 </div>
-                <div class="col-2 {{theme.align}} {{theme.justify}}">
-                    <label>Department*:&nbsp; </label>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Department:&nbsp; </label>
                     <select id="id_Department" class="{{theme.dropdown}}" name="Department"></select>
                 </div>
-                <div class="col btn-group {{theme.align}} {{theme.textJustify}}">
-                    <button type="submit" class="{{theme.buttonSecondary}}">          <!--Save Button-->
-                        Refresh
-                    </button>
-                    <button id="submit" class="{{theme.buttonSecondary}}" onclick="addRequest()" type="button">          <!--Save Button-->
-                        Add
-                    </button>
+                <div class="flex col-[4/5] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <button type="submit" class="{{theme.buttonBasic}}">Refresh</button>
+                    <button class="{{theme.buttonSecondary}}" onclick="addRequest()" type="button">Add</button>
                 </div>
             </div>
-        </form>
-    </p>
+        </div>
+    </form>
 
     <!-- Inventory Selection Table -->
-    <div id="inventoryTable" name="invTable">
-        <form method="POST" id="inventoryForm" autocomplete="off">
-            <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} bg-dark text-white" row="0">
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
-                        <input class="form-check-input" type="checkbox" value="" onclick="selectAll(this)">
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-7 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
                     </div>
                 </div>
-                <div class="col-1">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Receipt#
                     </div>
                 </div>
-                <div class="col-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Receipt Date
                     </div>
                 </div>
-                <div class="col-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant
                     </div>
                 </div>
-                <div class="col-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Supplier
                     </div>
                 </div>
-                <div class="col-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Available
                     </div>
                 </div>
-                <div class="col-2">
-                    <div class="{{theme.secondaryHeading}} {{theme.textJustify}}">
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         To Request
                     </div>
                 </div>
             </div>
             {% for data in entries %}
-                <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}" row="{{forloop.counter}}">
-                    <div class="col-1">
-                        <input class="form-check-input" type="checkbox">
+                <div class="grid grid-cols-7 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}">
                     </div>
-                    <div class="col-1">
+                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.ReceiptNumber}}" name="ReceiptNo" readonly>
                     </div>
-                    <div class="col-2">
-                        <input type="text" class="{{theme.textInput}}" value="{{data.ReceiptDate}}" name="ReceiptDate" readonly>
+                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                        <input value="{{data.ReceiptDate|date:'Y-m-d'}}" class="{{theme.textInput}}" name="ReceiptDate" readonly>
                     </div>
-                    <div class="col-2">
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
                     </div>
-                    <div class="col-2">
+                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.Supplier}}" name="Supplier" readonly>
                     </div>
-                    <div class="col-2">
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
                         <input type="number" class="{{theme.textInput}}" value="{{data.Available}}" name="Available" readonly>
                     </div>
-                    <div class="col-2">
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
                         <input type="number" max="{{data.Available}}" class="{{theme.textInput}}" value="{{data.Available}}" name="Requested" onchange="checkQty(this)">
                     </div>
                 </div>
             {% endfor %}
-        </form>
-    </div>
+        </div>
+    </form>
 
     <script> //To run when the page loads
         window.addEventListener('load', async () => {
@@ -112,23 +109,20 @@
             await appendOptions('id_Group', groups, '{{selectedGroup}}');
 
             //Inventory Dropdown
-            response = await fetch('/options/inventories?group={{selectedGroup}}');
+            let url = '/options/inventories';
+            if ('{{selectedInv}}' != 'None') {
+                url += `?search={{selectedInv}}`;
+            } else {
+                url += '?group={{selectedGroup}}';
+            }
+            response = await fetch(url);
             const inventories = await response.json();
             await appendOptions('id_Inventory', inventories, "{{selectedInv}}");
-            $("#id_Inventory").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             //departments Dropdown
             response = await fetch('/options/departments');
             const departments = await response.json();
             await appendOptions('id_Department', departments, "{{department}}");
-            //Since this dropdown is not part of a table, we need manually apply search box
-            $("#id_Department").chosen({
-                search_contains: true,
-                width: "100%"
-            });
 
             hideLoadingIcon();
         });
@@ -143,12 +137,8 @@
             const response = await fetch("/options/inventories?group="+group);
             const inventories = await response.json();
 
-            $("#id_Inventory").chosen("destroy");
             await appendOptions('id_Inventory', inventories);
-            $("#id_Inventory").chosen({
-                search_contains: true,
-                width: "100%"
-            });
+
             hideLoadingIcon();
         }
     </script>
@@ -174,86 +164,10 @@
         }
     </script>
 
-    <script> //To filter rows based on search items
-        function changeSearch(source) {
-            //get search term and make it case insenstive
-            const searchTerm = source.value.toLowerCase();
-
-            //Get the table in html form
-            const tableHTML = document.getElementById('inventoryTable').children[0].children;
-
-            //Conver the html table to array and remove header
-            const table = Array.from(tableHTML);
-            table.shift();
-
-            for (const row of table) {
-                const cells = row.children;
-
-                let matchFlag = false;
-                for (const cell of cells) {
-                    const cellValue = cell.children[0].value.toLowerCase();
-
-                    if (cellValue.includes(searchTerm)) {
-                        matchFlag = true;
-                        break;
-                    }
-                }
-                row.style.display = matchFlag ? '':'none';
-            }
-
-            //Set the table unchecked to avoid any problems
-            const checkBox = tableHTML[0].children[0].children[0].children[0];
-            checkBox.checked = false;
-            selectAll(checkBox);
-        }
-
-        function changeDropdown(source) {
-            const options = source.options;
-            const selectedCodes = [];
-            for (const option of options) {
-                if (option.selected) {
-                    selectedCodes.push(option.value)
-                }
-            }
-
-            //Get the table in html form
-            const tableHTML = document.getElementById('inventoryTable').children[0].children;
-
-            //Conver the html table to array and remove header
-            const table = Array.from(tableHTML);
-            table.shift();
-
-            if (selectedCodes.length != 0) {
-                for (const row of table) {
-                    const code = row.children[1].children[0].value;
-    
-                    const flag = selectedCodes.includes(code);
-                    row.style.display = flag ? '':'none';
-                }
-            } else {
-                for (const row of table) {
-                    row.style.display = '';
-                }
-            }
-            
-            //Set the table unchecked to avoid any problems
-            const checkBox = tableHTML[0].children[0].children[0].children[0];
-            checkBox.checked = false;
-            selectAll(checkBox);
-        }
-
-        function clearInput(source) {
-            searchBox = source.parentElement.children[0];
-            searchBox.value = '';
-            changeSearch(searchBox);
-            searchBox.focus();
-        }
-    </script>
-
     <script> //To make requisition for selected items
         async function addRequest() {
             const inventoryForm = document.getElementById('inventoryForm');
-            const rows = inventoryForm.children;
+            const rows = inventoryForm.children[0].children;
 
             let selectedRows = [];
 
@@ -265,7 +179,6 @@
                     selectedRows.push(row);
                 }
             }
-            delete rows, inventoryForm;
 
             if (selectedRows.length === 0) {
                 alert('No inventory is selected');
@@ -277,9 +190,9 @@
             }
 
             const reqForm = document.getElementById('reqForm');
-            const reqData = reqForm.children[0].children;
+            const reqData = reqForm.children[0].children[0].children;
 
-            const inventory = reqData[1].children[1].value;     
+            const inventory = reqData[1].children[1].value;
 
             const department = reqData[2].children[1].value;  
             if (department === 'null') {
@@ -301,8 +214,6 @@
             });
 
             if (response.ok) {
-                const reqNumber = await response.text();
-                window.open(reqNumber+'/edit', '_blank');
                 window.location.reload();
             } else {
                 const errorMessage = await response.text();
@@ -333,9 +244,5 @@
                 source.value = maxQty;
             }
         }
-    </script>
-
-    <script> //Run this at the time of page loading. This should be at the end of all scripts
-        
     </script>
 {% endblock %}

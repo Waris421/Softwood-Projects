@@ -5,7 +5,7 @@ from django.utils.timezone import localtime
 
 from .. import models
 
-from .generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, LOCAL_TIMEZONE
+from .generic_services import convertTexttoObject, concatenateValues, LOCAL_TIMEZONE
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
@@ -112,20 +112,6 @@ def PrepareDataForOrderRequitionAdd (order: int):
         dfRequirement = pd.DataFrame(columns=['InventoryCode','Variant','Quantity'])
     del requirement
 
-    ordered = models.POAllocation.objects.filter(WorkOrder=workOrder).values('POInvId','Quantity')
-    if ordered:
-        dfOrdered = pd.DataFrame(ordered)
-    else:
-        dfOrdered = pd.DataFrame(colums=['POInvId','Quantity'])
-    del ordered
-
-    orderedInvs = models.POInventory.objects.filter(id__in=dfOrdered['POInvId'].to_list()).values('id','Inventory','Variant')
-    if orderedInvs:
-        dfOrderedInvs = pd.DataFrame(orderedInvs)
-    else:
-        dfOrderedInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
-    del orderedInvs
-
     received = models.RecAllocation.objects.filter(WorkOrder=workOrder).values('RecInvId','Quantity')
     if received:
         dfReceived = pd.DataFrame(received)
@@ -182,31 +168,24 @@ def PrepareDataForOrderRequitionAdd (order: int):
         dfInventories = pd.DataFrame(columns=['Code','Name'])
     del inventories
 
-    dfOrdered = pd.merge(left=dfOrdered, right=dfOrderedInvs, left_on='POInvId', right_on='id', how='left')
-    del dfOrderedInvs
-    dfOrdered.drop(inplace=True, columns=['id','POInvId'])
-
     dfReceived = pd.merge(left=dfReceived, right=dfReceivedIvs, left_on='RecInvId', right_on='id', how='left')
     del dfReceivedIvs
     dfReceived.drop(inplace=True, columns=['RecInvId','id'])
+    dfReceived = dfReceived.groupby(['InventoryCode', 'Variant'])['Quantity'].sum().reset_index()
 
     dfRequisition = pd.merge(left=dfRequisition, right=dfRequisitionInvs, left_on='RequisitionInventory', right_on='id', how='left')
     del dfRequisitionInvs
     dfRequisition.drop(inplace=True, columns=['RequisitionInventory','id'])
+    dfRequisition = dfRequisition.groupby(['Inventory', 'Variant'])['Quantity'].sum().reset_index()
 
     dfIssued = pd.merge(left=dfIssued, right=dfIssuedInvs, left_on='IssueInventory', right_on='id', how='left')
     del dfIssuedInvs
     dfIssued.drop(inplace=True, columns=['IssueInventory','id'])
+    dfIssued = dfIssued.groupby(['Inventory', 'Variant'])['Quantity'].sum().reset_index()
     
     dfResults = pd.merge(left=dfResults, right=dfInventories, left_on='InventoryCode', right_on='Code', how='left')
     del dfInventories
     dfResults.drop(inplace=True, columns=['Code'])
-
-    dfResults = pd.merge(left=dfResults, right=dfOrdered, left_on=['InventoryCode','Variant'],
-                         right_on=['Inventory','Variant'], how='left')
-    del dfOrdered
-    dfResults.drop(inplace=True, columns=['Inventory'])
-    dfResults.rename(inplace=True, columns={'Quantity':'Ordered'})
 
     dfResults = pd.merge(left=dfResults, right=dfReceived, left_on=['InventoryCode','Variant'],
                          right_on=['InventoryCode','Variant'], how='left')
@@ -225,7 +204,7 @@ def PrepareDataForOrderRequitionAdd (order: int):
     dfResults.drop(inplace=True, columns=['Inventory'])
     dfResults.rename(inplace=True, columns={'Quantity':'Issued'})
 
-    columns = ['Required','Ordered','Received','Requested','Issued']
+    columns = ['Required','Received','Requested','Issued']
     for column in columns:
         dfResults[column] = np.where(dfResults[column].isna(), 0, dfResults[column])
     del columns

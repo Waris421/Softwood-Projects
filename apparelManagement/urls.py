@@ -62,12 +62,10 @@ urlpatterns = [
     path('requisition', views.Requisition, name='requisition'),
     path('requisition/add/order', views.AddRequisitionForOrder, name='addRequisitionForOrder'),
     path('requisition/add/inv', views.AddRequisitionForInv, name='addRequisitionForInv'),
-    path('requisition/<int:pk>/edit', views.EditRequisition, name='editPD'),
     path('requisition/alloc/get', views.GetRequisitionAllocation, name='getReqAllocation'),
 
     path('issuance', views.Issuance, name='issue'),
     path('issuance/add', views.AddIssuance, name='addIssue'),
-    path('issuance/<int:pk>/edit', views.EditIssuance, name='editIssue'),
 
     path('options/yesorno', options_service.yesOrNo, name='YesOrNo' ),
     path('options/customers', options_service.getCustomersList, name='CustomerList'),

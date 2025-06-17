@@ -1,16 +1,14 @@
 import pandas as pd
 import numpy as np
 
-from django.utils.timezone import localtime
-
 from .. import models
 
-from .generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, LOCAL_TIMEZONE
+from .generic_services import concatenateValues
 
 pd.options.mode.chained_assignment = None
 pd.set_option('display.max_columns', None)
 
-def AddIssuance(requisition: models.Requisition):
+def AddIssuance(requisition: models.Requisition, comments: str):
     issuance = {
         'Department': requisition.Department,
         'ReceivedBy': requisition.RequestBy,
@@ -20,6 +18,7 @@ def AddIssuance(requisition: models.Requisition):
     issuance.save()
 
     requisition.Confirmation = True
+    requisition.StoreComments = comments
     requisition.save()
 
     requisitionInventories = models.RequisitionInventory.objects.filter(Requisition=requisition)
@@ -43,8 +42,6 @@ def AddIssuance(requisition: models.Requisition):
             }
             issueAllocation = models.IssueAllocation(**issueAllocation)
             issueAllocation.save()
-
-    return issuance.id
 
 def GetIssuanceList (
         searchTerm: str,
@@ -123,4 +120,44 @@ def GetIssuanceList (
 
     cols = [i for i in dfIssuances]
     data = [dict(zip(cols, i)) for i in dfIssuances.values]
+    return data
+
+def ProcessRequisitionData(requisition: models.Requisition):
+    fields = ['id', 'Inventory','Variant','Quantity']
+    requisitionInventories = models.RequisitionInventory.objects.filter(Requisition=requisition).values(*fields)
+    if requisitionInventories:
+        dfRequisitionInventories = pd.DataFrame(requisitionInventories)
+    else:
+        dfRequisitionInventories = pd.DataFrame(columns=fields)
+    del requisitionInventories
+
+    fields = ['Code', 'Name', 'Unit']
+    inventories = models.Inventory.objects.filter(Code__in=dfRequisitionInventories['Inventory'].to_list()).values(*fields)
+    if inventories:
+        dfInventories = pd.DataFrame(inventories)
+    else:
+        dfInventories = pd.DataFrame(columns=fields)
+    del inventories
+
+    fields = ['RequisitionInventory', 'WorkOrder']
+    allocations = models.RequisitionAllocation.objects.filter(RequisitionInventory__in=dfRequisitionInventories['id'].to_list()).values(*fields)
+    if allocations:
+        dfAllocations = pd.DataFrame(allocations)
+    else:
+        dfAllocations = pd.DataFrame(columns=fields)
+    del fields, allocations
+
+    dfResults = pd.merge(left=dfRequisitionInventories, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
+    del dfRequisitionInventories, dfInventories
+    dfResults.drop(inplace=True, columns=['Inventory', 'Code'])
+    dfResults.rename(inplace=True, columns={'Name': 'InventoryName'})
+
+    dfResults = pd.merge(left=dfResults, right=dfAllocations, left_on='id', right_on='RequisitionInventory', how='left')
+    del dfAllocations
+    dfResults.drop(inplace=True, columns=['id','RequisitionInventory'])
+
+    dfResults['WorkOrder'] = np.where(dfResults['WorkOrder'].isna(), '', dfResults['WorkOrder'])
+
+    cols = [i for i in dfResults]
+    data = [dict(zip(cols, i)) for i in dfResults.values]
     return data

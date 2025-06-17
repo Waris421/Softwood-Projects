@@ -1243,6 +1243,7 @@ def AddRequisitionForOrder (request: HttpRequest):
         
         if order:
             data, invs = requisition_service.PrepareDataForOrderRequitionAdd(order)
+            data = generic_services.applySearch(data, searchTerm)
             context.update({'entries': data})
 
             #This is in response to a bug where the code was giving error when there was no inventory in the list.
@@ -1292,40 +1293,6 @@ def AddRequisitionForInv (request: HttpRequest):
         return render(request, 'requisition/add_inv.html', context)
 
 @login_required(login_url='/login')
-def EditRequisition (request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.Requisition, type='change'):
-        return HttpResponse('Access Denied', status=403)
-
-    try:
-        requisition = models.Requisition.objects.get(id=pk)
-    except:
-        return HttpResponse('Requisition Not Found', status=400)
-    
-    if request.method == 'POST':
-        #convert json data to a dict.
-        data = json.loads(request.body.decode('utf-8'))
-
-        dfRequisition, dfInventory, dfAllocation = generic_services.refineJson(data)
-        try:
-            requisition_service.EditRequisition(requisition, dfRequisition, dfInventory, dfAllocation)
-            return HttpResponse('This option is under construction', status=503)
-        except Exception as e: 
-            print(e)           
-            return HttpResponse(e, status=400)
-    else:
-        try:
-            requisition, inventories = requisition_service.ProcessRequsitionData(requisition)
-
-            context = {
-                'req':requisition,'inv':inventories,
-                'theme':theme
-            }
-            return render(request, 'requisition/edit.html', context)
-        except Exception as e:
-            print(e)
-            return HttpResponse(e, status=400)
-
-@login_required(login_url='/login')
 def GetRequisitionAllocation(request: HttpRequest):
     if request.method == 'POST':
         data = json.loads(request.body.decode('utf-8'))
@@ -1371,9 +1338,6 @@ def Issuance (request: HttpRequest):
 def AddIssuance (request: HttpRequest):
     if not auth_service.hasPermission(request, models.Issuance, type='add'):
         return HttpResponse('Access Denied', status=403)
-
-    if request.method != 'GET':
-        return HttpResponse('Not allowed', status=405)
     
     requisition = request.GET.get('req',None)
     try:
@@ -1384,25 +1348,15 @@ def AddIssuance (request: HttpRequest):
     if requisition.Confirmation:
         return HttpResponse ('This requisition is closed.', status=405)
     
-    try:
-        issueNumber = issuance_service.AddIssuance(requisition)
-        return redirect('editIssue', pk=issueNumber, permanent=True)
-    except Exception as e:
-        print(e)
-        return HttpResponse(e, status=400)
-
-@login_required(login_url='/login')
-def EditIssuance (request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.Issuance, type='change'):
-        return HttpResponse('Access Denied', status=403)
-
-    try:
-        issuance = models.Issuance.objects.get(id=pk)
-    except:
-        return HttpResponse('Issuance Not Found', status=400)
-    
     if request.method == 'POST':
-        pass
-    else:      
-        print(issuance)
-        return HttpResponse('Under construction')
+        comments = request.POST.get('Comments')
+        try:
+            issuance_service.AddIssuance(requisition, comments)
+            return redirect('requisition')
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        invs = issuance_service.ProcessRequisitionData(requisition)
+        context = {'req':requisition, 'invs': invs, 'theme': theme}
+        return render(request, 'issuance/add.html', context)

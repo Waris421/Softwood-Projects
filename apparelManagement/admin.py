@@ -60,3 +60,17 @@ class StyleAdmin(admin.ModelAdmin):
 
     list_display = ('StyleCode','Customer')
     list_filter = ('Customer',)
+
+@admin.register(models.Issuance)
+class IssuanceAdmin(admin.ModelAdmin):
+    '''Admin View for Issuance'''
+
+    list_display = ('id', 'Department')
+    list_filter = ('Department',)
+
+@admin.register(models.Requisition)
+class RequisitionAdmin(admin.ModelAdmin):
+    '''Admin View for Requisition'''
+
+    list_display = ('id', 'Department')
+    list_filter = ('Department',)

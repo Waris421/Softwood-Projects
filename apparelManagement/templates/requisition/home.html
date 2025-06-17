@@ -6,51 +6,42 @@
 
 {% block content %}
     <div class="{{theme.border}}">
-        {% csrf_token %}
-        <p>
-            <div class="row g-3 {{theme.justify}} {{theme.align}}">
-                <div class="col {{theme.textJustify}}">
-                    <form action="{% url 'requisition' %}" method="get">
-                        <select id="departmentFilter" name="departmentFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-                            <option value="">  ---------  </option>
-                        </select>
-                        <input type="hidden" name="searchTerm" value="{{ searchTerm }}">
-                        <input type="hidden" name="requisitionNumber" value="{{ selectedRequisition }}">
-                    </form>
+        <form action="{% url 'requisition' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-7 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Department:</span>
+                    <select id="departmentFilter" name="departmentFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
                 </div>
-                <div class="col btn-group {{theme.textJustify}}">
-                    <a class="{{theme.buttonBasic}}" role="button" href="/requisition/add/order" target="_blank">Add For Order</a>
-                    <a class="{{theme.buttonBasic}}" role="button" href="/requisition/add/inv" target="_blank">Add For Inventory</a>
-                    <a id="editReqButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Edit</a>
-                    <a id="addIssueButton" class="{{theme.buttonBasic}}" role="button" target="_blank">Issue</a>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Request#:</span>
+                    <input type="number" min="1" class="{{theme.textInput}}" name="requisitionNumber" value="{{selectedRequisition}}">
                 </div>
-            </div>
-        </p>
-        <p>
-            <div class="row g-0 {{theme.justify}} {{theme.align}}">
-                <div class="col-2 {{theme.textJustify}}">
-                    <form action="{% url 'requisition' %}" method="get">
-                        <input type="number" min="1" class="{{theme.textInput}} w-100" name="requisitionNumber" placeholder="Requisition Number" value="{{selectedRequisition}}">
-                </div>
-                <div class="col-2 {{theme.textJustify}}">
+                <div class="flex flex-col col-[4/5] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Status:</span>
                     <select name="statusFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
                         <option value="Pending" {% if selectedStatus == "Pending" %}selected{% endif %}> Pending  </option>
                         <option value="Closed" {% if selectedStatus == "Closed" %}selected{% endif %}> Closed  </option>
                     </select>
                 </div>
-                <div class="col-6 {{theme.textJustify}}">
-                    <input type="text" class="{{theme.textInput}} w-100" name="searchTerm" placeholder="Search Requisition" value="{{searchTerm}}">
+                <div class="flex flex-col col-[5/7] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="searchTerm" value="{{searchTerm}}">
                 </div>
-                <div class="col-2 btn-group {{theme.textJustify}}">
+                <div class="flex col-[7/8] btn-group {{theme.align}} justify-end ml-1 mt-2">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
                 </div>
-                    <input type="hidden" name="departmentFilter" value="{{ selectedDepartment }}">
-                    </form>
+                <div class="flex col-[1/8] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'addRequisitionForOrder' %}">Add For Order</a>
+                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'addRequisitionForInv' %}">Add For Inventory</a>
+                    <a id="addIssueButton" class="{{theme.buttonSecondary}}" role="button">Issue</a>
+                </div>
             </div>
-        </p>
+        </form>
     </div>
 
-    <div id ="requisitionTable">
+    <div id ="requisitionTable" class="mt-6">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
                 <th scope="col">Select</th>
@@ -63,8 +54,8 @@
             </tr>
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in req %}
-                    <tr>
-                        <td><input type="radio" name="item_checkbox"></td>
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
                         <td class="requisition">{{ data.id }}</td>
                         <td>{{ data.Date }}</td>
                         <td>{{ data.Time }}</td>
@@ -78,17 +69,13 @@
     </div>
 
     <script>//To change the buttons based on selection in radio
-        $("#tableData").on("click", "input[type='radio']", function() {
-            //Get the code against seletion
-            const selectedCode = $(this).closest("tr").find("td.requisition").text();
-            
-            //Find and link the edit card button to the selected code            
-            button = $("#editReqButton");           
-            button.attr("href", "/requisition/" + selectedCode + "/edit");
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            const radio = event.target;
+            const selectedRequistion = radio.closest('tr').querySelector('td.requisition').textContent.trim();
 
-            //Find and link the edit card button to the selected code            
-            button = $("#addIssueButton");           
-            button.attr("href", "/issuance/add?req="+selectedCode);
+            var button = document.getElementById("addIssueButton");
+            button.href = '/issuance/add?req='+ selectedRequistion;
         });
     </script>
 
@@ -98,11 +85,6 @@
             let response = await fetch('/options/departments');
             const departments = await response.json();
             await appendOptions('departmentFilter', departments, '{{selectedDepartment}}');
-            //Apply Search Box
-            $("#departmentFilter").chosen({
-                search_contains: true,
-                width: "100%"
-            });
         });
     </script>
 {% endblock %}
