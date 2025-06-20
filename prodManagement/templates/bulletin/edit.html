@@ -15,7 +15,7 @@
                 </div>
                 <div class="flex col-[2/3] btn-group {{theme.align}} justify-end ml-1">
                     <button type="button" class="{{theme.buttonBasic}}" onclick="SendForm()">Save</button>
-                    <a class="{{theme.buttonBasic}}" role="button" href="{% url 'duplicateStyleBulletin' pk=data.id%}">Duplicate</a>
+                    <a class="{{theme.buttonBasic}}" role="button" href="{% url 'PM:duplicateStyleBulletin' pk=data.id%}">Duplicate</a>
                     <a class="{{theme.buttonBasic}}" role="button" onclick="showSummary()">Summarise</a>
                 </div>
             </div>
@@ -133,7 +133,7 @@
 
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
-            const response = await fetch("{% url 'summariseSytleBulletin' %}", {
+            const response = await fetch("{% url 'PM:summariseSytleBulletin' %}", {
                 method: 'POST',
                 body: JSON.stringify(data),
                 headers: { "X-CSRFToken": csrf},

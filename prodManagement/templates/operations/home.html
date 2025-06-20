@@ -6,7 +6,7 @@
 
 {% block content %}
     <div class="{{theme.border}}">
-        <form action="{% url 'operations' %}" method="get" autocomplete="off">
+        <form action="{% url 'PM:operations' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-10 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/3] items-center">
                     <span class="text-sm text-gray-500 mb-1">Search:</span>
@@ -36,7 +36,7 @@
                 </div>
                 <div class="flex col-[9/11] btn-group {{theme.align}} justify-end ml-1">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
-                    <a class="{{theme.buttonBasic}}" href="{% url 'addOperation' %}" role="button">Add</a>
+                    <a class="{{theme.buttonBasic}}" href="{% url 'PM:addOperation' %}" role="button">Add</a>
                 </div>
             </div>
         </form>
@@ -57,7 +57,7 @@
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in operations%}
                 <tr class="{{theme.tableBodyRow}}">
-                    <td class="{{theme.hyperLink}}"> <a href="{% url 'editOperation' pk=data.id %}">{{ data.id }}</a></td>
+                    <td class="{{theme.hyperLink}}"> <a href="{% url 'PM:editOperation' pk=data.id %}">{{ data.id }}</a></td>
                     <td>{{ data.Name }}</td>
                     <td>{{ data.Section }}</td>
                     <td>{{ data.Category }}</td>

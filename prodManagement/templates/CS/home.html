@@ -6,7 +6,7 @@
     
 {% block content %}
     <div class="{{theme.border}}">
-        <form action="{% url 'coreSheets' %}" method="get" autocomplete="off">
+        <form action="{% url 'PM:coreSheets' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/5] items-center">
                     <span class="text-sm text-gray-500 mb-1">Search:</span>
@@ -39,7 +39,7 @@
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in coreSheets %}
                     <tr class="{{theme.tableBodyRow}}">
-                        <td class="{{theme.hyperLink}}"><a href="{% url 'editCoreSheet' workOrder=data.OrderNumber %}">{{ data.OrderNumber }}</a></td>
+                        <td class="{{theme.hyperLink}}"><a href="{% url 'PM:editCoreSheet' workOrder=data.OrderNumber %}">{{ data.OrderNumber }}</a></td>
                         <td>{{ data.StyleCode }}</td>
                         <td>{{ data.Customer }}</td>
                         <td>{{ data.Merchandiser }}</td>

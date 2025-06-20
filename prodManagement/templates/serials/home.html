@@ -7,7 +7,7 @@
 {% block content %}
     <!--The filters-->
     <div class="{{theme.border}}">
-        <form action="{% url 'serials' %}" method="get" autocomplete="off" id="filters">
+        <form action="{% url 'PM:serials' %}" method="get" autocomplete="off" id="filters">
             <div class="grid grid-cols-6 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/2] items-center">
                     <span class="text-sm text-gray-500 mb-1">Worker:</span>
@@ -122,7 +122,7 @@
     <script>    //To make work ascending chart
         async function makeAscendingWorkChart(chartInstance, filters) {
             const params = new URLSearchParams(filters);
-            const url = "{% url 'getWorkSummary' %}";
+            const url = "{% url 'PM:getWorkSummary' %}";
             const response = await fetch(`${url}?${params.toString()}`);
             const data = await response.json();
 
@@ -230,7 +230,7 @@
     <script>    //To make work descending chart
         async function makeDescendingWorkChart(chartInstance, filters) {
             const params = new URLSearchParams(filters);
-            const url = "{% url 'getWorkSummary' %}";
+            const url = "{% url 'PM:getWorkSummary' %}";
             const response = await fetch(`${url}?${params.toString()}`);
             const data = await response.json();
 
@@ -343,7 +343,7 @@
             tableBody.innerHTML = '';
 
             const params = new URLSearchParams(filters);
-            const url = "{% url 'getWorkDetail' %}";
+            const url = "{% url 'PM:getWorkDetail' %}";
             const response = await fetch(`${url}?${params.toString()}`);
             const data = await response.json();
 
@@ -414,7 +414,7 @@
     <script>    //To make attendance chart
         async function makeAttendanceChart(chartInstance, filters) {
             const params = new URLSearchParams(filters);
-            const url = "{% url 'getAttendanceDetail' %}";
+            const url = "{% url 'PM:getAttendanceDetail' %}";
             const response = await fetch(`${url}?${params.toString()}`);
             const data = await response.json();
 
@@ -520,7 +520,7 @@
     <script>    //To make wages chart
         async function makeWagesChart(chartInstance, filters) {
             const params = new URLSearchParams(filters);
-            const url = "{% url 'getWageSummary' %}";
+            const url = "{% url 'PM:getWageSummary' %}";
             const response = await fetch(`${url}?${params.toString()}`);
             const data = await response.json();
 

@@ -6,7 +6,7 @@
 
 {% block content %}
     <div class="{{theme.border}}">
-        <form action="{% url 'callHistory' %}" method="get">
+        <form action="{% url 'marketing:callHistory' %}" method="get">
             <div class="grid grid-cols-10 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/6] items-center" id="date-range-picker" date-rangepicker datepicker-buttons datepicker-autoselect-today datepicker-format="yyyy-mm-dd">
                     <input id="datepicker-range-start" name="startDate" type="text" class="{{theme.textInput}}" placeholder="Start Date" value="{{startDate}}">

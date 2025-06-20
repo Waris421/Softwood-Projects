@@ -5,10 +5,8 @@ from django.utils.timezone import localtime
 
 from .. import models
 
-from core.services.generic_services import convertTexttoObject, concatenateValues, LOCAL_TIMEZONE
-
-pd.options.mode.chained_assignment = None
-pd.set_option('display.max_columns', None)
+from core.services.generic_services import convertTexttoObject, concatenateValues
+from core.constants.generic import LOCAL_TIMEZONE
 
 def GetRequisitionList (
         searchTerm: str,

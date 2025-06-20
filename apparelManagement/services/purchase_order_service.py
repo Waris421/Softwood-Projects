@@ -5,10 +5,8 @@ from datetime import date, timedelta, datetime
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, GST_RATE, LOCAL_CURRENCY
-
-pd.options.mode.chained_assignment = None
-pd.set_option('display.max_columns', None)
+from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
+from core.constants.generic import GST_RATE, LOCAL_CURRENCY
 
 def getInventoryPrice (inventory: models.Inventory):
     '''

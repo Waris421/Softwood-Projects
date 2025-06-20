@@ -60,15 +60,15 @@
         window.addEventListener('load', async () => {
             showLoadingIcon();
 
-            let response = await fetch(`{% url 'opSecs' %}`);
+            let response = await fetch(`{% url 'PM:opSecs' %}`);
             const sections = await response.json();
             await appendOptions('id_Section', sections);
 
-            response = await fetch(`{% url 'opCats' %}`);
+            response = await fetch(`{% url 'PM:opCats' %}`);
             const operationCategories = await response.json();
             await appendOptions('id_Category', operationCategories);
 
-            response = await fetch(`{% url 'machTypes' %}`);
+            response = await fetch(`{% url 'PM:machTypes' %}`);
             const machineTypes = await response.json();
             await appendOptions('id_Type', machineTypes);
 

@@ -16,7 +16,7 @@ APP_NAME = 'Mark'
 @login_required(login_url='/login')
 def Home(request: HttpRequest):
     context = {
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
 
     return render (request, 'marketing/home.html', context)
@@ -42,7 +42,7 @@ def CustomerData (request: HttpRequest):
         'customers': customers.object_list, 'page_obj': customers,
         'assignFilter': assignFilter, 'search': search,
         'countries': countries, 'countryFilter': countryFilter,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'customers/home.html', context)
 
@@ -63,7 +63,7 @@ def AddCustomer (request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
             }
 
         return render(request, 'customers/add.html', context)
@@ -93,7 +93,7 @@ def EditCustomer(request: HttpRequest, pk: int):
 
         context = {
             'customerData': customerData, 'contactData': contactData,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         
         return render(request, 'customers/edit.html', context)
@@ -146,6 +146,6 @@ def CallHistory(request: HttpRequest):
         context = {
             'startDate': startDate, 'endDate': endDate, 'customerFilter': customerFilter, 'search':search,
             'customers': customers,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'calls/home.html', context)

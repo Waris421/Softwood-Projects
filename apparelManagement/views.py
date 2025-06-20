@@ -2,12 +2,12 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
-from django.apps import apps
 
 import json
 
-from core.services import auth_service, generic_services
 from core.services.theme import theme
+from core.services import generic_services
+from core.services.auth_service import hasPermission, getNavLinks, canApprovePD
 
 from . import models
 from .services import notifications_service
@@ -21,7 +21,7 @@ def home (request: HttpRequest):
     
     context = {
         'data': json.dumps(list(notifications)),
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+        'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
     }
     return render(request, 'apparelManagement/home.html', context)
 
@@ -47,10 +47,10 @@ def ReadNotification (request: HttpRequest, pk:int):
 @login_required (login_url='/login')
 def Inventory (request: HttpRequest):
     if request.method != 'GET':
-        return HttpResponse('Not allowed', status=405)
+        return generic_services.showMessageResponse(request, 'Not allowed', 405)
 
-    if not auth_service.hasPermission(request, models.Inventory, type='view'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     searchTerm = request.GET.get('search_term', '')
     groupFilter = request.GET.get('groupFilter', 'Trim')
@@ -69,13 +69,13 @@ def Inventory (request: HttpRequest):
     context = {'inv': data.object_list, 'page_obj': data,
                'searchTerm': searchTerm, 'groups': groups, 'selectedGroup': groupFilter,
                'stockFilter': stockFilter,
-               'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+               'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
     return render (request, 'inventory/home.html',context)
 
 @login_required(login_url = '/login')
 def AddInv (request: HttpRequest): 
-    if not auth_service.hasPermission(request, models.Inventory, type='add'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='add'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
        
     if request.method == 'POST':
         fields = ['Code', 'Name', 'Group', 'Unit', 'AuditReq', 'Life', 'LeadTime', 'MinStockLvl', 'StandardPrice', 'Currency', 'InUse']
@@ -86,13 +86,13 @@ def AddInv (request: HttpRequest):
             return redirect(reverse('editInv', kwargs={'pk': inventoryCode}))
         except Exception as e:
             print(e)
-            return HttpResponse(e, status=400)
+            return generic_services.showMessageResponse(request, str(e), 405)
     else:
         groups, unitTypes, auditReq, inUse, currencies,  codeP1  = inventory_card_service.getInventoryCardDropDowns()
         context = {
             'groups': groups, 'unitTypes': unitTypes, 'auditReq': auditReq, 'inUse': inUse,'currencies': currencies,
             'codeP1': codeP1,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         
         return render (request, 'inventory/add.html', context)
@@ -100,7 +100,7 @@ def AddInv (request: HttpRequest):
 @login_required(login_url='/login')
 def GenerateInventoryCode (request: HttpRequest):
     if request.method != 'POST':
-        return HttpResponse('Not allowed', status=405)
+        return generic_services.showMessageResponse(request, 'Not allowed', 405)
     
     jsonData = json.loads(request.body.decode('utf-8'))
     
@@ -120,13 +120,13 @@ def CheckInventoryCodeExists(request: HttpRequest, pk: str):
 
 @login_required(login_url = '/login')
 def UpdateInv(request: HttpRequest, pk: str):
-    if not auth_service.hasPermission(request, models.Inventory, type='change'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='change'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     try:
         inv = models.Inventory.objects.get(Code=pk)
     except:
-        return HttpResponse('Resource not found', status=400)
+        return generic_services.showMessageResponse(request, 'Resource not Found', 400)
 
     if request.method == 'POST':
         fields = ['Code', 'Name', 'Group', 'Unit', 'AuditReq', 'Life', 'LeadTime', 'MinStockLvl', 'StandardPrice', 'Currency', 'InUse']
@@ -136,7 +136,7 @@ def UpdateInv(request: HttpRequest, pk: str):
             return redirect(reverse('editInv', kwargs={'pk': pk}))
         except Exception as e:
             print(e)
-            return HttpResponse(e, status=400)
+            return generic_services.showMessageResponse(request, str(e))
     else:
         groups, unitTypes, auditReq, inUse, currencies,  codeP1  = inventory_card_service.getInventoryCardDropDowns()
         
@@ -151,19 +151,19 @@ def UpdateInv(request: HttpRequest, pk: str):
             'inv': inv, 'units': units,
             'groups': groups, 'unitTypes': unitTypes, 'auditReq': auditReq, 'inUse': inUse,'currencies': currencies,
             'codeP1': codeP1,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'inventory/edit.html', context)
 
 @login_required(login_url = '/login')
 def DeleteInv(request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.Inventory, type='delete'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='delete'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     try:
         inv = models.Inventory.objects.get(Code=pk)
     except:
-        return HttpResponse('Resource not found', status=404)
+        return generic_services.showMessageResponse(request, 'Resource Not Found', 404)
 
     if request.method == 'POST':
         if 'confirm' in request.POST:
@@ -171,30 +171,30 @@ def DeleteInv(request: HttpRequest, pk: int):
                 inv.delete()
                 return redirect('/inv')
             except Exception as e:
-                context = {'object': inv, 'confirm': True, 'theme': theme, 'error': e, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                context = {'object': inv, 'confirm': True, 'theme': theme, 'error': e, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
                 return render(request, 'inventory/delete.html', context)
         else:
             return redirect('/inv')
     else:
-        context = {'object':inv, 'confirm':True, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+        context = {'object':inv, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/delete.html', context)
 
 @login_required(login_url = '/login')
 def CopyInv (request: HttpRequest, pk: str): 
-    if not auth_service.hasPermission(request, models.Inventory, type='add'):
-        return HttpResponse('Access Denied', status=403)   
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='add'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     if request.method == 'POST':
         sourceCode = request.POST.get('source')
         targetCode = request.POST.get('target')
 
         if not targetCode:
-            context = {'message': 'No Code provided','theme': theme, 'code': pk, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+            context = {'message': 'No Code provided','theme': theme, 'code': pk, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'inventory/copy.html', context)
 
         try:
             models.Inventory.objects.get(Code=targetCode)
-            context = {'message': 'Code Already Exists','theme': theme, 'code': pk, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+            context = {'message': 'Code Already Exists','theme': theme, 'code': pk, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'inventory/copy.html', context)
         except:
             Inventory = models.Inventory.objects.get(Code=sourceCode)
@@ -203,13 +203,13 @@ def CopyInv (request: HttpRequest, pk: str):
 
             return redirect(f'/inv/{targetCode}/edit')
     else:
-        context = {'theme': theme, 'code': pk, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+        context = {'theme': theme, 'code': pk, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/copy.html', context)
 
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.StyleCard, type='view'):
-        return HttpResponse('Access denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     if request.method == 'GET':
         searchTerm = request.GET.get('search_term', '')
@@ -223,17 +223,17 @@ def Style (request: HttpRequest):
         data = generic_services.paginate(Style, pageNumber)
 
         context = {'style': data.object_list, 'page_obj': data
-                ,'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+                ,'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
                 ,'customers': customers, 'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
         return render(request, 'style/home.html', context)
     else:
-        return HttpResponse('Not Allowed', status=403)
+        return generic_services.showMessageResponse(request, 'Not Allowed', 403)
 
 @login_required(login_url = '/login')
 def AddStyle (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.StyleCard, type='add'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='add'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     if request.method == 'POST':        
         #Convert the json to a dict
@@ -246,24 +246,23 @@ def AddStyle (request: HttpRequest):
             return HttpResponse(styleCode, status=200)
         except Exception as e:
             print(e)
-            context = {'error': str(e)}
-            return HttpResponse(e, status=400)
+            return generic_services.showMessageResponse(request, str(e))
          
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'style/add.html', context)
 
 @login_required(login_url='/login')
 def UpdateStyle (request: HttpRequest, pk: str):
-    if not auth_service.hasPermission(request, model=models.StyleCard, type='change'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='change'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
     try:
         style = models.StyleCard.objects.get(StyleCode=pk)
     except:
-        return HttpResponse('Style Card not found', status=400)
+        return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
     if request.method == 'POST':
         #Convert the json to a dict
         data = json.loads(request.body.decode('utf-8'))
@@ -276,23 +275,25 @@ def UpdateStyle (request: HttpRequest, pk: str):
             return HttpResponse('OK', status=200)
         except Exception as e:
             print(e)
-            context = {'error': str(e)}
-            return HttpResponse(e, status=400)        
+            return generic_services.showMessageResponse(request, str(e)) 
     else:
         style, variants, consumption, route = style_card_service.ProcessStyleData(style)
         context = {'style':style,
                    'var':variants,
                    'cons':consumption, 'consJson': json.dumps(list(consumption)),
                    'route':route, 'routeJson':json.dumps(list(route)),
-                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                   'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/edit.html', context)
 
 @login_required(login_url='/login')
 def DeleteStyle(request: HttpRequest, pk: str):
-    if not auth_service.hasPermission(request, models.StyleCard, type='delete'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='delete'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
-    style = models.StyleCard.objects.get(StyleCode=pk)
+    try:
+        style = models.StyleCard.objects.get(StyleCode=pk)
+    except:
+        return generic_services.showMessageResponse(request, 'Resource Not Found', 404)
 
     if request.method == 'POST':
         if 'confirm' in request.POST:
@@ -306,27 +307,30 @@ def DeleteStyle(request: HttpRequest, pk: str):
             return redirect('/style')
     
     else:
-        context = {'object':style, 'confirm':True, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+        context = {'object':style, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/delete.html', context)
 
 @login_required(login_url='/login')
 def CopyStyle(request: HttpRequest, pk: str):
-    if not auth_service.hasPermission(request, models.StyleCard, type='add'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='add'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
-    style = models.StyleCard.objects.get(StyleCode=pk)
+    try:
+        style = models.StyleCard.objects.get(StyleCode=pk)
+    except:
+        return generic_services.showMessageResponse(request, 'Resource Not Found', 404)
 
     if request.method == 'POST':
         sourceCode = request.POST.get('source')
         targetCode = request.POST.get('target')
 
         if not targetCode:
-            context = {'message': 'No Code provided','theme': theme, 'source':style.StyleCode, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+            context = {'message': 'No Code provided','theme': theme, 'source':style.StyleCode, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'style/copy.html', context)
 
         try:
             models.StyleCard.objects.get(StyleCode=targetCode)
-            context = {'message': 'Code Already Exsits','theme': theme, 'source':style.StyleCode, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+            context = {'message': 'Code Already Exsits','theme': theme, 'source':style.StyleCode, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'style/copy.html', context)
         except models.StyleCard.DoesNotExist:
             styleObj = models.StyleCard.objects.get(StyleCode=sourceCode)
@@ -358,16 +362,16 @@ def CopyStyle(request: HttpRequest, pk: str):
             context = {'message': f'Error: {e}', 'theme': theme}
             return render(request, 'style/copy.html', context)
     else:
-        context = {'source':style.StyleCode, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+        context = {'source':style.StyleCode, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/copy.html', context)
 
 @login_required(login_url='/login')
 def WorkOrder (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.WorkOrder, type='view'):
-        return HttpResponse('Access Denied', status=403)
+    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
     if request.method != 'GET':
-        return HttpResponse('Not allowed', status=405)
+        return generic_services.showMessageResponse(request, 'Not allowed', 403)
     
     searchTerm = request.GET.get('search_term', '')
     customerFilter = request.GET.get('customerFilter', '')
@@ -378,14 +382,14 @@ def WorkOrder (request: HttpRequest):
     data = generic_services.paginate(Order, pageNumber)
 
     context = {'order': data.object_list, 'page_obj': data
-               ,'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+               ,'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
                , 'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
     return render(request, 'work_order/home.html', context)
 
 @login_required(login_url='/login')
 def AddWorkOrder(request: HttpRequest):
-    if not auth_service.hasPermission(request, models.WorkOrder, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST': 
@@ -403,13 +407,13 @@ def AddWorkOrder(request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'work_order/add.html', context)
 
 @login_required(login_url='/login')
 def UpdateWorkOrder(request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.WorkOrder, type='change'):
+    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='change'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -435,7 +439,7 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         context = {'order':order,
                    'var':variants,
                    'req':requirement, 'reqJson':json.dumps(list(requirement)),
-                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                   'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'work_order/edit.html', context)
 
@@ -481,6 +485,9 @@ def GetRequirementHistory (request: HttpRequest):
     
 @login_required(login_url='/login')
 def GeneratePOFromWO (request: HttpRequest, pk):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', 'delete'):
+        return HttpResponse('Access Denied', status=403)
+    
     order = models.WorkOrder.objects.get(OrderNumber=pk)
     if request.method == 'POST':
         #convert json data to a dict.
@@ -499,13 +506,13 @@ def GeneratePOFromWO (request: HttpRequest, pk):
 
 @login_required(login_url='/login')
 def DeleteWorkOrder(request: HttpRequest, pk: int):
+    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', 'delete'):
+        return HttpResponse('Access Denied', status=403)
+    
     try:
         order = models.WorkOrder.objects.get(OrderNumber=pk)
     except:
         return HttpResponse('Resouse not found', status=400)
-    
-    if not auth_service.hasPermission(request, models.WorkOrder, 'delete'):
-        return HttpResponse('Not allowed', status=403)
 
     if request.method == 'POST':
         if 'confirm' in request.POST:
@@ -515,17 +522,17 @@ def DeleteWorkOrder(request: HttpRequest, pk: int):
                 notifications_service.DeleteWorkOrder(order, orderNumber)
                 return redirect('/workorder')
             except Exception as e:
-                context = {'object':order, 'confirm':True, 'theme': theme, 'error': e, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                context = {'object':order, 'confirm':True, 'theme': theme, 'error': e, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
                 return render(request, 'work_order/delete.html', context)
         else:
             return redirect('/workorder')
     else:
-        context = {'object':order, 'confirm':True, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+        context = {'object':order, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/delete.html', context)
 
 @login_required(login_url='/login')
 def PrintWorkOrder(request: HttpRequest, pk: str):
-    if not auth_service.hasPermission(request, models.WorkOrder, type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -564,7 +571,7 @@ def PrintWorkOrder(request: HttpRequest, pk: str):
 
 @login_required(login_url='/login')
 def CopyWorkOrder(request: HttpRequest, pk):
-    if not auth_service.hasPermission(request, models.WorkOrder, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     order = models.WorkOrder.objects.get(OrderNumber=pk)
@@ -575,7 +582,7 @@ def CopyWorkOrder(request: HttpRequest, pk):
         print(TargetNumber)
 
         if (not TargetNumber) or (not SourceNumber):
-            context = {'message': 'Error: Missing source or target', 'source':order.OrderNumber, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+            context = {'message': 'Error: Missing source or target', 'source':order.OrderNumber, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'work_order/copy.html', context)
 
         try:
@@ -604,16 +611,16 @@ def CopyWorkOrder(request: HttpRequest, pk):
             notifications_service.AddWorkOrder(TargetNumber)
             return redirect(f'/workorder/{TargetNumber}/edit')
         except Exception as e:
-            context = {'message': f'Error: {e}', 'source':order.OrderNumber, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+            context = {'message': f'Error: {e}', 'source':order.OrderNumber, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             return render(request, 'work_order/copy.html', context)
 
     else:
-        context = {'source':order.OrderNumber, 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+        context = {'source':order.OrderNumber, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/copy.html', context)
 
 @login_required(login_url='/login')
 def AutoInventoryRequirement(request: HttpRequest):
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
@@ -644,7 +651,7 @@ def AutoInventoryRequirement(request: HttpRequest):
         requirement, invs = purchase_order_service.PrepareDataForAutoReq(startingOrder, endingOrder)
 
         context = {
-            'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
             'startingOrder':startingOrder, 'endingOrder':endingOrder, 'search':searchTerm,
             'requirement':requirement}   
         #This is in response to a bug where the code was giving error when there was no inventory in the list.
@@ -660,7 +667,7 @@ def PurchaseOrder(request:HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
     
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     searchTerm = request.GET.get('searchTerm', '')
@@ -675,14 +682,14 @@ def PurchaseOrder(request:HttpRequest):
     data = generic_services.paginate(Order, pageNumber)
 
     context = {'order': data.object_list, 'page_obj': data
-               ,'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+               ,'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
                , 'searchTerm': searchTerm, 'selectedSupplier': supplierFilter, 'selectedPO':poFilter}
     
     return render(request, 'purchase_order/home.html', context)
 
 @login_required(login_url='/login')
 def AddPurchaseOrder(request: HttpRequest):
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
@@ -699,13 +706,13 @@ def AddPurchaseOrder(request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'purchase_order/add.html', context)
 
 @login_required(login_url='/login')
 def EditPurchaseOrder(request: HttpRequest, pk):
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='change'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='change'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -729,7 +736,7 @@ def EditPurchaseOrder(request: HttpRequest, pk):
         context = {
             'order':order,
             'inv':inventory, 'invJson':json.dumps(list(inventory)),
-            'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
             }
         
         return render(request, 'purchase_order/edit.html', context)
@@ -794,7 +801,7 @@ def getAllocatedQty (request: HttpRequest):
 
 @login_required(login_url='/login')
 def PrintPurchaseOrder(request: HttpRequest, pk: str):
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -821,7 +828,7 @@ def PrintPurchaseOrder(request: HttpRequest, pk: str):
 
 @login_required(login_url='/login')
 def CopyPurchaseOrder (request: HttpRequest, pk):
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     po = models.PurchaseOrder.objects.get(id=pk)
@@ -848,7 +855,7 @@ def CopyPurchaseOrder (request: HttpRequest, pk):
     else: 
         context = {
             'source':po,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'purchase_order/copy.html', context)
 
@@ -859,7 +866,7 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
     except:
         return HttpResponse('Resource not found', status=400)
     
-    if not auth_service.hasPermission(request, models.PurchaseOrder, type='delete'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='delete'):
         return HttpResponse('Access Denied', status=403)
     
     if request.method == 'POST':
@@ -869,7 +876,7 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
                 return redirect('/purchaseorder')
             except Exception as e:
                 context = {'object':order, 'confirm':True, 'error': e, 
-                           'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+                           'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
                            }
                 return render(request, 'purchase_order/delete.html', context)
         else:
@@ -877,13 +884,13 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
     else:
         context = {
             'object':order, 'confirm':True,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'purchase_order/delete.html', context)
 
 @login_required(login_url='/login')
 def PurchaseReceipt(request: HttpRequest):
-    if not auth_service.hasPermission(request, models.InventoryReciept, type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method != 'GET':
@@ -908,13 +915,13 @@ def PurchaseReceipt(request: HttpRequest):
     
     context = {
         'receipt': data.object_list, 'receiptObj': data,
-        'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+        'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         'searchTerm': searchTerm, 'selectedSupplier': supplierFilter, 'selectedRec':recFilter}
     return render(request, 'purchase_receipt/home.html', context)
 
 @login_required(login_url='/login')
 def AddPurchaseReceipt(request: HttpRequest):
-    if not auth_service.hasPermission(request, models.InventoryReciept, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
@@ -943,13 +950,13 @@ def AddPurchaseReceipt(request: HttpRequest):
         print(inventory)
         context = {
             'inventory': inventory,'poNumber': poNumber,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'purchase_receipt/add.html', context)
 
 @login_required(login_url='/login')
 def EditPurchaseReceipt(request: HttpRequest, pk:str):
-    if not auth_service.hasPermission(request, models.InventoryReciept, type='change'):
+    if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='change'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -974,7 +981,7 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
 
         context = {'receipt':receipt,
                    'inv':inventory, 'invJson':json.dumps(list(inventory)),
-                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                   'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'purchase_receipt/edit.html', context)
 
@@ -996,7 +1003,7 @@ def GetReceiptAllocation(request: HttpRequest):
 
 @login_required(login_url='/login')
 def PurchaseDemand (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.PurchaseDemand, type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method != 'GET':
@@ -1017,7 +1024,7 @@ def PurchaseDemand (request: HttpRequest):
     
     context = {
         'demand': data.object_list, 'demandObj': data,
-        'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+        'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         'selectedDepartment': departmentFilter, 'searchTerm': searchTerm, 'selectedStatus': statusFilter,
         'selectedDemand': pdNumber
         }
@@ -1026,7 +1033,7 @@ def PurchaseDemand (request: HttpRequest):
 
 @login_required(login_url='/login')
 def AddPurchaseDemand (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.PurchaseDemand, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
@@ -1045,13 +1052,13 @@ def AddPurchaseDemand (request: HttpRequest):
             return HttpResponse(e, status=400)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'purchase_demand/add.html', context)
 
 @login_required(login_url='/login')
 def EditPurchaseDemand (request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.PurchaseDemand, type='change'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='change'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -1079,13 +1086,13 @@ def EditPurchaseDemand (request: HttpRequest, pk: int):
 
         context = {'demand':demand,
                    'inv':inventories, 'invJson': json.dumps(list(inventories)),
-                   'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                   'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'purchase_demand/edit.html', context)
 
 @login_required(login_url='/login')
 def CopyPurchaseDemand (request: HttpRequest, pk:int):
-    if not auth_service.hasPermission(request, models.PurchaseDemand, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     demand = models.PurchaseDemand.objects.get(id=pk)
@@ -1110,13 +1117,13 @@ def CopyPurchaseDemand (request: HttpRequest, pk:int):
     else:
        context = {
            'source':demand,
-           'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+           'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
            }
        return render(request, 'purchase_demand/copy.html', context)
 
 @login_required(login_url='/login')
 def DeletePurchaseDemand (request: HttpRequest, pk: int):
-    if not auth_service.hasPermission(request, models.PurchaseDemand, type='delete'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='delete'):
         return HttpResponse('Access Denied', status=403)
 
     try:
@@ -1135,7 +1142,7 @@ def DeletePurchaseDemand (request: HttpRequest, pk: int):
             except Exception as e:
                 context = {
                     'object':demand, 'confirm':True,
-                    'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name), 
+                    'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name), 
                     'error': e}
                 return render(request, 'purchase_demand/delete.html', context)
         else:
@@ -1143,7 +1150,7 @@ def DeletePurchaseDemand (request: HttpRequest, pk: int):
     else:
         context = {
             'object':demand, 'confirm':True,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'purchase_demand/delete.html', context)
 
@@ -1154,7 +1161,7 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
     except:
         return HttpResponse('Demand not found', status=400)
     
-    if not auth_service.canApprovePD(request):
+    if not canApprovePD(request.user):
         return HttpResponse('You do not have access to this file', status=405)
 
     if request.method == 'POST':
@@ -1172,7 +1179,7 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
             
             context = {
                 'demand': demand, 'context': context,
-                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)}
+                'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
             
             return render(request, 'purchase_demand/approve.html', context)
         except Exception as e:
@@ -1181,7 +1188,7 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
 
 @login_required(login_url='/login')
 def ConvertPDtoPO (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.PurchaseDemand, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method != 'POST':
@@ -1202,7 +1209,7 @@ def ConvertPDtoPO (request: HttpRequest):
 
 @login_required(login_url='/login')
 def Requisition (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.Requisition, type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'Requisition', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method != 'GET':
@@ -1226,7 +1233,7 @@ def Requisition (request: HttpRequest):
 
     context = {
     'req': data.object_list, 'demandObj': data,
-    'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+    'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
     'selectedDepartment': departmentFilter, 'searchTerm': searchTerm, 'selectedStatus': statusFilter,
     'selectedRequisition': requisitionNumber
     }
@@ -1235,7 +1242,7 @@ def Requisition (request: HttpRequest):
 
 @login_required(login_url='/login')
 def AddRequisitionForOrder (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.Requisition, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'Requisition', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
@@ -1259,7 +1266,7 @@ def AddRequisitionForOrder (request: HttpRequest):
         
         context = {
                 'order':order, 'search':searchTerm, 'department': department,
-                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+                'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         
         if order:
@@ -1280,7 +1287,7 @@ def AddRequisitionForOrder (request: HttpRequest):
 
 @login_required(login_url='/login')
 def AddRequisitionForInv (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.Requisition, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'Requisition', type='add'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
@@ -1308,7 +1315,7 @@ def AddRequisitionForInv (request: HttpRequest):
         context = {
             'entries': data,
             'department': department,'selectedGroup':group, 'selectedInv': inventory,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
 
         return render(request, 'requisition/add_inv.html', context)
@@ -1331,7 +1338,7 @@ def GetRequisitionAllocation(request: HttpRequest):
 
 @login_required(login_url='login')
 def Issuance (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.Issuance, type='view'):
+    if not hasPermission(request.user,'apparelManagement', 'Issuance', type='view'):
         return HttpResponse('Access Denied', status=403)
 
     if request.method != 'GET':
@@ -1348,7 +1355,7 @@ def Issuance (request: HttpRequest):
 
     context = {
         'issue': issuances,
-        'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+        'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         'selectedDepartment': departmentFilter, 'searchTerm': searchTerm,
         'selectedIssuance': issuanceNumber
         }
@@ -1357,7 +1364,7 @@ def Issuance (request: HttpRequest):
     
 @login_required(login_url='/login')
 def AddIssuance (request: HttpRequest):
-    if not auth_service.hasPermission(request, models.Issuance, type='add'):
+    if not hasPermission(request.user, 'apparelManagement', 'Issuance', type='add'):
         return HttpResponse('Access Denied', status=403)
     
     requisition = request.GET.get('req',None)
@@ -1381,6 +1388,6 @@ def AddIssuance (request: HttpRequest):
         invs = issuance_service.ProcessRequisitionData(requisition)
         context = {
             'req':requisition,'invs': invs,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'issuance/add.html', context)

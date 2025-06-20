@@ -11,8 +11,9 @@ from apparelManagement import models as appModels
 from marketing import models as marketingModels
 from prodManagement import models as prodModels
 
-from .generic_services import operationSections, operationCategories, machineTypes
-from .generic_services import machineManufacturers, dfToListOfDicts
+from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
+
+from .generic_services import dfToListOfDicts
 
 @login_required(login_url='/login')
 def yesOrNo(request):
@@ -113,7 +114,7 @@ def getInventories(request: HttpRequest):
             objects = appModels.Inventory.objects.filter(InUse=True).filter(Group__in=groups)
         elif invGroup == 'Indirect':
             groups = ['Electrical','Mechanical','Other','Medicine','Stationery','Housekeeping','Electronics','Fixed Assets']
-            objects = moappModelsdels.Inventory.objects.filter(InUse=True).filter(Group__in=groups)
+            objects = appModels.Inventory.objects.filter(InUse=True).filter(Group__in=groups)
         elif invGroup:
             objects = appModels.Inventory.objects.filter(InUse=True).filter(Group=invGroup)
         else:

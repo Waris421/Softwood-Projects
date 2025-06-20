@@ -9,12 +9,10 @@ from .theme import theme
 from core.services import auth_service
 from core.services.generic_services import paginate, applySearch, refineJson
 
-APP_NAME = 'QC'
-
 login_required(login_url='/login')
 def Home(request: HttpRequest):
     context = {
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
     
     return render (request, 'quality/home.html', context)
@@ -60,7 +58,7 @@ def TrimsAudit (request: HttpRequest):
         'audits': data.object_list, 'pageObj': data,
         'supplier': supplier, 'inventory': inventory, 'approval': approval,
         'startDate': startDate, 'endDate': endDate,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
     return render(request, 'trim/audit_history.html', context)
 
@@ -83,7 +81,7 @@ def PendingTrimsAudit (request: HttpRequest):
     context = {
         'inv': data.object_list, 'pageObj': data,
         'searchTerm': searchTerm, 'workOrder': workOrder,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render(request, 'trim/home.html', context)
 
@@ -105,7 +103,7 @@ def AddTrimsAudit (request: HttpRequest):
         inv, options = trim_audit_service.PrepareDataForAudit(recInvs)
         context = {
             'inv': inv, 'checkListOptions': options,
-            'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme':theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
 
         return render(request, 'trim/audit.html', context)
@@ -129,7 +127,7 @@ def EditTrimsAudit (request: HttpRequest, pk: int):
             data, checkListOptions = trim_audit_service.GetAuditsData(pk)
             context = {
                 'audit': data, 'checkListOptions': checkListOptions,
-                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
                 }
             return render(request, 'trim/edit_audit.html', context)
         except Exception as e:

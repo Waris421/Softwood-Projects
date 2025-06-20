@@ -19,15 +19,13 @@ from .services import  worker_service, serial_service
 
 from . import models
 
-APP_NAME = 'PM'
-
 @login_required(login_url='/login')
 def Home (request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=401)
 
     context = {
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
     return render(request, 'prodManagement/home.html', context)
 
@@ -58,7 +56,7 @@ def Operations (request:HttpRequest):
         'operations': page.object_list, 'page_obj': page,
         'sectionFilter': sectionFilter, 'machineType': machineType, 'ratePerSAM': ratePerSAM,
         'skillLevel': skillLevel, 'search': search,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
     return render(request, 'operations/home.html', context)
 
@@ -78,7 +76,7 @@ def AddOperation (request:HttpRequest):
             return render(request, 'operations/add.html', context)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'operations/add.html', context)
 
@@ -109,7 +107,7 @@ def EditOperation (request: HttpRequest, pk: int):
         data = stitching_service.GetDataForOperation(operation)
         context = {
             'data': data,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'operations/edit.html', context)
     
@@ -139,7 +137,7 @@ def Machines(request: HttpRequest):
         'machines': page.object_list, 'page_obj': page,
         'type': type, 'status': status, 'manufacturer': manufacturer, 'search': search,
         'department': department,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render(request, 'machines/home.html', context)
 
@@ -159,7 +157,7 @@ def AddMachine(request: HttpRequest):
             return render(request, 'machines/add.html', context)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'machines/add.html', context)
 
@@ -182,7 +180,7 @@ def EditMachine(request: HttpResponse, pk: int):
             data = stitching_service.GetDataForMachine(machine)
             context = {
                 'data': data, 'error': e,
-                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
             }
             return render(request, 'operations/edit.html', context)
     else:
@@ -190,7 +188,7 @@ def EditMachine(request: HttpResponse, pk: int):
         
         context = {
             'data': data,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'machines/edit.html', context)
 
@@ -213,7 +211,7 @@ def StyleBulletin(request: HttpRequest):
     context = {
         'bulletins': page.object_list, 'page_obj': page,
         'search': search, 'minSAM': minSAM,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
 
     return render(request, 'bulletin/home.html', context)
@@ -232,7 +230,7 @@ def AddStyleBulletin(request: HttpRequest):
             return HttpResponse(e, status=401)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
 
         return render(request, 'bulletin/add.html', context)
@@ -259,7 +257,7 @@ def EditStyleBulletin(request: HttpRequest, pk: int):
         context = {
             'data': data,
             'operations': operations, 'operationsJson': json.dumps(list(operations)),
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'bulletin/edit.html', context)
 
@@ -282,7 +280,7 @@ def DuplicateStyleBulletin(request: HttpRequest, pk: int):
     else:
         context = {
             'source': styleBulletin,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'bulletin/duplicate.html', context)
 
@@ -326,7 +324,7 @@ def CoreSheet (request: HttpRequest):
     context = {
         'coreSheets': page.object_list, 'page_obj': page,
         'search': search,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
     if workOrder:
         context.update({'workOrder': workOrder.OrderNumber})
@@ -358,7 +356,7 @@ def EditCoreSheet(request: HttpRequest, workOrder: int):
         context = {
             'cuts': cuts, 'sizes': sizes,
             'orderNumber': workOrder.OrderNumber,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'CS/edit.html', context)
 
@@ -395,7 +393,7 @@ def Workers(request: HttpRequest):
     context = {
         'workers': page.object_list, 'page_obj': page,
         'search': search, 'department': department, 'status': status,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
     return render(request, 'workers/home.html', context)
 
@@ -412,12 +410,12 @@ def AddWorker(request: HttpRequest):
             print(e)
             context = {
                 'error': e, 'data': data,
-                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
             }
             return render(request, 'workers/add.html', context)
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'workers/add.html', context)
 
@@ -440,14 +438,14 @@ def EditWorker(request:HttpRequest, pk: int):
             print(e)
             context = {
                 'error': e, 'data': data,
-                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
             }
             return render(request, 'workers/edit.html', context)
     else:
         data = worker_service.GetDataForWorker(worker)
         context = {
             'data': data,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'workers/edit.html', context)
 
@@ -516,7 +514,7 @@ def AssignCardToBundles(request: HttpRequest):
 
     else:
         context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME),
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'CS/assign.html', context)
 
@@ -544,7 +542,7 @@ def Serials(request:HttpRequest):
     context = {
         'worker': worker, 'line': line, 'section': section, 'overTime': overTime,
         'workOrder': workOrder,'operation': operation, 'startDate':startDate, 'endDate':endDate,
-        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, APP_NAME)
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render(request, 'serials/home.html', context)
 

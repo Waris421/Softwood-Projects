@@ -1,12 +1,17 @@
 from django.http import HttpRequest
 from django.db.models import Model
 from django.contrib.auth.models import User
-from typing import Literal
 from django.contrib.contenttypes.models import ContentType
+from django.apps import apps
+
+from typing import Literal, List, Dict
+
+from core.constants.generic import NAV_LINKS_CONFIG
 
 def hasPermission (
-        request: HttpRequest,
-        model: Model,
+        user: User,
+        appName: str,
+        modelName: str,
         type: Literal["view", "add", "change", "delete"]
 ) -> bool: 
     """
@@ -16,7 +21,10 @@ def hasPermission (
     ----------
     request : HttpRequest
         The http request, containing the user session info.
-    model : The django model for which to check the permission
+    appName: str
+        The name of the app in which the model lies
+    modelName : str
+        The name of the django model
     type : str
         The type of permissions to check.  Options are 'view', 'add', 'change', 'delete'.
 
@@ -26,7 +34,6 @@ def hasPermission (
         True if user's group has the permission otherwise false.
     """
     
-    user = request.user    
     groups = user.groups.all()
 
     if user.is_staff:
@@ -34,6 +41,13 @@ def hasPermission (
 
     if not groups:
         return False
+    
+    try:
+        model = apps.get_model(app_label=appName, model_name=modelName.split('.')[-1])
+    except LookupError:
+        return False
+    except Exception as e:
+        raise Exception(e)
     
     permissionCodename = f"{type}_{model._meta.model_name}"
     contentType = ContentType.objects.get_for_model(model)
@@ -45,9 +59,7 @@ def hasPermission (
     
     return False
 
-def canApprovePD (request: HttpRequest):
-    user = request.user
-    
+def canApprovePD (user: User):    
     #Users are maunally allowed to approve PD
     authorizedUsers = ['tanveer', 'firasat']
     if user.username in authorizedUsers:
@@ -59,92 +71,15 @@ def canApprovePD (request: HttpRequest):
 
     return False
 
-def getNavLinks(user: User, app: str):
-    if app == 'apparelManagement':
-        navLinks = [
-            {'groupName': 'Dashboard', 'views': [], 'viewName': 'apparelManagement:apparel'},
-            {'groupName': 'Inventory', 'views': [
-                {'displayName': 'View All', 'viewName': 'apparelManagement:Inv'},
-                {'displayName': 'Add New', 'viewName': 'apparelManagement:addInv'},
-            ]},
-            {'groupName': 'StyleCard', 'views': [
-                {'displayName': 'View All', 'viewName': 'apparelManagement:Style'},
-                {'displayName': 'Add New', 'viewName': 'apparelManagement:addStyle'},
-            ]},
-            {'groupName': 'Work Order', 'views': [
-                {'displayName': 'View All', 'viewName': 'apparelManagement:WOs'},
-                {'displayName': 'Add New', 'viewName': 'apparelManagement:addWO'},
-                {'displayName': 'Auto Requirement', 'viewName': 'apparelManagement:autoReq'},
-            ]},
-            {'groupName': 'Purchase Demand', 'views': [
-                {'displayName': 'View All', 'viewName': 'apparelManagement:purchaseDemand'},
-                {'displayName': 'Add New', 'viewName': 'apparelManagement:addPD'},
-            ]},
-            {'groupName': 'Inventory Order', 'views': [
-                {'displayName': 'View All', 'viewName': 'apparelManagement:POs'},
-                {'displayName': 'Add New', 'viewName': 'apparelManagement:addPO'},
-            ]},
-            {'groupName': 'Inventory Receipt', 'views': [
-                {'displayName': 'View All', 'viewName': 'apparelManagement:purchaseRec'},
-                {'displayName': 'Add New', 'viewName': 'apparelManagement:addRec'},
-            ]},
-            {'groupName': 'Issuance', 'views': [
-                {'displayName': 'View Requests', 'viewName': 'apparelManagement:requisition'},
-                {'displayName': 'Request For Order', 'viewName': 'apparelManagement:addRequisitionForOrder'},
-                {'displayName': 'Request For Item', 'viewName': 'apparelManagement:addRequisitionForInv'},
-                {'displayName': 'View Issuances', 'viewName': 'apparelManagement:issue'},
-            ]},
-        ]
-    elif app == 'Mark':
-        navLinks = [
-            {'groupName': 'Dashboard', 'views': [], 'viewName': 'marketing'},
-            {'groupName': 'Customers', 'views': [
-                {'displayName': 'Database', 'viewName': 'customerData'},
-            ]},
-            {'groupName': 'Correspondance', 'views': [
-                {'displayName': 'Pending', 'viewName': 'pendingCalls'},
-                {'displayName': 'Calls', 'viewName': 'callHistory'},
-                {'displayName': 'Emails', 'viewName': 'pendingCalls'},
-                {'displayName': 'Meetings', 'viewName': 'pendingCalls'},
-            ]},
-            {'groupName': 'Inquiries', 'views': [
-                {'displayName': 'Meetings', 'viewName': 'pendingCalls'},
-            ]},
-            {'groupName': 'Insights', 'views': [
-                {'displayName': 'Meetings', 'viewName': 'pendingCalls'},
-            ]},
-        ]
-    elif app == 'PM':
-        navLinks = [
-            {'groupName': 'Dashboard', 'views': [], 'viewName': 'productivity'},
-            {'groupName': 'Presets', 'views': [
-                {'displayName': 'Style Bulletin', 'viewName': 'styleBulletins'},
-                {'displayName': 'Operations', 'viewName': 'operations'},
-                {'displayName': 'Machines', 'viewName': 'machines'},
-                {'displayName': 'Workers', 'viewName': 'workers'},
-            ]},
-            {'groupName': 'Cutting', 'views': [
-                {'displayName': 'Core Sheet', 'viewName': 'coreSheets'},
-            ]},
-            {'groupName': 'Stitching', 'views': [
-                {'displayName': 'Scan Report', 'viewName': 'serials'},
-            ]},
-        ]
-    elif app == 'QC':
-        navLinks = [
-            {'groupName': 'Dashboard', 'views': [], 'viewName': 'quality'},
-            {'groupName': 'Fabric', 'views': [
-                {'displayName': 'Under Process', 'viewName': 'pendingTrimAudit'},
-            ]},
-            {'groupName': 'Trims', 'views': [
-                {'displayName': 'Pending Audits', 'viewName': 'pendingTrimAudit'},
-                {'displayName': 'Audit History', 'viewName': 'trimAudit'},
-            ]},
-            {'groupName': 'Production', 'views': [
-                {'displayName': 'Under Process', 'viewName': 'pendingTrimAudit'},
-            ]},
-        ]
-    else:
-        navLinks = []
+def getNavLinks(user: User, app: str) -> List[Dict]:
+    appNavConfig = NAV_LINKS_CONFIG.get(app, [])
+    filteredNavLinks = []
 
-    return navLinks
+    for groupData in appNavConfig:
+        groupAppName = groupData['appName']
+        groupModelName = groupData['modelName']
+        
+        if hasPermission(user, groupAppName, groupModelName, 'view'):
+            filteredNavLinks.append(groupData)
+        
+    return filteredNavLinks
