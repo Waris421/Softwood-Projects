@@ -7,4 +7,6 @@ urlpatterns = [
     path('logout/', views.Logout, name='logout'),
     path('password-reset', views.PasswordResetRequest, name='passwordResetRequest'),
     path('reset/<uidb64>/<token>/', views.PasswordResetConfirm, name='passwordResetConfirm'),
+
+    path ('api/login', views.APILogin.as_view(), name='apiLogin'),
 ]

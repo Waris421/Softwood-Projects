@@ -435,7 +435,7 @@
                         tooltipContent += `Section: ${data.Section[dataIndex]}<br/>`;
                         tooltipContent += `Login: ${data.LoginTime[dataIndex]}<br/>`;
                         tooltipContent += `Logout: ${data.LogoutTime[dataIndex]}<br/>`;
-                        tooltipContent += `Hours: ${data.Duration[dataIndex].toFixed(2)}<br/>`;
+                        tooltipContent += `Delay: ${data.Late[dataIndex].toFixed(2)}hr<br/>`;
 
                         return tooltipContent;
                     }
@@ -749,7 +749,7 @@
         
         //Toggle Worker code if there is a click on wagesChart
         wagesChart.on('click', (params) => {
-            const clickedWorker = params.name;
+            const clickedWorker = params.value;
 
             // If already filtered by this worker, clear the filter; otherwise, apply it
             currentFilters.worker = (currentFilters.worker === clickedWorker) ? '' : clickedWorker;

@@ -34,16 +34,57 @@ class CustomerContact(models.Model):
             models.Index(fields=['Customer',]),
         ]
 
-class Call(models.Model):
+class Correspondance(models.Model):
     id = models.AutoField(primary_key=True)
-    Caller = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    User = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     Customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    Type = models.CharField(max_length=31)
     Date = models.DateField(auto_now_add=True)
+    NextCorrespondanceDate = models.DateField(null=True, blank=True)
+    IsClosed = models.BooleanField(default=False)
     Conversation = models.TextField(default='No answer')
-
+    
     class Meta:
-        """Meta definition for Calls Record."""
+        """Meta definition for Correspondances."""
 
         indexes = [
-            models.Index(fields=['Caller', 'Customer']),
+            models.Index(fields=['User', 'Customer']),
+            models.Index(fields=['IsClosed']),
+        ]
+
+class Inquiry(models.Model):
+    id = models.AutoField(primary_key=True)
+    Customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    Correspondance = models.ForeignKey(Correspondance, on_delete=models.PROTECT)
+    Details = models.CharField(max_length=255)
+    Attachment = models.FileField(upload_to='docuemnts/marketing/inquiries/', null=True, blank=True)
+    ReceivedAt = models.DateTimeField(auto_now_add=True)
+    ReceivedBy = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    IsClosed = models.BooleanField(default=False)
+
+    class Meta:
+        """Meta definition for Inquiries."""
+        indexes = [
+            models.Index(fields=['ReceivedBy', 'Customer']),
+            models.Index(fields=['IsClosed']),
+        ]
+
+class GarmentShipmentsData(models.Model):
+    """Model definition for ExportData."""
+    id = models.AutoField(primary_key=True)
+    ShipDate = models.DateField()
+    HSCode = models.CharField(max_length=15)
+    Description = models.TextField(blank=True, null=True)
+    Country = CountryField(max_length=20)
+    Exporter = models.CharField(max_length=63)
+    Importer = models.CharField(max_length=63)
+    Quantity = models.FloatField()
+    Rate = models.FloatField(null=True, blank=True)
+    Currency = models.CharField(max_length=31, blank=True, null=True)
+
+    class Meta:
+        """Meta definition for ExportData."""
+        indexes = [
+            models.Index(fields=['ShipDate']),
+            models.Index(fields=['Exporter', 'Importer']),
         ]

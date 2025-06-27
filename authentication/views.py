@@ -9,6 +9,13 @@ from django.template.loader import get_template
 from django.core.mail import send_mail
 from django.http import HttpRequest, HttpResponse
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import  AllowAny
+from rest_framework.authtoken.models import Token
+from rest_framework.request import Request
+import rest_framework
+
 from .theme import theme
 
 def Login(request: HttpRequest):
@@ -37,6 +44,42 @@ def Login(request: HttpRequest):
         }
 
         return render(request, 'login.html', context)
+
+class APILogin(APIView):
+    permission_classes = [AllowAny]
+    def post (self, request:Request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        token = request.data.get('token')
+
+        if token:
+            user = Token.objects.get(key=token)
+            if (user):
+                response = {
+                    'message': 'Login was successful',
+                    'token': token
+                }
+                
+                status = rest_framework.status.HTTP_200_OK
+                return Response (data=response, status=status)
+            else:
+                response = {'message': 'Invalid Credentials'}
+                status = rest_framework.status.HTTP_404_NOT_FOUND
+                return Response (data=response, status=status)
+        else:
+            user = authenticate(username=username, password=password)
+
+            if user is not None:
+                response = {
+                    "message": "Login was successful",
+                    "token": user.auth_token.key
+                }
+                status = rest_framework.status.HTTP_200_OK
+            else:
+                response = {"message": "Invalid Credentials"}
+                status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            
+            return Response (data=response, status=status)
 
 def Logout(request: HttpRequest):
     if request.method != 'GET':

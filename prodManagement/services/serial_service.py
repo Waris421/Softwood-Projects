@@ -1,4 +1,4 @@
-from pandas import DataFrame, merge, to_datetime, Categorical
+from pandas import DataFrame, merge, to_datetime
 from numpy import where
 
 from typing import List, Union
@@ -8,6 +8,8 @@ from django.db.models import Q
 from .. import models
 from ..theme import theme
 from core.services import generic_services
+from core.constants import prod as prodConstants
+from core.constants import generic as genericConnstants
 
 def getScanData(
         startDate = None,
@@ -18,9 +20,9 @@ def getScanData(
     Returns data for today if date range isn't given
     '''
     if not startDate:
-        startDate = generic_services.TODAY
+        startDate = genericConnstants.TODAY
     if not endDate:
-        endDate = generic_services.TODAY
+        endDate = genericConnstants.TODAY
     
     fields = ['Worker','Operation','Bundle','TimeDate', 'Line']
     serials = models.Serial.objects.filter(TimeDate__date__range=(startDate, endDate)).values(*fields)
@@ -39,8 +41,8 @@ def getScanData(
         dfWorkers = DataFrame(columns=fields)
     del workers
 
-    dfLines = DataFrame(generic_services.stitchingLines)
-    dfSections = DataFrame(generic_services.operationSections)
+    dfLines = DataFrame(prodConstants.stitchingLines)
+    dfSections = DataFrame(prodConstants.operationSections)
 
     fields = ['id','Name','SMV','Rate']
     operations = models.Operation.objects.filter(id__in=dfSerials['Operation'].to_list()).values(*fields)
@@ -94,7 +96,7 @@ def getScanData(
     dfSerials.drop(inplace=True, columns=['id','Cut'])
     dfSerials.rename(inplace=True, columns={'NoOfPlies':'Quantity'})
 
-    dfSerials['TimeDate'] = dfSerials['TimeDate'].dt.tz_convert(generic_services.LOCAL_TIMEZONE)
+    dfSerials['TimeDate'] = dfSerials['TimeDate'].dt.tz_convert(genericConnstants.LOCAL_TIMEZONE)
 
     return dfSerials
 
@@ -143,8 +145,8 @@ def applyOverTimeFilter(df: DataFrame, overTime: str, dateTimeCol='TimeDate'):
     overTimeMapping = {'true': True, 'false': False}
     overTime = overTimeMapping.get(overTime)
 
-    dutyStartTime = generic_services.STITCHING_START
-    dutyEndTime = generic_services.STITCHING_END
+    dutyStartTime = prodConstants.STITCHING_START
+    dutyEndTime = prodConstants.STITCHING_END
 
     if overTime is True:
         condition = (df[dateTimeCol].dt.time < dutyStartTime) | (df[dateTimeCol].dt.time > dutyEndTime)
@@ -271,8 +273,8 @@ def GetWageSummary(
 
     dfScan['WagePerDay'] = dfScan['Wage']/dfScan['Days']
     
-    dfScan['WageColor'] = where(dfScan['WagePerDay']<generic_services.MIN_WAGE, theme['red'], theme['green'])
-    dfScan['TimeSpentColor'] = where(dfScan['WagePerDay']<generic_services.MIN_WAGE, theme['red'], theme['green'])
+    dfScan['WageColor'] = where(dfScan['WagePerDay']<genericConnstants.MIN_WAGE, theme['red'], theme['green'])
+    dfScan['TimeSpentColor'] = where(dfScan['WagePerDay']<genericConnstants.MIN_WAGE, theme['red'], theme['green'])
     
     dfScan.sort_values(inplace=True, by='WagePerDay', ascending=True)
     dfScan.drop(inplace=True, columns=['WagePerDay'])
@@ -280,19 +282,27 @@ def GetWageSummary(
     return dfScan.to_dict(orient='list')
 
 def GetAttendanceDetail(
-        startDate, endDate
+        startDate, endDate, worker: str, line: str, section: str
 ):
     fields = ['WorkerCode','WorkerName','SubDepartment']
-    workers = models.Worker.objects.filter(Status='Working').values(*fields)
-    if workers:
-        dfWorkers = DataFrame(workers)
+    if worker and worker != 'null':
+        dfAttendance = getAttendanceData(worker, startDate, endDate)
+        worker = models.Worker.objects.filter(WorkerCode=worker).values(*fields)
+        if worker:
+            dfWorkers = DataFrame(worker)
+        else:
+            dfWorkers = DataFrame(columns=fields)
     else:
-        dfWorkers = DataFrame(columns=fields)
-    del workers
-    
-    dfAttendance = getAttendanceData(dfWorkers['WorkerCode'].to_list(), startDate, endDate)
+        workers = models.Worker.objects.filter(Status='Working').values(*fields)
+        if workers:
+            dfWorkers = DataFrame(workers)
+        else:
+            dfWorkers = DataFrame(columns=fields)
+        del workers
+        
+        dfAttendance = getAttendanceData(dfWorkers['WorkerCode'].to_list(), startDate, endDate)
 
-    dfSections = DataFrame(generic_services.operationSections)
+    dfSections = DataFrame(prodConstants.operationSections)
     
     dfAttendance = merge(left=dfAttendance, right=dfWorkers, left_on='Worker', right_on='WorkerCode', how='left')
     del dfWorkers
@@ -300,18 +310,34 @@ def GetAttendanceDetail(
     
     dfAttendance = merge(left=dfAttendance, right=dfSections, left_on='SubDepartment', right_on='value', how='left')
     del dfSections
-    dfAttendance.drop(inplace=True, columns=['SubDepartment','value'])
-    dfAttendance.rename(inplace=True, columns={'text':'Section'})
+    dfAttendance.drop(inplace=True, columns=['SubDepartment'])
+    dfAttendance.rename(inplace=True, columns={'text':'Section','value':'SectionCode'})
 
-    dfAttendance['Date'] = to_datetime(dfAttendance['Date'], format='%Y-%m-%d')
-    dfAttendance['LoginTime'] = to_datetime(str(startDate)+' '+dfAttendance['LoginTime'].astype(str))
-    dfAttendance['LogoutTime'] = to_datetime(str(startDate)+' '+dfAttendance['LogoutTime'].astype(str))
-    dfAttendance['StandardLoginTime'] = to_datetime(str(startDate)+' '+str(generic_services.STITCHING_START))
-    dfAttendance['StandardLogoutTime'] = to_datetime(str(startDate)+' '+str(generic_services.STITCHING_END))
+    filters = [
+        (applyLineFilter, line),
+        (applySectionFilter, section),
+    ]
+    for func, filter in filters:
+        dfAttendance = func(dfAttendance, filter)
 
-    dfAttendance['LoginDifference'] = (dfAttendance['StandardLoginTime'] - dfAttendance['LoginTime']).dt.total_seconds()/60
-    dfAttendance['LogoutDifference'] = (dfAttendance['LogoutTime'] - dfAttendance['StandardLogoutTime']).dt.total_seconds()/60
+    dfAttendance['LoginTime'] = to_datetime(str(startDate.date())+' '+dfAttendance['LoginTime'].astype(str), format='%Y-%m-%d %H:%M:%S')
+    dfAttendance['LogoutTime'] = to_datetime(str(startDate.date())+' '+dfAttendance['LogoutTime'].astype(str), format='%Y-%m-%d %H:%M:%S')
+    dfAttendance['StandardLoginTime'] = to_datetime(str(startDate.date())+' '+str(prodConstants.STITCHING_START), format='%Y-%m-%d %H:%M:%S')
+    dfAttendance['StandardLogoutTime'] = to_datetime(str(startDate.date())+' '+str(prodConstants.STITCHING_END), format='%Y-%m-%d %H:%M:%S')
 
-    print(dfAttendance[['LoginTime','LoginDifference','LogoutTime','LogoutDifference']])
+    dfAttendance['LoginDelay'] = (dfAttendance['LoginTime'] - dfAttendance['StandardLoginTime']).dt.total_seconds()/3600
+    dfAttendance['LogoutEarly'] = (dfAttendance['StandardLogoutTime'] - dfAttendance['LogoutTime']).dt.total_seconds()/3600
+
+    dfAttendance['LoginDelay'] = where(dfAttendance['LoginDelay']>0,dfAttendance['LoginDelay'], 0)
+    dfAttendance['LogoutEarly'] = where(dfAttendance['LogoutEarly']>0,dfAttendance['LogoutEarly'], 0)
+
+    dfAttendance['Late'] = (dfAttendance['LoginDelay'] + dfAttendance['LogoutEarly'])
+
+    dfAttendance.drop(inplace=True, columns=['LoginDelay','LogoutEarly','StandardLoginTime','StandardLogoutTime'])
+
+    for col in ['LoginTime', 'LogoutTime']:
+        dfAttendance[col] = dfAttendance[col].dt.time
+    
+    dfAttendance['DurationColor'] = where(dfAttendance['Late']>0, theme['red'], theme['green'])
 
     return dfAttendance.to_dict(orient='list')

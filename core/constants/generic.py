@@ -44,17 +44,17 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         {'groupName': 'Customers', 'appName': 'marketing', 'modelName': 'Customer', 'views': [
             {'displayName': 'Database', 'viewName': 'marketing:customerData'},
         ]},
-        {'groupName': 'Correspondance', 'appName': 'marketing', 'modelName': 'Call', 'views': [
-            {'displayName': 'Pending', 'viewName': 'marketing:pendingCalls'},
-            {'displayName': 'Calls', 'viewName': 'marketing:callHistory'},
-            {'displayName': 'Emails', 'viewName': 'marketing:pendingCalls'},
-            {'displayName': 'Meetings', 'viewName': 'marketing:pendingCalls'},
+        {'groupName': 'Correspondance', 'appName': 'marketing', 'modelName': 'Correspondance', 'views': [
+            {'displayName': 'Pending', 'viewName': 'marketing:pendingCorresponance'},
+            {'displayName': 'Calls', 'viewName': 'marketing:corresponanceHistory'},
+            {'displayName': 'Emails', 'viewName': 'marketing:pendingCorresponance'},
+            {'displayName': 'Meetings', 'viewName': 'marketing:pendingCorresponance'},
         ]},
-        {'groupName': 'Inquiries', 'appName': 'marketing', 'modelName': 'Call', 'views': [
-            {'displayName': 'In Process', 'viewName': 'marketing:pendingCalls'},
+        {'groupName': 'Inquiries', 'appName': 'marketing', 'modelName': 'Correspondance', 'views': [
+            {'displayName': 'In Process', 'viewName': 'marketing:pendingCorresponance'},
         ]},
-        {'groupName': 'Insights', 'appName': 'marketing', 'modelName': 'Call', 'views': [
-            {'displayName': 'In Process', 'viewName': 'marketing:pendingCalls'},
+        {'groupName': 'Insights', 'appName': 'marketing', 'modelName': 'Correspondance', 'views': [
+            {'displayName': 'In Process', 'viewName': 'marketing:pendingCorresponance'},
         ]},
     ],
     'PM': [
@@ -86,6 +86,17 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         ]},
     ],
 }
+
+APP_OPTIONS = [
+    {'groupname':'PM', 'options':[
+        {'value':'markGroupComplete', 'name':'Mark Group Completion', 'modelName':'BundleCardAssignment', 'deviceType':'Phone'},
+        {'value':'assignWorkerCard', 'name':'Assign Worker Card', 'modelName':'Worker', 'deviceType':'Phone'},
+    ]},
+    {'groupname':'QC', 'options':[
+        {'value':'stitchingInlineCheck', 'name':'Inline Check', 'modelName':'TrimAudit', 'deviceType':'Phone'},
+        {'value':'stitchingSectionFinalCheck', 'name':'Section Check', 'modelName':'TrimAudit', 'deviceType':'Phone'},
+    ]},
+]
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')
 GST_RATE = 18.0

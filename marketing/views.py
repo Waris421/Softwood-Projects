@@ -9,7 +9,7 @@ from .theme import theme
 from . import models
 from core.services import auth_service
 from core.services.generic_services import refineJson, applySearch, paginate
-from .services import customer_service, calling_service
+from .services import correspondance_service, customer_service
 
 APP_NAME = 'Mark'
 
@@ -120,14 +120,23 @@ def ToggleAssignment(request: HttpRequest, pk: int):
     return redirect(reverse('customerData'))
 
 @login_required(login_url='/login')
-def PendingCalls(request: HttpRequest):
+def PendingCorrespondance(request: HttpRequest):
     if request.method == 'POST':
         pass
     else:
-        return HttpResponse('In Progress')
+        customer = request.GET.get('customer', '')
+        type = request.GET.get('type', '')
+        dueDate = request.GET.get('due_date', '')
+        
+        pendingCorrespondance = correspondance_service.GetPendingCorrespondance(customer, type, dueDate, request.user)
+        
+        context = {
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'correspondance/pending.html', context)
 
 @login_required(login_url='/login')
-def CallHistory(request: HttpRequest):
+def CorresponanceHistory(request: HttpRequest):
     if request.method == 'POST':
         pass
     else:
@@ -139,7 +148,7 @@ def CallHistory(request: HttpRequest):
         if customerFilter == 'None':
             customerFilter = None
         
-        callsHostory = calling_service.GetCallHistory(startDate, endDate, customerFilter, request.user)
+        #callsHostory = calling_service.GetCallHistory(startDate, endDate, customerFilter, request.user)
 
         customers = models.Customer.objects.filter(AccountManager=request.user).values('id', 'Name')
 
@@ -148,4 +157,4 @@ def CallHistory(request: HttpRequest):
             'customers': customers,
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
-        return render(request, 'calls/home.html', context)
+        return render(request, 'correspondance/home.html', context)

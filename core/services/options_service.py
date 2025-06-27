@@ -3,6 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Exists, OuterRef, Q, Count
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import  AllowAny
+from rest_framework.authtoken.models import Token
+from rest_framework.request import Request
+import rest_framework
+
 from django_countries import countries
 
 import pandas as pd
@@ -12,6 +19,8 @@ from marketing import models as marketingModels
 from prodManagement import models as prodModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
+from core.constants.generic import APP_OPTIONS
+from core.services.auth_service import hasPermission
 
 from .generic_services import dfToListOfDicts
 
@@ -683,3 +692,42 @@ def GetWorkers(request: HttpRequest):
     dfWorkers = pd.concat([pd.DataFrame([emptyRow]), dfWorkers]).reset_index(drop=True)
 
     return JsonResponse(dfToListOfDicts(dfWorkers), safe=False)
+
+class AppOptons(APIView):
+    permission_classes = [AllowAny]
+
+    def post (self, request:Request):
+        token = request.data.get('token')
+        deviceType = request.data.get('deviceType')
+
+        if token:
+            try:
+                user = Token.objects.get(key=token).user
+            except:
+                response = {'message': 'Invalid Credentials'}
+                status = rest_framework.status.HTTP_404_NOT_FOUND
+                return Response (data=response, status=status)
+            
+            finalOptions = []
+            for group in APP_OPTIONS:
+                groupName = group['groupname']
+                
+                filteredGroupOptions = [
+                    {'value': option['value'], 'name': option['name']} for option in group['options']
+                    if hasPermission(user, groupName, option['modelName'], 'view') and \
+                        option.get('deviceType') == deviceType
+                ]
+                
+                if filteredGroupOptions:
+                    finalOptions.append({
+                        'groupname': groupName,
+                        'options': filteredGroupOptions
+                    })
+
+            response = {'availableOptions': finalOptions}
+            status = rest_framework.status.HTTP_200_OK
+            return Response (data=response, status=status)
+        else:
+            response = {'message': 'Invalid Credentials'}
+            status = rest_framework.status.HTTP_404_NOT_FOUND
+            return Response (data=response, status=status)

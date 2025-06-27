@@ -635,9 +635,6 @@ def GetAttendanceDetails(request: HttpRequest):
     worker = request.GET.get('worker', None)
     line = request.GET.get('line', None)
     section = request.GET.get('section', None)
-    workOrder = request.GET.get('workOrder', None)
-    overTime = request.GET.get('overTime', None)
-    operation = request.GET.get('operation', None)
     startDate = request.GET.get('startDate',None)
     endDate = request.GET.get('endDate', None)
 
@@ -650,16 +647,6 @@ def GetAttendanceDetails(request: HttpRequest):
     else:
         endDate = generic_services.convertStrToDateTime(endDate, "%Y-%m-%d")
     
-    data = serial_service.GetAttendanceDetail(startDate, endDate)
-
-    """data = {
-        "Date": ["2025-06-02", "2025-06-03", "2025-06-02", "2025-06-03"],
-        "LoginTime": ["08:45:00", "08:30:00", "09:00:00", "08:40:00"],
-        "LogoutTime": ["17:30:00", "17:45:00", "17:00:00", "17:15:00"],
-        "Duration": [8.75, 9.25, 8.00, 8.50],
-        "WorkerCode": [501360, 501360, 501363, 501363],
-        "WorkerName": ["Ashfaq Rasheed", "Umar Ali", "Ashfaq Rasheed", "Umar Ali"],
-        "Section": ["Assembly 2", "Small Parts", "Assembly 2", "Small Parts"]
-    }"""
+    data = serial_service.GetAttendanceDetail(startDate, endDate, worker, line, section)
 
     return JsonResponse(data)
