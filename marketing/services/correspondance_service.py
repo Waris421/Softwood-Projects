@@ -68,7 +68,8 @@ def GetPendingCorrespondance(customer: str, type:str, dueDateText:str, user:User
         dfCustomers = pd.DataFrame(columns=fields)
     del customers
 
-    fields = ['User','Customer','Type','Date','Conversation']
+    filters &= Q(Customer__in=dfCustomers['id'].to_list())
+    fields = ['User','Customer','Type','Date','Conversation','NextCorrespondanceDate']
     correspondances = models.Correspondance.objects.filter(filters).values(*fields)
     if correspondances:
         dfCorrespondances = pd.DataFrame(correspondances)
@@ -82,15 +83,7 @@ def GetPendingCorrespondance(customer: str, type:str, dueDateText:str, user:User
         dfUsers = pd.DataFrame(users)
     else:
         dfUsers = pd.DataFrame(columns=fields)
-    del users
-
-    fields = ['id','Name']
-    customers = models.Customer.objects.filter(id__in=dfCorrespondances['Customer'].to_list()).values(*fields)
-    if customers:
-        dfCustomers = pd.DataFrame(customers)
-    else:
-        dfCustomers = pd.DataFrame(columns=fields)
-    del customers
+    del users, fields
     
     dfCorrespondances = pd.merge(left=dfCorrespondances, right=dfUsers, left_on='User', right_on='id', how='left')
     del dfUsers
@@ -101,5 +94,24 @@ def GetPendingCorrespondance(customer: str, type:str, dueDateText:str, user:User
     dfCorrespondances = pd.merge(left=dfCorrespondances, right=dfCustomers, left_on='Customer', right_on='id', how='left')
     del dfCustomers
     dfCorrespondances.drop(inplace=True, columns=['Customer','id'])
+    dfCorrespondances.rename(inplace=True, columns={'Name':'Customer'})
 
-    print(dfCorrespondances)
+    if dfCorrespondances.empty:
+        return []
+
+    dfCorrespondances = dfCorrespondances.sort_values(by=['Customer', 'Date'], ascending=[True, False])
+
+    def formatHistory(group):
+        historyEntries = []
+        for _, row in group.iterrows():
+            formattedDate = row['Date'].strftime('%Y-%m-%d')
+            historyEntry = (
+                f"On {formattedDate}, {row['User']} contacted via {row['Type']} "
+                f"with conversation details: {row['Conversation']}."
+            )
+            historyEntries.append(historyEntry)
+        return "\n".join(historyEntries)
+
+    dfCorrespondances = dfCorrespondances.groupby(['Customer', 'NextCorrespondanceDate']).apply(formatHistory).reset_index(name='ContactHistory')
+
+    return dfToListOfDicts(dfCorrespondances)

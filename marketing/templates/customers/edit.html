@@ -101,9 +101,6 @@
             let response = await fetch('/options/countries');
             const countries = await response.json();
             await appendOptions('id_Country', countries, '{{customerData.Country}}');
-            new TomSelect('#id_Country',{
-                createOnBlur: true,
-            });
 
             hideLoadingIcon();
         });

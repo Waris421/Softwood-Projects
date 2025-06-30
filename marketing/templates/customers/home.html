@@ -104,19 +104,20 @@
     </div>
 
     <script>    //To change the buttons based on selected customer
-        $("#tableData").on("click", "input[type='radio']", function() {
-            const selectedCustomer = $(this).closest("tr").find("td.id").text();
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            if (event.target.type === 'radio' && event.target.name === 'item_checkbox') {
+                const radio = event.target;
+                const selectedCustomer = radio.closest('tr').querySelector('td.id').textContent.trim();
 
-            const filters = new URLSearchParams(window.location.search);
+                const filters = new URLSearchParams(window.location.search);
 
-            let button = $("#editCustomerButton");  
-            button.attr("href", `/marketing/customer/` + selectedCustomer + `/edit?${filters.toString()}`);
+                button = document.getElementById("editCustomerButton");
+                button.href = ("{% url 'marketing:editCustomer' pk=0 %}".replace('0', selectedCustomer))+'?'+filters.toString();
 
-            button = $("#toggleCustomerButton");
-            button.attr("href", "/marketing/customer/" + selectedCustomer + "/toggle");
-
-            button = $("#suggestEmailButton");
-            button.attr("customer", selectedCustomer);
+                button = document.getElementById("toggleCustomerButton");
+                button.href = ("{% url 'marketing:toggleCustomerAssignment' pk=0 %}".replace('0', selectedCustomer))+'?'+filters.toString();
+            }
         });
     </script>
 {% endblock content %}

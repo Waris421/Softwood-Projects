@@ -12,14 +12,12 @@ from typing import Dict, Any, List
 from google import genai
 from google.generativeai.types import GenerationConfig
 
+from django.db import transaction
 from django.db.models import Model
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.models import User
 from django.http import HttpRequest
 from django.shortcuts import render
-
-from rest_framework.request import Request
-from rest_framework.authtoken.models import Token
 
 from core.constants.generic import API_KEY_FOR_AI
 from core.services.auth_service import getNavLinks
@@ -37,38 +35,54 @@ def updateModelWithDF (
     Rows present in newData but not in previousData would be created.
     Both newData and preiousData must have an id column
     '''
+    if 'id' not in newData.columns:
+        raise ValueError("id columns are missing in newData df.")
+    
+    if 'id' not in newData.columns:
+        raise ValueError("id columns are missing in previousData df.")
+
     if not previousData.empty:
         #Find out entries that are present in dfPrevious but not in dfNew. These are the one's deleted by user
-        dfDeleted = previousData[~previousData['id'].isin(newData['id'])]
-        
-        #Delete the entries from database that are deleted by user
-        for _, row in dfDeleted.iterrows():
-            targetTable.objects.get(id=row.id).delete()
-        del dfDeleted, previousData
+        deletedIds = previousData[~previousData['id'].isin(newData['id'])]['id'].tolist()
+
+        if deletedIds:
+            targetTable.objects.filter(id__in=deletedIds).delete()
 
     #Set any rows as new entries where id is nan
     newData['id'] = np.where(newData['id'].isna(), None, newData['id'])
 
-    #add new entries and update the already existing one
-    for _, row in newData.iterrows():
-        try:
-            #Connect to the previuos entry from database. If not found, create new.
-            previousEntry, newEntryFlag = targetTable.objects.get_or_create(id=row.id, defaults=row.to_dict())
-        except Exception as e:
-            #Show any error message to user
-            raise ValueError(e)
+    #Any data in newData who have id. These would be the data already existing in the db and updated by user
+    dfExistingNewData = newData[newData['id'].notna()]
+    
+    # Get a list of existing IDs from the database that are also in our new data
+    existingNewDataIds = set(targetTable.objects.filter(id__in=dfExistingNewData['id'].tolist()).values_list('id', flat=True))
 
-        #Move to next iteration if this is a new entry
-        if newEntryFlag:
-            continue
-        
-        #Replace each column of the row other than id with the newly provided data
-        for key, value in row.items():
-            if key != 'id':
-                setattr(previousEntry, key, value)
-        
-        #Save the entry
-        previousEntry.save()
+    toCreate = []
+    toUpdate = []
+
+    for _, row in newData.iterrows():
+        # Exclude 'id' for creation if it's new
+        rowDict = row.drop('id', errors='ignore').to_dict()
+
+        if row['id'] in existingNewDataIds:
+            #Existing Entry. Need to update the DB
+            obj = targetTable(**row.to_dict())
+            toUpdate.append(obj)
+        else:
+            #New Entry. Need to add to DB
+            toCreate.append(targetTable(**rowDict))
+
+    
+    #This ensures that the code below it is part of one db transation. If any one part of transaction fails, it calls back all changes made.
+    with transaction.atomic():
+        if toCreate:
+            targetTable.objects.bulk_create(toCreate)
+
+        if toUpdate:
+            # Exclude fields like 'id', auto_now_add, etc.
+            fieldsToUpdate = [field.name for field in targetTable._meta.fields if field.name != 'id' and not field.auto_created]
+            
+            targetTable.objects.bulk_update(toUpdate, fields=fieldsToUpdate)
 
 def refineJson(jsonData: Dict[str, Any]) -> pd.DataFrame | List[pd.DataFrame]:
     '''
@@ -197,20 +211,13 @@ def applySearch (data: List[Dict], searchTerm: str) -> List[Dict]:
     
     #Convert the search term to lower case
     searchTerm = searchTerm.lower()
-    
-    #Initialize an empy list.
-    results = []
-    
-    #Iterate though each element of the data list
-    for row in data:
-        #Set flag to true, if the serach term is found in any value of item dict.
-        flag = any(searchTerm in str(cell).lower() for cell in row.values())
-        
-        #Add the list item to results if ihe flag is true
-        if flag:
-            results.append(row) 
 
-    #Return the results list of dicts, which would contain the filtered values
+    #Iterate though each element of the data list
+    results = [
+        row for row in data
+        if any(searchTerm in str(value).lower() for value in row.values())
+    ]
+
     return results
 
 def truncateTime (time: datetime.time):
@@ -220,15 +227,6 @@ def truncateTime (time: datetime.time):
     if time is None:
         return None
     return time.replace(microsecond=0)
-
-def getAPIUser(request: Request) -> User:
-    credentials = request.data.get('credentials')
-    
-    try:
-        token = Token.objects.get(key=credentials)
-        return token.user
-    except:
-        raise PermissionError('Unauthorised')
 
 def convertStrToDateTime(date: str, format: str):
     return datetime.strptime(date, format)

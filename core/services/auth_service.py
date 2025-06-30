@@ -1,8 +1,9 @@
-from django.http import HttpRequest
-from django.db.models import Model
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.apps import apps
+
+from rest_framework.request import Request
+from rest_framework.authtoken.models import Token
 
 from typing import Literal, List, Dict
 
@@ -83,3 +84,12 @@ def getNavLinks(user: User, app: str) -> List[Dict]:
             filteredNavLinks.append(groupData)
         
     return filteredNavLinks
+
+def getAPIUser(request: Request) -> User:
+    credentials = request.data.get('credentials')
+    
+    try:
+        token = Token.objects.get(key=credentials)
+        return token.user
+    except:
+        raise PermissionError('Unauthorised')

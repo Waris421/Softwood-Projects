@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 
 import json
+from urllib.parse import urlencode
 
 from .theme import theme
 from . import models
@@ -102,7 +103,7 @@ def EditCustomer(request: HttpRequest, pk: int):
 def ToggleAssignment(request: HttpRequest, pk: int):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
-
+    
     try:
         customer = models.Customer.objects.get(id=pk)
     except:
@@ -117,7 +118,22 @@ def ToggleAssignment(request: HttpRequest, pk: int):
 
     customer.save()
 
-    return redirect(reverse('customerData'))
+    assignFilter = request.GET.get('assignFilter', 'Active')
+    countryFilter = request.GET.get('countryFilter', None)
+    page = request.GET.get('page', 1)
+    search = request.GET.get('search', '')
+
+    searchParams = {
+        'assignFilter': assignFilter,
+        'countryFilter': countryFilter,
+        'page': page,
+        'search': search,
+    }
+
+    url = f"{reverse('marketing:customerData')}?{urlencode(searchParams)}"
+
+
+    return redirect(url)
 
 @login_required(login_url='/login')
 def PendingCorrespondance(request: HttpRequest):
@@ -126,11 +142,15 @@ def PendingCorrespondance(request: HttpRequest):
     else:
         customer = request.GET.get('customer', '')
         type = request.GET.get('type', '')
-        dueDate = request.GET.get('due_date', '')
+        dueDate = request.GET.get('dueDate', '')
+        search = request.GET.get('search', '')
         
         pendingCorrespondance = correspondance_service.GetPendingCorrespondance(customer, type, dueDate, request.user)
+        pendingCorrespondance = applySearch(pendingCorrespondance, search)
         
         context = {
+            'correspondances': pendingCorrespondance,
+            'customer': customer, 'type': type, 'dueDate': dueDate, 'search': search,
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'correspondance/pending.html', context)
