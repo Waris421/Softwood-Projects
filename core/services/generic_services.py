@@ -21,7 +21,7 @@ from django.shortcuts import render
 
 from core.constants.generic import API_KEY_FOR_AI
 from core.services.auth_service import getNavLinks
-from core.services.theme import theme
+from core.constants.theme import theme
 
 def updateModelWithDF (
         targetTable: Model,

@@ -5,7 +5,7 @@ from django.urls import reverse
 
 import json
 
-from core.services.theme import theme
+from core.constants.theme import theme
 from core.services import generic_services
 from core.services.auth_service import hasPermission, getNavLinks, canApprovePD
 
@@ -212,15 +212,15 @@ def Style (request: HttpRequest):
         return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     if request.method == 'GET':
-        searchTerm = request.GET.get('search_term', '')
+        searchTerm = request.GET.get('searchTerm', '')
         customerFilter = request.GET.get('customerFilter', '')
         pageNumber = request.GET.get('pageNumber',1)
 
-        Style = style_card_service.getStyleCard(searchTerm=searchTerm, customer=customerFilter)
-
+        styles = style_card_service.getStyleCard(customerFilter)
         customers = sorted([customer for customer, in models.StyleCard.objects.values_list('Customer_id').distinct()if customer is not None])
 
-        data = generic_services.paginate(Style, pageNumber)
+        styles = generic_services.applySearch(styles, searchTerm)
+        data = generic_services.paginate(styles, pageNumber)
 
         context = {'style': data.object_list, 'page_obj': data
                 ,'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
@@ -301,7 +301,8 @@ def DeleteStyle(request: HttpRequest, pk: str):
                 style.delete()
                 return redirect('/style')
             except Exception as e:
-                context = {'object':style, 'confirm':True, 'theme': theme, 'error': e}
+                context = {'object':style, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
+                           'error': e}
                 return render(request, 'style/delete.html', context)
         else:
             return redirect('/style')

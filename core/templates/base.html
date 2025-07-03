@@ -471,5 +471,26 @@
         searchInput.addEventListener('keydown', handleEscapeKey);
       }
     </script>
+
+    <script>    //Apply keyboard shortcuts
+        document.addEventListener('keydown', async function(event) {
+
+            if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 's') {
+                if (typeof submitForms === 'function') {
+                    event.preventDefault();
+                    await submitForms();
+                }
+            }
+            
+            //Allow user to close the search box using escape
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            if (typeof invSearchTableToggle === 'object') {
+                if (event.key == 'Escape' && invSearchTableToggle.checked) {
+                    //Allow user to close the search box using escape
+                    invSearchTableToggle.checked = false;
+                }
+            } 
+        });
+    </script>
   </body>
 </html>

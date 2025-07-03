@@ -507,6 +507,14 @@
                 await applySearch(source);
             }, DEBOUNCE_DELAY);
         }
+        //Allow user to close the search box using escape
+        document.addEventListener('keydown', function(event) {
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+
+            if (event.key == 'Escape' && invSearchTableToggle.checked) {
+                invSearchTableToggle.checked = false;
+            }
+        });
 
         async function applySearch(source) { 
             showLoadingIcon();           

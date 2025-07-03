@@ -1,6 +1,6 @@
 theme = {
     'navigationBar': 'navbar bg-gray-900 text-white dark:bg-gray-800 dark:text-gray-200',
-    'navigationDropdown':'dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50',
+    'navigationDropdown':'dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50 text-gray-800 dark:text-gray-200',
     'pageBody': 'container mx-auto p-4 dark:text-gray-200',
     
     #Text and Text Box Theme
@@ -26,7 +26,7 @@ theme = {
     'buttonBasic': """flex flex-grow btn rounded-btn h-[4rem] text-lg bg-gradient-to-b from-blue-500 to-blue-700 dark:bg-gradient-to-b
                     dark:from-blue-600 dark:to-blue-800 hover:opacity-80""",
     'buttonSelected': """flex flex-grow btn rounded-btn h-[4rem] text-lg bg-gradient-to-b from-blue-700 to-blue-900 dark:bg-gradient-to-b
-                    dark:from-blue-800 dark:to-blue-950 shadow-inner shadow-black/30 opacity-95""",
+                    dark:from-blue-800 dark:to-blue-950 shadow-inner shadow-black/30 opacity-95 scale-95""",
     'buttonSecondary': 'flex flex-grow btn rounded-btn h-[4rem] text-lg text-white bg-gradient-to-b from-green-500 to-green-600 hover:opacity-60',
     'plusButton': 'btn btn-sm btn-outline btn-success dark:btn-success-content dark:border-success-content dark:text-success-content',
     'minusButton': 'btn btn-sm btn-outline btn-danger dark:btn-danger-content dark:border-danger-content dark:text-danger-content',

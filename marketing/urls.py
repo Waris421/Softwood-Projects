@@ -15,5 +15,9 @@ urlpatterns = [
     path('marketing/corespondence/pending', views.PendingCorrespondance, name='pendingCorresponance'),
     path('marketing/corespondence/history', views.CorresponanceHistory, name='corresponanceHistory'),
 
+    path("marketing/export-data/", views.ExportData, name="exportData"),
+    path("marketing/export-data/upload", views.UploadExportReport, name="exportDataUpload"),
+    path("marketing/export-data/confirm-upload", views.UploadExportReportConfirmation, name="confirmExportDataUpload"),
+
     path('options/countries', options_service.GetCountries, name='countries'),
 ]

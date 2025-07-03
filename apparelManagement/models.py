@@ -45,7 +45,8 @@ Routes = [
     ('Embroidery','Embroidery'),
     ('Printing','Printing'),
     ('Embelishment','Embelishment'),
-    ('Embossing','Embossing')
+    ('Embossing','Embossing'),
+    ('Final Audit','Final Audit'),
 ]
 
 OrderTypes = [

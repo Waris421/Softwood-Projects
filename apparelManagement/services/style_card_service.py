@@ -2,33 +2,45 @@ import pandas as pd
 import numpy as np
 
 from django.forms.models import model_to_dict
+from django.db.models import Q
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts
 
-pd.options.mode.chained_assignment = None
-
-def getStyleCard (searchTerm, customer):
+def getStyleCard (customer:str):
+    filters = Q()
     if customer:
-        Styles = models.StyleCard.objects.filter(Customer=customer).values()
-    else:
-        Styles = models.StyleCard.objects.all().values()
+        filters &= Q(Customer=customer)
+    fields = ['StyleCode','Customer','Category']
+    styles = models.StyleCard.objects.filter(filters).values(*fields)
+    dfStyles = pd.DataFrame(styles) if styles else pd.DataFrame(columns=fields)
+    del styles
 
-    df_style = pd.DataFrame(Styles)
-    searchTerm = searchTerm.lower()
+    fields = ['Style','InventoryCode']
+    fabricsCodes = models.StyleConsumption.objects.filter(Style__in=dfStyles['StyleCode'].to_list()).filter(Type='Fab').values(*fields)
+    dfFabricCodes = pd.DataFrame(fabricsCodes) if fabricsCodes else pd.DataFrame(columns=fields)
+    del fabricsCodes
 
-    mask = df_style.apply(lambda row: any(searchTerm in str(val).lower() for val in row.values)
-                        , axis=1)
+    fields = ['Code', 'Name']
+    fabrics = models.Inventory.objects.filter(Code__in=dfFabricCodes['InventoryCode'].to_list()).values(*fields)
+    dfFabrics = pd.DataFrame(fabrics) if fabrics else pd.DataFrame(columns=fields)
+    
+    dfFabrics = pd.merge(left=dfFabricCodes, right=dfFabrics, left_on='InventoryCode', right_on='Code', how='right')
+    del dfFabricCodes
+    dfFabrics.drop(inplace=True, columns=['InventoryCode','Code'])
 
-    df_style = df_style[mask]
+    dfStyles = pd.merge(left=dfStyles, right=dfFabrics, left_on='StyleCode', right_on='Style', how='left')
+    del dfFabrics
+    dfStyles.drop(inplace=True, columns=['Style'])
+    dfStyles.rename(inplace=True, columns={'Name':'FabricName'})
 
-    if not df_style.empty:
-        df_style = df_style.sort_values (by='StyleCode')
-        df_style = df_style.sort_values (by='Customer_id')
+    dfStyles = dfStyles.groupby('StyleCode').agg(
+        Customer=('Customer', 'first'),
+        Category=('Category', 'first'),
+        Fabric=('FabricName', 'first')
+        ).reset_index().sort_values(by=['Customer', 'StyleCode'])
 
-    cols = [i for i in df_style]
-    df_style = [dict(zip(cols, i)) for i in df_style.values]
-    return df_style
+    return dfToListOfDicts(dfStyles)
 
 def calculateFinalConsumption(dfConsumption: pd.DataFrame) -> pd.Series:
     inventories = models.Inventory.objects.filter(Code__in=dfConsumption['InventoryCode'].to_list())
@@ -176,7 +188,6 @@ def UpdateStyleCard(
         dfRoute: pd.DataFrame,
         ) -> None:
     '''Edit the style card based on the updated data'''
-    
     #Return error is style code is blank
     if(dfStyle['StyleCode'][0] == ''):
         raise ValueError ('No Style Code is Provided')
@@ -263,12 +274,13 @@ def UpdateStyleCard(
         consumption.save()
 
     dfRoute.rename(inplace=True, columns={'type':'Stage'})
-    dfRoute = pd.merge(left=dfRoute, right=dfPreviousRoute, left_on='Stage', right_on='Stage', how='left')
 
     dfRoute = dfRoute[dfRoute['Stage'].str.len()>0]
+    
+    dfRoute['id'] = np.where(dfRoute['id'].str.len()==0, np.nan, dfRoute['id'])
+    dfRoute['id'] = dfRoute['id'].astype('Int64')
 
     dfRoute['Style'] = styleCard
-    
     try:
         updateModelWithDF(models.StyleRoute, dfRoute, dfPreviousRoute)
     except Exception as e:
@@ -282,7 +294,7 @@ def ProcessStyleData(styleCard: models.StyleCard):
     if consumption:
         dfConsumption = pd.DataFrame(consumption)
     else:
-        dfConsumption = pd.DataFrame(column = fields)
+        dfConsumption = pd.DataFrame(columns = fields)
     del consumption
     
     fields = ['Code','Name']
@@ -307,6 +319,6 @@ def ProcessStyleData(styleCard: models.StyleCard):
     if not consumption:
         consumption = [model_to_dict(models.StyleConsumption())]
 
-    route = models.StyleRoute.objects.filter(Style=styleCard).values('Sequence','Stage').order_by('Sequence')
+    route = models.StyleRoute.objects.filter(Style=styleCard).values('id', 'Sequence','Stage').order_by('Sequence')
     
     return model_to_dict(styleCard), variants, consumption, route

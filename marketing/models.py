@@ -18,6 +18,18 @@ class Customer(models.Model):
             models.Index(fields=['Country',]),
         ]
 
+class ExportData(models.Model):
+    id = models.AutoField(primary_key=True)
+    Country = CountryField(max_length=20)
+    Exporter = models.CharField(max_length=255, blank=True, null=True)
+    ShipDate = models.DateField()
+    Importer = models.CharField(max_length=255, blank=True, null=True)
+    Quantity = models.FloatField()
+    Price = models.DecimalField(max_digits=20, decimal_places=2, blank=True, null=True)
+    Currency = models.CharField(max_length=10, blank=True, null=True)
+    HSCode = models.CharField(max_length=50, blank=True, null=True)
+    Description = models.TextField(blank=True, null=True)
+
 class CustomerContact(models.Model):
     id = models.AutoField(primary_key=True)
     Customer = models.ForeignKey(Customer, on_delete=models.CASCADE)

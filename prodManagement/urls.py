@@ -50,5 +50,5 @@ urlpatterns = [
     path('options/core-sheet/bundles', options_service.GetBundlesForCut, name='bundleList'),
     path('options/bundle-cards/available', options_service.GetAvailableCardGroups, name='availableBundleCards'),
     path('options/workers', options_service.GetWorkers, name='workersDropdown'),
-    path('options/api/app-options', options_service.AppOptons.as_view(), name='appOtions'),
+    path('options/api/app-options', options_service.AppOptions.as_view(), name='appOtions'),
 ]

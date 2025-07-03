@@ -188,11 +188,12 @@
             if (modalLabelElement) {
                 modalLabelElement.setAttribute('data-row-number', invTableRowNum);
             }
+
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = true;
         }
 
         function appendInventories(inventories) {
-            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
-
             const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
             const templateRow = document.getElementById('templateRow');
             const inventoryListContainer = document.getElementById('inventoryListContainer');
@@ -212,9 +213,7 @@
                 newRow.children[3].children[0].textContent = inventory.text;
 
                 inventoryListContainer.appendChild(newRow);
-            }
-            
-            invSearchTableToggle.checked = true;
+            }            
         }
 
         function selectInv(source) {
@@ -247,6 +246,15 @@
                 await applySearch(source);
             }, DEBOUNCE_DELAY);
         }
+
+        //Allow user to close the search box using escape
+        document.addEventListener('keydown', function(event) {
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+
+            if (event.key == 'Escape' && invSearchTableToggle.checked) {
+                invSearchTableToggle.checked = false;
+            }
+        });
 
         async function applySearch(source) { 
             showLoadingIcon();           

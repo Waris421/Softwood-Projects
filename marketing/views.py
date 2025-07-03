@@ -6,11 +6,11 @@ from django.urls import reverse
 import json
 from urllib.parse import urlencode
 
-from .theme import theme
+from core.constants.theme import theme
 from . import models
 from core.services import auth_service
-from core.services.generic_services import refineJson, applySearch, paginate
-from .services import correspondance_service, customer_service
+from core.services.generic_services import refineJson, applySearch, paginate, showMessageResponse
+from .services import correspondance_service, customer_service, export_data_serivce
 
 APP_NAME = 'Mark'
 
@@ -46,6 +46,67 @@ def CustomerData (request: HttpRequest):
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'customers/home.html', context)
+
+@login_required(login_url='/login')
+def ExportData (request: HttpRequest):
+    if request.method != 'GET':
+        return showMessageResponse(request, 'Not Allowed', 403)
+    
+    startDate = request.GET.get('startDate')
+    endDate = request.GET.get('endDate')
+    search = request.GET.get('search', '')
+    country = request.GET.get('country', '')
+    page = request.GET.get('page', 1)
+
+    exportData = export_data_serivce.GetExportDataTable(startDate, endDate)
+    exportData = applySearch(exportData, search)
+    exportData = paginate(exportData, page, 50)
+
+    context = {
+        'exportData': exportData.object_list, 'page_obj': exportData,
+        'search': search, 'country': country,
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+    }
+    return render (request, 'export_data/home.html', context)
+
+@login_required(login_url='/login')
+def UploadExportReport(request:HttpRequest):
+    if request.method == 'POST':
+        dataFile = request.FILES['exportDataFile']
+        
+        try:
+            addedData = export_data_serivce.ExtractUploadedData(dataFile)
+            request.session['addedData'] = addedData
+            return redirect('marketing:confirmExportDataUpload')
+        except Exception as e:
+            print(e)
+            context = {
+                'error': str(e),
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            }
+            return render(request, 'export_data/upload.html', context)
+    else:
+        context = {
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'export_data/upload.html', context)
+
+@login_required(login_url='/login')
+def UploadExportReportConfirmation(request:HttpRequest):
+    if request.method == 'POST':
+        pass
+    else:
+        try:
+            addedData = request.session.get('addedData')
+            del request.session['addedData']
+        except:
+            return showMessageResponse(request, 'Incorrect data provided', 403)
+
+        context = {
+            'addedData': addedData,
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'export_data/confirm_upload.html', context)
 
 @login_required(login_url='/login')
 def AddCustomer (request: HttpRequest):
@@ -177,4 +238,5 @@ def CorresponanceHistory(request: HttpRequest):
             'customers': customers,
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
+        return showMessageResponse(request, 'This page is in process', 200)
         return render(request, 'correspondance/home.html', context)

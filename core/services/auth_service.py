@@ -85,8 +85,8 @@ def getNavLinks(user: User, app: str) -> List[Dict]:
         
     return filteredNavLinks
 
-def getAPIUser(request: Request) -> User:
-    credentials = request.data.get('credentials')
+def getAPIUser(request:Request) -> User:
+    credentials = request.data.get('token')
     
     try:
         token = Token.objects.get(key=credentials)

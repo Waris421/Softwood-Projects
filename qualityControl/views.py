@@ -5,7 +5,7 @@ from django.http import HttpResponse, JsonResponse, HttpRequest
 import json
 
 from .services import trim_audit_service
-from .theme import theme
+from core.constants.theme import theme
 from core.services import auth_service
 from core.services.generic_services import paginate, applySearch, refineJson
 

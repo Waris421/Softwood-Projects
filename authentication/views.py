@@ -16,7 +16,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.request import Request
 import rest_framework
 
-from .theme import theme
+from core.constants.theme import theme
 
 def Login(request: HttpRequest):
     if request.method == 'POST':
@@ -57,7 +57,8 @@ class APILogin(APIView):
             if (user):
                 response = {
                     'message': 'Login was successful',
-                    'token': token
+                    'token': token,
+                    'fullName': user.user.get_full_name(),
                 }
                 
                 status = rest_framework.status.HTTP_200_OK
@@ -72,7 +73,8 @@ class APILogin(APIView):
             if user is not None:
                 response = {
                     "message": "Login was successful",
-                    "token": user.auth_token.key
+                    "token": user.auth_token.key,
+                    'fullName': user.get_full_name()
                 }
                 status = rest_framework.status.HTTP_200_OK
             else:

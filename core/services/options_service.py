@@ -20,7 +20,7 @@ from prodManagement import models as prodModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
 from core.constants.generic import APP_OPTIONS
-from core.services.auth_service import hasPermission
+from core.services.auth_service import hasPermission, getAPIUser
 
 from .generic_services import dfToListOfDicts
 
@@ -205,9 +205,7 @@ def getProductionStages(request):
 
         dfData.columns = ['value', 'text']
 
-        cols = [i for i in dfData]
-        data = [dict(zip(cols, i)) for i in dfData.values] 
-        return JsonResponse(data, safe=False)
+        return JsonResponse(dfToListOfDicts(dfData), safe=False)
     
 @login_required(login_url='/login')
 def getStyles(request):
@@ -693,30 +691,36 @@ def GetWorkers(request: HttpRequest):
 
     return JsonResponse(dfToListOfDicts(dfWorkers), safe=False)
 
-class AppOptons(APIView):
+class AppOptions(APIView):
     permission_classes = [AllowAny]
 
-    def post (self, request:Request):
+    def post(self, request: Request):
         token = request.data.get('token')
         deviceType = request.data.get('deviceType')
 
         if token:
             try:
-                user = Token.objects.get(key=token).user
-            except:
-                response = {'message': 'Invalid Credentials'}
-                status = rest_framework.status.HTTP_404_NOT_FOUND
-                return Response (data=response, status=status)
+                user = getAPIUser(request)
+            except Exception as e:
+                print(e)
+                response = {'message': str(e)}
+                status = rest_framework.status.HTTP_401_UNAUTHORIZED
+                return Response(data=response, status=status)
             
             finalOptions = []
             for group in APP_OPTIONS:
                 groupName = group['groupname']
                 
-                filteredGroupOptions = [
-                    {'value': option['value'], 'name': option['name']} for option in group['options']
-                    if hasPermission(user, groupName, option['modelName'], 'view') and \
-                        option.get('deviceType') == deviceType
-                ]
+                filteredGroupOptions = []
+                for option in group['options']:
+                    hasPermissionResult = hasPermission(user, groupName, option['modelName'], 'view')
+                    deviceTypeMatch = option.get('deviceType') == deviceType
+                    
+                    if hasPermissionResult and deviceTypeMatch:
+                        filteredGroupOptions.append({
+                            'value': option['value'], 
+                            'name': option['name']
+                        })
                 
                 if filteredGroupOptions:
                     finalOptions.append({
@@ -724,10 +728,11 @@ class AppOptons(APIView):
                         'options': filteredGroupOptions
                     })
 
+            # print(f"Final options: {finalOptions}")
             response = {'availableOptions': finalOptions}
             status = rest_framework.status.HTTP_200_OK
-            return Response (data=response, status=status)
+            return Response(data=response, status=status)
         else:
             response = {'message': 'Invalid Credentials'}
             status = rest_framework.status.HTTP_404_NOT_FOUND
-            return Response (data=response, status=status)
+            return Response(data=response, status=status)

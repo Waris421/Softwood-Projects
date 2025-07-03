@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from core.services.theme import theme
+from core.constants.theme import theme
 
 @login_required(login_url='/login')
 def home(request: HttpRequest):

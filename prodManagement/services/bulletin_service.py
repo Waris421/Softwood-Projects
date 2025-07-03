@@ -5,6 +5,7 @@ from django.forms.models import model_to_dict
 
 from .. import models
 from core.services import generic_services
+from core.constants import prod
 
 def calculateSortedContribution(series: pd.Series):
     total = series.sum()
@@ -111,12 +112,12 @@ def GetBulletinList(minSAM: float):
         dfOperations = pd.DataFrame(columns=fields)
     del operations, fields
 
-    dfChangeOverTimes = pd.Series(generic_services.changeOverTimes).to_frame().reset_index()
+    dfChangeOverTimes = pd.Series(prod.changeOverTimes).to_frame().reset_index()
     dfChangeOverTimes.rename(inplace=True, columns={'index':'MachineType', 0: 'ChangeOverTime'})
 
-    dfMachineTypes = pd.DataFrame(generic_services.machineTypes)
+    dfMachineTypes = pd.DataFrame(prod.machineTypes)
 
-    dfSections = pd.DataFrame(generic_services.operationSections)
+    dfSections = pd.DataFrame(prod.operationSections)
 
     dfOperations = pd.merge(left=dfOperations, right=dfChangeOverTimes, left_on='MachineType', right_on='MachineType', how='left')
     del dfChangeOverTimes

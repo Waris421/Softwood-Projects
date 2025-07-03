@@ -32,7 +32,7 @@
                     <select id="id_Category" class="{{theme.dropdown}}" name="Category" required> </select>
                 </div>  
                 <div class="flex col-[3/4] items-center">
-                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+                    <button type="button" class="{{theme.buttonSecondary}} mx-2" onclick="submitForms()">Save</button>
                 </div>  
             </div>
         </div>
@@ -122,17 +122,17 @@
             </div>
         </div>
         {% for data in cons %}
-            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+            <div class="grid grid-cols-12 px-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
                 <div>
                     <input type="text" value="{{data.id}}" name="id" hidden>
                 </div>
                 <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
-                    <input type="text" value="{{data.InventoryCode}}" name="InvCode" hidden>
-                    <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InvName" required>
-                    <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
+                    <input type="text" value="{{data.InventoryCode}}" name="InvCode" required hidden>
+                    <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InvName" readonly>
+                    <button type="button" class="material-symbols-outlined" onclick="openInvSearch(this)">search</button>
                 </div>
                 <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                    <input type="number" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption">
+                    <input type="number" step="any" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption">
                 </div>
                 <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
                     <select class="{{theme.dropdown}}" id="id_Unit_{{forloop.counter}}" name="Unit">
@@ -182,7 +182,10 @@
                 </div>
             </div>
             {% for data in route %}
-                <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="text" value="{{data.id}}" name="id" hidden>
+                    </div>
                     <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                         <input type="number" class="{{theme.textInput}}" value="{{data.Sequence}}" name="Sequence" required>
                     </div>
@@ -218,7 +221,7 @@
                     <div class="text-center font-semibold">Filter 2</div>
                     <div class="text-center font-semibold">Filter 3</div>
                 </div>
-                <div class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="applySearch(this)">
+                <div id="invBoxSearchContainer" class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="handleSearchInput(this)">
                     <div hidden>
                         <input readonly />
                     </div>
@@ -250,8 +253,8 @@
                     <span class="block px-2 py-1"></span>
                 </div>
             </div>
-                <div id="inventoryListContainer"></div>
-            </div>
+            <div id="inventoryListContainer"></div>
+        </div>
         </div>
     </div>
 
@@ -332,34 +335,25 @@
 
     <script>    //To handle inventory search box
         async function openInvSearch(source) {
-            showLoadingIcon();
-            //Filter out the inventories from server based on selected group
-            const type = source.parentElement.parentElement.children[3].children[0].value;
             const invTableRowNum = source.parentElement.parentElement.getAttribute('row');
-            
-            let url = '/options/inventories'
-            if (type == 'Fab') {
-                url += `?group=Fabric`;
-            } else if (type == '') {
-                url += `?group=Direct`;
-            } else {
-                url += `?group=Trim`;
-            }
-            url += `&newFormat=No`;
-            
-            //Get the inventories from server
-            const response = await fetch(url);
-            const inventories = await response.json();
-            //Remove the frist row, as that is blank
-            inventories.shift();
 
-            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            const searchContainer = document.getElementById('invBoxSearchContainer');
+
+            await applySearch(searchContainer);
+
+            //Show the search table
+            document.getElementById('invSearchTableToggle').checked = true;
 
             const modalLabelElement = document.getElementById('modalLabel');
             if (modalLabelElement) {
                 modalLabelElement.setAttribute('data-row-number', invTableRowNum);
             }
 
+            //Put cursor in the first search box
+            searchContainer.children[1].querySelector('input').focus();
+        }
+
+        function appendInventories(inventories) {
             const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
             const templateRow = document.getElementById('templateRow');
             const inventoryListContainer = document.getElementById('inventoryListContainer');
@@ -380,34 +374,44 @@
 
                 inventoryListContainer.appendChild(newRow);
             }
-            
-            invSearchTableToggle.checked = true;
-            hideLoadingIcon();
         }
 
-        async function selectInv(source) {
-            showLoadingIcon();
+        function selectInv(source) {
             const selectedCode = source.children[0].children[0].textContent;
             const selectedName = source.children[1].children[0].textContent;
 
-            const consTableRowNum = parseInt(source.parentElement.parentElement.parentElement.children[0].children[0].getAttribute('data-row-number'));
+            const consTableRowNum = parseInt(document.getElementById('modalLabel').getAttribute('data-row-number'));
             
             const consTableRow = document.getElementById('consumptionForm').children[consTableRowNum];
             
             const invCodeBox = consTableRow.children[1].children[0];
-            const invNameBox = consTableRow.children[1].children[1];        
+            const invNameBox = consTableRow.children[1].children[1];
             
             invCodeBox.value = selectedCode;
             invNameBox.value = selectedName;
-            
-            const id = invCodeBox.id;
 
             const invSearchTableToggle = document.getElementById('invSearchTableToggle');
             invSearchTableToggle.checked = false;
-            hideLoadingIcon();
+
+            //Put the cursor in the first editable input box
+            consTableRow.children[2].querySelector('input').focus();
         }
 
-        function applySearch(source) {
+        //Wait for half a second after user types to avoid multiple server queries
+        let searchTimeout;
+        const DEBOUNCE_DELAY = 500;
+        async function handleSearchInput(source) {
+            // Clear any existing timeout to reset the timer
+            clearTimeout(searchTimeout);
+
+            // Set a new timeout
+            searchTimeout = setTimeout(async () => {
+                await applySearch(source);
+            }, DEBOUNCE_DELAY);
+        }
+
+        async function applySearch(source) { 
+            showLoadingIcon();           
             const columns = source.children;
             
             // Get all the search terms
@@ -417,27 +421,18 @@
                 searchTerms.push(column.children[0].value.toLowerCase());
             }
 
-            const searchTableBody = source.parentElement;
-            //Get all rows except first 2
-            const rows = searchTableBody.querySelector('#inventoryListContainer').children;
+            let url = `{% url 'apparelManagement:InventoryList' %}`;
+            const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
+            url = `${url}?${queryString}`;
             
-            for (const row of rows) {
-                //Make an array of all true values, with same length as number of search terms
-                let match = Array(searchTerms.length).fill(true);
-                const cols = row.children;
+            //Get the inventories from server
+            const response = await fetch(url);
+            const inventories = await response.json();
+            //Remove the frist row, as that is blank
+            inventories.shift();
 
-                for (let i=0; i<searchTerms.length; i++) {
-                    const cellValue = cols[i].children[0].textContent.toLowerCase();
-
-                    //set corresponding value of match to true if it matches, otherwise false
-                    match[i] = cellValue.includes(searchTerms[i]);
-                }
-                //set combined flag to true, if all values in match are true
-                const combinedFlag = match.every(flag => flag);
-
-                //Show row if combined flag is true, otherwise false.
-                row.style.display = combinedFlag ? '' : 'none';
-            }
+            appendInventories(inventories);
+            hideLoadingIcon();
         }
     </script>
 
@@ -453,6 +448,7 @@
             for (const form of allForms) {
                 if (!form.checkValidity()) {
                     formsValidityFlag = false;
+                    console.log(form);
                     break;
                 }
             }
@@ -491,7 +487,7 @@
                 showMessage('Saved Successfully', 3, `{{theme.successBox}}`);
             } else {
                 const errorMessage = await response.text();
-                showMessage(errorMessage);
+                showMessage(errorMessage,`{{theme.errorBox}}`);
             }
 
             hideLoadingIcon();            

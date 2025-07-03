@@ -6,7 +6,7 @@ from typing import List, Union
 from django.db.models import Q
 
 from .. import models
-from ..theme import theme
+from core.constants.theme import theme
 from core.services import generic_services
 from core.constants import prod as prodConstants
 from core.constants import generic as genericConnstants

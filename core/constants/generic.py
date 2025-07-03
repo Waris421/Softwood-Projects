@@ -43,6 +43,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         {'groupName': 'Dashboard', 'appName': 'marketing', 'modelName': 'Customer', 'views': [], 'viewName': 'marketing:marketing'},
         {'groupName': 'Customers', 'appName': 'marketing', 'modelName': 'Customer', 'views': [
             {'displayName': 'Database', 'viewName': 'marketing:customerData'},
+            {'displayName': 'Master List', 'viewName': 'marketing:exportData'},
         ]},
         {'groupName': 'Correspondance', 'appName': 'marketing', 'modelName': 'Correspondance', 'views': [
             {'displayName': 'Pending', 'viewName': 'marketing:pendingCorresponance'},
@@ -91,10 +92,13 @@ APP_OPTIONS = [
     {'groupname':'PM', 'options':[
         {'value':'markGroupComplete', 'name':'Mark Group Completion', 'modelName':'BundleCardAssignment', 'deviceType':'Phone'},
         {'value':'assignWorkerCard', 'name':'Assign Worker Card', 'modelName':'Worker', 'deviceType':'Phone'},
+        {'value':'operations', 'name':'Operations Management', 'modelName':'Operation', 'deviceType':'Tablet'},
+        {'value':'workers', 'name':'Workers Management', 'modelName':'Worker', 'deviceType':'Tablet'},
     ]},
     {'groupname':'QC', 'options':[
         {'value':'stitchingInlineCheck', 'name':'Inline Check', 'modelName':'TrimAudit', 'deviceType':'Phone'},
         {'value':'stitchingSectionFinalCheck', 'name':'Section Check', 'modelName':'TrimAudit', 'deviceType':'Phone'},
+        {'value':'trimAuditHistory', 'name':'Audit History', 'modelName':'TrimAudit', 'deviceType':'Tablet'},
     ]},
 ]
 

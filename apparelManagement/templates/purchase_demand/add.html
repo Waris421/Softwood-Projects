@@ -74,7 +74,7 @@
                 </div> 
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                     <input type="text" class="{{theme.textInput}}" name="InventoryName" readonly>
-                    <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
+                    <button type="button" class="material-symbols-outlined" onclick="openInvSearch(this)">search</button>
                 </div>
                 <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
                     <input type="text" class="{{theme.textInput}}" name="VariantCode">
@@ -256,7 +256,7 @@
                 searchTerms.push(column.children[0].value.toLowerCase());
             }
 
-            let url = `{% url 'InventoryList' %}`;
+            let url = `{% url 'apparelManagement:InventoryList' %}`;
             const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
             url = `${url}?${queryString}`;
             

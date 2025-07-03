@@ -12,7 +12,7 @@ import rest_framework
 
 import json
 
-from .theme import theme
+from core.constants.theme import theme
 from core.services import generic_services, auth_service
 from .services import stitching_service, bulletin_service, core_sheet_service
 from .services import  worker_service, serial_service
