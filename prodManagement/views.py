@@ -374,6 +374,17 @@ def GetCutDetails(request: HttpRequest, pk: int):
     return JsonResponse(cutDetails)
 
 @login_required(login_url='/login')
+def GetNextAvailableBundle(request: HttpRequest, pk: int):
+    if request.method != 'GET':
+            return HttpResponse('Not Allowed', status=403)
+    
+    workOrder = models.Cut.objects.get(id=pk).WorkOrder
+
+    highestBundleNumber = core_sheet_service.GetHighestBundleNumber(workOrder)
+
+    return HttpResponse(highestBundleNumber+1, status=200)
+
+@login_required(login_url='/login')
 def Workers(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=401)
@@ -510,7 +521,7 @@ def AssignCardToBundles(request: HttpRequest):
             core_sheet_service.AssignCardGroup(dfAssignment)
             return HttpResponse('OK')
         except Exception as e:
-            return HttpResponse(e, status=401)
+            return HttpResponse(e, status=400)
 
     else:
         context = {

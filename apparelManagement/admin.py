@@ -61,6 +61,15 @@ class StyleAdmin(admin.ModelAdmin):
     list_display = ('StyleCode','Customer')
     list_filter = ('Customer',)
 
+
+@admin.register(models.InventoryReciept)
+class ReceiptAdmin(admin.ModelAdmin):
+    '''Admin View for Receipt'''
+
+    list_display = ('id','ReceiptDate','Supplier')
+    list_filter = ('Supplier',)
+    ordering = ('id',)
+
 @admin.register(models.Issuance)
 class IssuanceAdmin(admin.ModelAdmin):
     '''Admin View for Issuance'''

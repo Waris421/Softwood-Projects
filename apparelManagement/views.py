@@ -374,17 +374,24 @@ def WorkOrder (request: HttpRequest):
     if request.method != 'GET':
         return generic_services.showMessageResponse(request, 'Not allowed', 403)
     
-    searchTerm = request.GET.get('search_term', '')
+    searchTerm = request.GET.get('searchTerm', '')
     customerFilter = request.GET.get('customerFilter', '')
     pageNumber = request.GET.get('pageNumber',1)
+    startDate = request.GET.get('startDate', None)
+    endDate = request.GET.get('endDate', None)
 
-    Order = work_order_service.GetOrderList(searchTerm=searchTerm, customer=customerFilter)
+    if customerFilter == 'null':
+        customerFilter = ''
 
-    data = generic_services.paginate(Order, pageNumber)
+    orders = work_order_service.GetOrderList(customerFilter, startDate, endDate)
+    orders = generic_services.applySearch(orders, searchTerm)
 
-    context = {'order': data.object_list, 'page_obj': data
-               ,'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
-               , 'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
+    data = generic_services.paginate(orders, pageNumber)
+
+    context = {'order': data.object_list, 'page_obj': data,
+               'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
+               'startDate': startDate, 'endDate': endDate,
+               'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
     return render(request, 'work_order/home.html', context)
 
@@ -528,6 +535,9 @@ def DeleteWorkOrder(request: HttpRequest, pk: int):
         else:
             return redirect('/workorder')
     else:
+        if order.poallocation_set.count() > 0:
+            return generic_services.showMessageResponse(request, 'POs are issued for this order and it cannot be deleted')
+        
         context = {'object':order, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/delete.html', context)
 

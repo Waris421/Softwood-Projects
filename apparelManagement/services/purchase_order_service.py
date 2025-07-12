@@ -451,7 +451,8 @@ def EditPurchaseOrder(
 
     dfInventory['Currency'] = convertTexttoObject(models.Currency, dfInventory['Currency'], 'Code')
     
-    dfInventory.rename(inplace=True, columns={'InvCode':'Inventory'})
+    dfInventory.rename(inplace=True, columns={'InvCode':'Inventory', 'VariantCode': 'Variant'})
+    dfInventory.drop(inplace=True, columns=['InventoryName'])
     
     dfInventory['PONumber'] = orderObject
 

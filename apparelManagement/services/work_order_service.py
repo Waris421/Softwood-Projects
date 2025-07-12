@@ -7,16 +7,26 @@ from django.http import JsonResponse
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime
 
 pd.options.mode.chained_assignment = None
 
 #Get the List of Orders.
-def GetOrderList(searchTerm, customer):
+def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
+    filters = Q()
     if customer:
-        orders = models.WorkOrder.objects.filter(Customer=customer).values()
-    else:
-        orders = models.WorkOrder.objects.all().values()
+        filters &= Q(Customer=customer)
+    
+    if startDateStr:
+        startDate = convertStrToDateTime(startDateStr, '%Y-%m-%d').date()
+        filters &= Q(DeliveryDate__gte= startDate)
+    
+    if endDateStr:
+        endDate = convertStrToDateTime(endDateStr, '%Y-%m-%d').date()
+        filters &= Q(DeliveryDate__lte= endDate)
+    
+    orders = models.WorkOrder.objects.filter(filters).values()
+    del filters
     
     OrderDF = pd.DataFrame(orders)    
     if OrderDF.empty:
@@ -48,12 +58,6 @@ def GetOrderList(searchTerm, customer):
     OrderDF = pd.merge(left=OrderDF, right=OrderQty, left_on='OrderNumber', right_on='OrderNumber', how='left')
     del orders, ordersFilter, variants, VariantsDF, OrderQty
 
-    searchTerm = searchTerm.lower()
-    mask = OrderDF.apply(lambda row: any(searchTerm in str(val).lower() for val in row.values)
-                        , axis=1)
-
-    OrderDF = OrderDF[mask]
-
     if not OrderDF.empty:
         OrderDF = OrderDF.sort_values (by='OrderNumber')
         OrderDF = OrderDF.sort_values (by='Customer_id')
@@ -84,6 +88,7 @@ def AddWorkOrder(
     dfOrder['Style'] = convertTexttoObject(models.StyleCard, dfOrder['Style'], 'StyleCode')
     dfOrder['Customer'] = convertTexttoObject(models.Customer, dfOrder['Customer'], 'Name')
     dfOrder['Currency'] = convertTexttoObject(models.Currency, dfOrder['Currency'], 'Code')
+    dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%Y-%m-%d")
     
     UserObjs = User.objects.get(username=user)
     dfOrder['Merchandiser'] = UserObjs
@@ -110,15 +115,14 @@ def AddWorkOrder(
     dfVariants['OrderNumber'] = orderCard
 
     dfVariants.rename(inplace=True, columns={'VariantCode':'Name'})
-    print(dfVariants)
-
+   
     for _, row in dfVariants.iterrows():
         try:  
             newEntry = models.OrderVariant(**row.to_dict())
             newEntry.save()
         except Exception as e:
             raise ValueError(f"Error Saving Variants: {e}")
-
+        
     return orderNumber
 
 def UpdateWorkOrder(
@@ -317,11 +321,6 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     del dfInventories
     dfRequirement.drop(inplace=True, columns=['Code'])
     dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
-
-    #This is in response to a bug, where empty requirement didn't show any table.
-    if dfRequirement.empty:
-        dfRequirement.loc[0] = {'id':None, 'InventoryName': '', 'Variant': '','Quantity':0, 'Ordered':0, 'Received':0}
-    
 
     cols = [i for i in dfRequirement]
     requirement = [dict(zip(cols, i)) for i in dfRequirement.values]

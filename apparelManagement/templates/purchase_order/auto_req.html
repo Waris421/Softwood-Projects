@@ -253,10 +253,7 @@
 
     <script> //To make PO for selected items
         async function showSelectionBox() {
-            const response = await fetch('/options/suppliers');
-            const suppliers = await response.json();
-
-            showDropDown(suppliers, generatePO, null, true);
+            await showDropDown('/options/suppliers', generatePO, null);
         }
         
         async function generatePO(supplier) {
@@ -332,10 +329,4 @@
         }
 
     </script>
-
-    <script> //Run this at the time of page loading. This should be at the end of all scripts
-        searchBox = document.getElementById('id_Search');
-        //changeSearch(searchBox);
-    </script>
-
 {% endblock %}

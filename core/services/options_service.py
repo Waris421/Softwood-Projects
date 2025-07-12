@@ -59,15 +59,18 @@ def getSuppliersList(request: HttpRequest):
         return HttpResponse('Not Allowed', status=405)
 
     search = request.GET.get('search','')
+    selectedCode = request.GET.get('code', None)
 
     searchFilter = Q()
-    if search:
+    if selectedCode:
+        searchFilter &= Q(Name=selectedCode)
+    elif search:
         searchFilter &= (
             Q(Name__icontains=search) |
             Q(TradeName__icontains=search) |
             Q(Address__icontains=search)
         )
-    
+
     fields = ['Name','TradeName']
     suppliers = appModels.Supplier.objects.filter(searchFilter)[:15].values(*fields)
 
@@ -77,7 +80,7 @@ def getSuppliersList(request: HttpRequest):
         dfSupplier.drop(inplace=True, columns=['TradeName'])
         dfSupplier.rename(inplace=True, columns={'Name':'value'})
         
-        suppliers = dfSupplier.to_dict(orient='records')  
+        suppliers = dfToListOfDicts(dfSupplier)  
     else:
         suppliers = []
 
@@ -394,27 +397,29 @@ def GetCountries(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
     
+    search = request.GET.get('search', None)
+    selectedCode = request.GET.get('code', None)
+
     listOfCountries = []
     for code, name in list(countries):
         listOfCountries.append({'CountryCode': code, 'CountryName': name})
     
     dfCountries = pd.DataFrame(listOfCountries)
     del listOfCountries
+
+    if search:
+        search = search.lower()
+        dfCountries = dfCountries[
+            dfCountries['CountryName'].str.contains(search, case=False, na=False)
+        ]
     
-    countriesCount = marketingModels.Customer.objects.values('Country').annotate(Count=Count('Country'))
-    dfCountriesCount = pd.DataFrame(countriesCount)
+    if selectedCode:
+        dfCountries = dfCountries[dfCountries['CountryCode']==selectedCode]
 
-    dfCountries = pd.merge(left=dfCountries, right=dfCountriesCount, left_on='CountryCode', right_on='Country', how='left')
-
-    dfCountries = dfCountries.sort_values(by='Count', ascending=False)
-    dfCountries.drop(inplace=True, columns=['Country', 'Count'])
-
+    dfCountries = dfCountries.head(15)
     dfCountries.rename(inplace=True, columns={'CountryCode':'value', 'CountryName': 'text'})
 
-    cols = [i for i in dfCountries]
-    data = [dict(zip(cols, i)) for i in dfCountries.values]
-
-    return JsonResponse(data, safe=False)
+    return JsonResponse(dfToListOfDicts(dfCountries), safe=False)
 
 @login_required(login_url='/login')
 def GetOperationSections(request: HttpRequest):
@@ -709,7 +714,7 @@ class AppOptions(APIView):
             
             finalOptions = []
             for group in APP_OPTIONS:
-                groupName = group['groupname']
+                groupName = group['groupName']
                 
                 filteredGroupOptions = []
                 for option in group['options']:
@@ -718,13 +723,13 @@ class AppOptions(APIView):
                     
                     if hasPermissionResult and deviceTypeMatch:
                         filteredGroupOptions.append({
-                            'value': option['value'], 
+                            'route': option['route'], 
                             'name': option['name']
                         })
                 
                 if filteredGroupOptions:
                     finalOptions.append({
-                        'groupname': groupName,
+                        'groupName': groupName,
                         'options': filteredGroupOptions
                     })
 
@@ -734,5 +739,5 @@ class AppOptions(APIView):
             return Response(data=response, status=status)
         else:
             response = {'message': 'Invalid Credentials'}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
             return Response(data=response, status=status)

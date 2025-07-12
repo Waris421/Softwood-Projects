@@ -54,3 +54,11 @@ class AttendanceAdmin(admin.ModelAdmin):
     list_display = ('Date','Worker','LoginTime','LogoutTime')
     list_filter = ('Worker',)
     ordering = ('Date',)
+
+@admin.register(models.RFIDCard)
+class RFIDCardAdmin(admin.ModelAdmin):
+    '''Admin View for RFIDCard'''
+
+    list_display = ('CardId','GroupNumber','GroupStatus')
+    list_filter = ('GroupNumber',)
+    ordering = ('CardId',)

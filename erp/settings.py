@@ -21,14 +21,12 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-gn+q6*fm^f@8mh2+ny!6^#i-%iko@i87#0vgrn2e7mbn(rhiv%'
+SECRET_KEY = os.environ.get('SECRET_KEY_FOR_DJANGO')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['192.168.2.14', '206.42.124.10']
-
 
 # Application definition
 
@@ -44,8 +42,6 @@ INSTALLED_APPS = [
     'prodManagement',
     'marketing',
     'authentication',
-    'crispy_forms',
-    'crispy_bootstrap5',
     'rest_framework',
     'rest_framework.authtoken',
     'import_export',
@@ -89,6 +85,13 @@ TEMPLATES = [
         },
     },
 ]
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, 'documents/cache'),
+    }
+}
 
 WSGI_APPLICATION = 'erp.wsgi.application'
 
@@ -154,10 +157,6 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-
-CRISPY_TEMPLATE_PACK = "bootstrap5"
-
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
@@ -168,8 +167,8 @@ SESSION_SAVE_EVERY_REQUEST = True # "False" by default
 
 #Settings for emails
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
+EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST","")
+EMAIL_PORT = os.environ.get("DJANGO_EMAIL_PORT","")
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'softwoodplayground@gmail.com'
-EMAIL_HOST_PASSWORD = 'yiwn adym noin zwgx'
+EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_ADDRESS","")
+EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_PASSSWORD","")

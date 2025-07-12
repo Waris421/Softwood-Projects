@@ -1,12 +1,28 @@
 import pandas as pd
 import numpy as np
 
+from typing import Dict, List
+
 from django.db import transaction
 from django.db.models import Max
 from django.forms import model_to_dict
 
 from .. import models
 from core.services import generic_services
+
+def areBundlesUnique(newBundles: pd.Series, workOrder: models.WorkOrder, currentCut: models.Cut):
+    newBundles = newBundles.astype(int)
+    #Don't go any further if the user has manually entered a duplicate bundle number
+    if newBundles.duplicated().any():
+        return False
+
+    #check if any of the bundle numbers already exist in other cuts
+    otherCuts = models.Cut.objects.filter(WorkOrder=workOrder).exclude(id=currentCut.id)
+    otherBundles = models.Bundle.objects.filter(Cut__in=otherCuts).values_list('Bundle', flat=True)
+    if newBundles.isin(otherBundles).any():
+        return False
+
+    return True
 
 def GetCoreSheetList(workOrder: models.WorkOrder):
     fields = ['OrderNumber','StyleCode','Customer','Merchandiser','ExcessCut']
@@ -92,23 +108,50 @@ def CompleteCardGroup(cardId: int):
     models.RFIDCard.objects.filter(GroupNumber=groupNumber).update(GroupStatus='Complete')
 
 def AssignCardGroup(dfAssignment: pd.DataFrame):
+    dfAssignment = dfAssignment[
+        (dfAssignment['Bundle'].str.len() > 0) &
+        (dfAssignment['Group'].str.len() > 0)
+    ].copy()
+
     dfAssignment['Bundle'] = dfAssignment['Bundle'].astype(int)
     dfAssignment['Group'] = dfAssignment['Group'].astype(int)
     
-    dfAssignment['Bundle'] = generic_services.convertTexttoObject(models.Bundle, dfAssignment['Bundle'], 'Bundle')
+    if dfAssignment['Group'].duplicated().any():
+        raise ValueError('Duplicate Card Group')
     
-    for _, row in dfAssignment.iterrows():
-        bundle = row['Bundle']
-        cards = models.RFIDCard.objects.filter(GroupNumber=row['Group'])
+    dfAssignment['Bundle'] = generic_services.convertTexttoObject(models.Bundle, dfAssignment['Bundle'], 'id')
+    
+    cardGroupUpdates = []
+    bundleCardAssignments = []
 
-        for card in cards:
-            card.GroupStatus = 'InComplete'
-            card.save()
+    cards = models.RFIDCard.objects.filter(GroupNumber__in=dfAssignment['Group'].tolist())
 
-            models.BundleCardAssignment(
-                RFIDCard=card,
-                Bundle = bundle
-            ).save()
+    #Create a mapping for quick lookup: {groupNumber: [card1, card2, ...]}
+    cardsByGroup: Dict[int, List[models.RFIDCard]] = {}
+    for card in cards:
+        cardsByGroup.setdefault(card.GroupNumber, []).append(card)
+
+    with transaction.atomic():
+        for _, row in dfAssignment.iterrows():
+            bundleObj = row['Bundle']
+            groupNumber = row['Group']
+
+            cardsInGroup = cardsByGroup.get(groupNumber, [])
+
+            for card in cardsInGroup:
+                if card.GroupStatus == 'InComplete':
+                    raise ValueError('One of the groups is already assigned')
+                card.GroupStatus = 'InComplete'
+                cardGroupUpdates.append(card)
+
+                assignment = models.BundleCardAssignment(
+                    RFIDCard=card,
+                    Bundle=bundleObj
+                )
+                bundleCardAssignments.append(assignment)
+        
+        models.RFIDCard.objects.bulk_update(cardGroupUpdates, ['GroupStatus'])
+        models.BundleCardAssignment.objects.bulk_create(bundleCardAssignments)
 
 def GetOrderCuttingDetail(workOrder: models.WorkOrder):
     cuts = models.Cut.objects.filter(WorkOrder=workOrder).values('id','CutNumber')
@@ -134,7 +177,19 @@ def GetCutDetails(cut: models.Cut):
 
     return cutDetails
 
+def GetHighestBundleNumber(workOrder: models.WorkOrder):
+    highestCut = models.Cut.objects.filter(WorkOrder=workOrder).aggregate(Max('id'))['id__max']
+
+    highestBundle = models.Bundle.objects.filter(Cut=highestCut).aggregate(Max('Bundle'))['Bundle__max']
+
+    return int(highestBundle)
+
 def EditCoreSheet(dfCut: pd.DataFrame, dfBundle: pd.DataFrame, workOrder: models.WorkOrder):
+    dfBundle = dfBundle[dfBundle['Size'].str.len()>0]
+
+    if (dfBundle.empty):
+        raise ValueError('No Bundles Provided')
+
     dfCut.rename(inplace=True, columns={'Cut':'id','ShrinkageWarp':'WarpShrinkage','ShrinkageWeft':'WeftShrinkage'})
     cutDict = dfCut.iloc[0].to_dict()
     del dfCut
@@ -162,11 +217,13 @@ def EditCoreSheet(dfCut: pd.DataFrame, dfBundle: pd.DataFrame, workOrder: models
         cut = models.Cut(**cutDict)
         dfPreviousBundles = pd.DataFrame(columns=['id'])
 
+    if not areBundlesUnique(dfBundle['BundleNumber'], workOrder, cut):
+        raise ValueError('Duplicate bundles numbers are provided')  
     cut.save()
     
+    dfBundle['id'] = dfBundle['id'].replace('', None).astype(pd.Int64Dtype())
     dfBundle.rename(inplace=True, columns={'BundleNumber':'Bundle'})
     dfBundle['Cut'] = cut
-    dfBundle['id'] = np.where(dfBundle['id'].str.len()==0, None, dfBundle['id'])
     
     generic_services.updateModelWithDF(models.Bundle, dfBundle, dfPreviousBundles)
 

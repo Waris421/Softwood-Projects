@@ -16,8 +16,7 @@
       <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
       <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-
-      <link rel="stylesheet" href="{% static 'style.css' %}">      
+        
       <title>
           {% block title %} Fashion OS {% endblock %}
       </title>
@@ -185,18 +184,16 @@
     </script>
 
     <script>  //To show options dialogue box
-      function showDropDown(options, onOkFunction, selected=null) {
+      async function showDropDown(optionsURL, onOkFunction, selected=null) {
+        const response = await fetch(optionsURL);
+        const options = await response.json();
+
         const modal = document.getElementById('dropdown');
         const selectElement = document.getElementById('dialogSelect');
         const okButton = document.getElementById('dialogOK');
 
-        selectElement.innerHTML = '';
-
-        options.forEach(option => {
-            const optionElement = document.createElement('option');
-            optionElement.value = option.value;
-            optionElement.textContent = option.text;
-            selectElement.appendChild(optionElement);
+        selectElement.addEventListener('click', function() {
+            showSearchBox(selectElement, optionsURL);
         });
 
         if (selected) {

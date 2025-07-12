@@ -68,6 +68,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         ]},
         {'groupName': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'views': [
             {'displayName': 'Core Sheet', 'viewName': 'PM:coreSheets'},
+            {'displayName': 'Card Assignment', 'viewName': 'PM:assignBundleCards'},
         ]},
         {'groupName': 'Stitching', 'appName': 'prodManagement', 'modelName': 'Serial', 'views': [
             {'displayName': 'Scan Report', 'viewName': 'PM:serials'},
@@ -89,17 +90,12 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
 }
 
 APP_OPTIONS = [
-    {'groupname':'PM', 'options':[
-        {'value':'markGroupComplete', 'name':'Mark Group Completion', 'modelName':'BundleCardAssignment', 'deviceType':'Phone'},
-        {'value':'assignWorkerCard', 'name':'Assign Worker Card', 'modelName':'Worker', 'deviceType':'Phone'},
-        {'value':'operations', 'name':'Operations Management', 'modelName':'Operation', 'deviceType':'Tablet'},
-        {'value':'workers', 'name':'Workers Management', 'modelName':'Worker', 'deviceType':'Tablet'},
+    {'groupValue':'PM', 'groupName':'Production', 'options':[
+        {'route':'/mark-group-complete/', 'name':'Mark Group Completion', 'modelName':'BundleCardAssignment', 'deviceType':'Tablet'},
+        {'route':'/rfid-worker-assign/', 'name':'Assign Worker Card', 'modelName':'Worker', 'deviceType':'Tablet'},
+        {'route':'/esp-op-w-assign/', 'name':'Box Management', 'modelName':'Operation', 'deviceType':'Tablet'},
     ]},
-    {'groupname':'QC', 'options':[
-        {'value':'stitchingInlineCheck', 'name':'Inline Check', 'modelName':'TrimAudit', 'deviceType':'Phone'},
-        {'value':'stitchingSectionFinalCheck', 'name':'Section Check', 'modelName':'TrimAudit', 'deviceType':'Phone'},
-        {'value':'trimAuditHistory', 'name':'Audit History', 'modelName':'TrimAudit', 'deviceType':'Tablet'},
-    ]},
+    {'groupValue':'QC', 'groupName':'Quality Control','options':[]},
 ]
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')

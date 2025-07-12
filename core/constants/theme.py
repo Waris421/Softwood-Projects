@@ -8,7 +8,7 @@ theme = {
     'justify': 'justify-center',
     'align': 'items-center',
     'textJustify': 'text-center',
-    'primaryHeading': 'text-2xl font-bold',
+    'primaryHeading': 'text-xl font-bold',
     'secondaryHeading': 'text-base',
     
     #Table Theme

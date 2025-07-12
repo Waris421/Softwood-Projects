@@ -41,12 +41,11 @@
                 </div>
                 
                 <div class="flex col-[4/5] items-center h-full">
-                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="SendForm()">Save</button>
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
                 </div>
             </div>
         </div>
-    </form>
-    
+    </form>  
 
     <form method="POST" id="bundlesForm" autocomplete="off">
         <div class="{{theme.border}}">
@@ -72,7 +71,7 @@
                     <input name="id">
                 </div>
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
-                    <select id="id_Size" class="flex-grow {{theme.dropdown}}" name="Size">
+                    <select id="id_Size" class="flex-grow {{theme.dropdown}}" name="Size" onchange="getBundleNumber(this)">
                         {% for size in sizes %}
                             <option value="{{size}}">{{size}}</option>
                         {% endfor %}                            
@@ -120,6 +119,14 @@
 
             cutSelect.value = '';
 
+            try {
+                const response = await fetch(`/productivity/cut/${selectedCut}/available-bundle`);
+                const availableBundle = parseInt(await response.text());
+
+                const bundleForm = document.forms['bundlesForm'];
+                bundleForm.children[0].children[1].children[2].children[0].value = availableBundle;
+            } catch {}
+            
             await getBundles('');
         }
     </script>
@@ -182,15 +189,29 @@
                 for (let i = rows.length - 1; i >= 2; i--) {
                     rows[i].remove();
                 };
-                
-                //Remove the Bundle number from the first row, to avoid any mistakes
-                rows[1].children[2].children[0].value = '';
             }
         }
     </script>
 
+    <script>    //Auto add bundle number
+        function getBundleNumber(source) {
+            const row = source.parentElement.parentElement;
+            const bundleCell = row.children[2].children[0];
+            
+            if(bundleCell.value) {
+                return ;
+            }
+
+            const rowNumber = parseInt(row.getAttribute('row'));
+            const previousRow = row.parentElement.querySelector(`div[row="${rowNumber-1}"]`);
+            const previousBundleNumber = parseInt(previousRow.children[2].children[0].value);
+            
+            bundleCell.value = previousBundleNumber + 1;
+        }
+    </script>
+
     <script>    //To Send data to server
-        async function SendForm() {
+        async function submitForms() {
             showLoadingIcon();
             const forms = document.forms;
 

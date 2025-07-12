@@ -5,101 +5,40 @@
 {% endblock title %}
 
 {% block content %}
-    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
-    <div class="{{theme.border}}">
-        <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[1/3] items-center">
-                <span class="text-m text-gray-500 mb-1">
-                    We found {{summary.rowsCount}} rows in the data. Are you sure?
-                </span>
-            </div>
-            <div class="flex col-[3/4] items-center">
-                <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="SendForm()">Yes, I am sure</button>
+    <dialog id="confirm_addition" class="{{theme.dialogBox}}" open>
+        <div class="modal-box">
+            <div class="card bg-base-100 dark:bg-neutral-800 shadow-xl p-6">
+                <div class="alert alert-info mb-6">
+                    <div>
+                        <h3 class="font-bold text-lg">Alert!</h3>
+                        <p class="text-sm">Are you sure you want to add the data? Below is the summary.</p>
+                        <h3 class="font-bold text-lg">Number of Rows: {{pendingUploads.numberOfEntries}}</h3>
+                        <h3 class="font-bold text-lg">Month: {{pendingUploads.months}}</h3>
+                        <h3 class="font-bold text-lg">Total Quantity: {{pendingUploads.totalQty}}</h3>
+                        <h3 class="font-bold text-lg">Average Price: {{pendingUploads.Price}}</h3>
+                        <h3 class="font-bold text-lg">Article: {{pendingUploads.frequentItem}}</h3>
+                        <h3 class="font-bold text-lg">HS Code: {{pendingUploads.frequentHSCode}}</h3>
+                        
+                        {% if addedMonths %}
+                            <p class="text-sm">Data for the following months already exists.</p>
+                            {% for month in addedMonths %}
+                                <h3 class="font-bold text-lg">{{month}} </h3>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="flex btn-group {{theme.align}} justify-end ml-1">
+                        <button type="submit" class="{{theme.buttonBasic}}" name="action" value="approve">
+                            Approve
+                        </button>
+                        <button type="submit" class="{{theme.buttonBasic}}" name="action" value="reject">
+                            Reject
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-    </div>
-
-    <form method="POST" id="exportDataForm" autocomplete="off">
-        <div class="{{theme.border}}">
-            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
-                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Country
-                    </div>
-                </div>
-                <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Importer
-                    </div>
-                </div>
-                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Exporter
-                    </div>
-                </div>
-                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Ship Date
-                    </div>
-                </div>
-                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Quantity
-                    </div>
-                </div>
-                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Price
-                    </div>
-                </div>
-                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Curr.
-                    </div>
-                </div>
-                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        HS Code
-                    </div>
-                </div>
-                <div class="flex col-[10/13] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Description
-                    </div>
-                </div>
-            </div>
-            
-            {% for data in addedData %}
-                <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
-                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="Country" value="{{data.Country}}" readonly>
-                    </div>
-                    <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="Importer" value="{{data.Importer}}" readonly>
-                    </div>
-                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="Exporter" value="{{data.Exporter}}" readonly>
-                    </div>
-                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="ShipDate" value="{{data.ShipDate}}" readonly>
-                    </div>
-                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
-                        <input type="number" class="{{theme.textInput}}" name="Quantity" value="{{data.Quantity}}" readonly>
-                    </div>
-                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
-                        <input type="number" class="{{theme.textInput}}" name="Price" value="{{data.Price}}" readonly>
-                    </div>
-                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="Currency" value="{{data.Currency}}" readonly>
-                    </div>
-                    <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="HSCode" value="{{data.HSCode}}" readonly>
-                    </div>
-                    <div class="flex col-[10/13] {{theme.align}} {{theme.justify}}">
-                        <input type="text" class="{{theme.textInput}}" name="Description" value="{{data.Description}}" readonly>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    </form>
+    </dialog>
 {% endblock content %}

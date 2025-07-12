@@ -4,20 +4,20 @@ Contains generic functions
 
 import pandas as pd
 import numpy as np
+import json
 
 from datetime import datetime
 from collections import defaultdict
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 
-from google import genai
-from google.generativeai.types import GenerationConfig
+import google.generativeai as genai
 
 from django.db import transaction
 from django.db.models import Model
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.contrib.auth.models import User
 from django.http import HttpRequest
 from django.shortcuts import render
+from django_countries import countries
 
 from core.constants.generic import API_KEY_FOR_AI
 from core.services.auth_service import getNavLinks
@@ -231,25 +231,33 @@ def truncateTime (time: datetime.time):
 def convertStrToDateTime(date: str, format: str):
     return datetime.strptime(date, format)
 
-def askAI(question: str, outputSchema: Dict[str, Any]=None):
+def askAI(prompt: str, outputSchema: Union[Dict[str, Any], None] = None):
     '''
     Ask AI a question and get it's answer
     '''
-    client = genai.Client(api_key=API_KEY_FOR_AI)
-    
-    config = GenerationConfig(
-        response_mime_type="text/x.enum",
-    )
+    genai.configure(api_key=API_KEY_FOR_AI)
+
+    model = genai.GenerativeModel(model_name='gemini-2.0-flash')
 
     if outputSchema:
-        config.response_schema = outputSchema
+        schemaDescription = ", ".join([f"{k}: {v.__name__}" for k, v in outputSchema.items()])
+        prompt = (
+            f"{prompt}\n\n"
+            f"Please provide the response in a JSON array format, where each object "
+            f"in the array has the following keys and types: {schemaDescription}. "
+            f"Ensure the output is a valid JSON array."
+        )
+        response = model.generate_content(prompt)
+        responseText = response.text
+        parsedData = json.loads(responseText)
 
-    response = client.models.generate_content(
-        model='gemini-1.5-flash',
-        contents=question,
-        config=config,
-    )
-    return response.text
+        if isinstance(parsedData, list):
+            return parsedData
+        else:
+            raise ValueError('Could not get the response in the required format.')
+    else:
+        response = model.generate_content(prompt)
+        return response.text
 
 def dfToListOfDicts(df: pd.DataFrame):
     '''
@@ -266,3 +274,53 @@ def showMessageResponse(request: HttpRequest, message: str, statusCode=400):
         'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render(request, 'blank.html', context, status=statusCode)
+
+def convertCountryNameToCode(countryNamesSeries: pd.Series):
+    countryNames = countryNamesSeries.unique().tolist()
+
+    genai.configure(api_key=API_KEY_FOR_AI)
+
+    prompt = f"""
+    Convert the following list of country names to their respective ISO 3166-1 alpha-2 codes.
+    If a country name is misspelled, please do your best to identify the correct country and provide its ISO code.
+    Return the output as a JSON array of objects, where each object has a 'countryName' field (the original input country name) and an 'isoCode' field (the corresponding ISO 3166-1 alpha-2 code).
+    If a country cannot be identified, return 'null' for its 'isoCode'.
+
+    Country names: {json.dumps(countryNames)}
+    """
+
+    responseSchema = {
+        "type": "ARRAY",
+        "items": {
+            "type": "OBJECT",
+            "properties": {
+                "countryName": {"type": "STRING"},
+                "isoCode": {"type": "STRING", "nullable": True}
+            },
+            "required": ["countryName", "isoCode"]
+        }
+    }
+
+    model = genai.GenerativeModel(
+        model_name='gemini-2.0-flash',
+        generation_config={
+            "response_mime_type": "application/json",
+            "response_schema": responseSchema
+        }
+    )
+
+    response = model.generate_content(prompt)
+
+    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+        jsonString = response.candidates[0].content.parts[0].text
+        isoCodesList = json.loads(jsonString)
+        isoCodesMap = {item['countryName']: item['isoCode'] for item in isoCodesList}
+        return isoCodesMap
+    else:
+        raise LookupError('An error occured while converting countries')
+
+def convertCountryCodeToName(code):
+    try:
+        return dict(countries)[code]
+    except:
+        return None

@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 
@@ -11,8 +11,6 @@ from . import models
 from core.services import auth_service
 from core.services.generic_services import refineJson, applySearch, paginate, showMessageResponse
 from .services import correspondance_service, customer_service, export_data_serivce
-
-APP_NAME = 'Mark'
 
 @login_required(login_url='/login')
 def Home(request: HttpRequest):
@@ -58,13 +56,13 @@ def ExportData (request: HttpRequest):
     country = request.GET.get('country', '')
     page = request.GET.get('page', 1)
 
-    exportData = export_data_serivce.GetExportDataTable(startDate, endDate)
+    exportData = export_data_serivce.GetExportDataTable(startDate, endDate, country)
     exportData = applySearch(exportData, search)
     exportData = paginate(exportData, page, 50)
 
     context = {
         'exportData': exportData.object_list, 'page_obj': exportData,
-        'search': search, 'country': country,
+        'search': search, 'country': country, 'startDate': startDate, 'endDate': endDate,
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'export_data/home.html', context)
@@ -72,12 +70,10 @@ def ExportData (request: HttpRequest):
 @login_required(login_url='/login')
 def UploadExportReport(request:HttpRequest):
     if request.method == 'POST':
-        dataFile = request.FILES['exportDataFile']
-        
+        dataFile = request.FILES['exportDataFile']        
         try:
-            addedData = export_data_serivce.ExtractUploadedData(dataFile)
-            request.session['addedData'] = addedData
-            return redirect('marketing:confirmExportDataUpload')
+            export_data_serivce.ExtractUploadedData(dataFile)
+            return showMessageResponse(request, 'Data Submitted for approval', 200)
         except Exception as e:
             print(e)
             context = {
@@ -94,19 +90,25 @@ def UploadExportReport(request:HttpRequest):
 @login_required(login_url='/login')
 def UploadExportReportConfirmation(request:HttpRequest):
     if request.method == 'POST':
-        pass
+        action = request.POST.get('action')
+        
+        try:
+            export_data_serivce.ConfirmPendingUploads(action)
+            return redirect(reverse('marketing:exportData'))
+        except Exception as e:
+            print(e)
+            return showMessageResponse(request, str(e), 400)
     else:
         try:
-            addedData = request.session.get('addedData')
-            del request.session['addedData']
-        except:
-            return showMessageResponse(request, 'Incorrect data provided', 403)
-
-        context = {
-            'addedData': addedData,
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
-        }
-        return render(request, 'export_data/confirm_upload.html', context)
+            pendingUploads, addedMonths = export_data_serivce.GetPendingUploads()
+            context = {
+                'pendingUploads': pendingUploads, 'addedMonths': addedMonths,
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+            }
+            return render(request, 'export_data/confirm_upload.html', context)
+        except Exception as e:
+            print(e)
+            return showMessageResponse(request, str(e), 400)
 
 @login_required(login_url='/login')
 def AddCustomer (request: HttpRequest):

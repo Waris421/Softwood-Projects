@@ -17,7 +17,7 @@
                 </div>
                 <div class="flex col-[3/6] items-center">
                     <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
-                    <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier"> </select>
+                    <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier" onclick="showSearchBox(this, '/options/suppliers')"> </select>
                 </div>
                 <div class="flex col-[6/8] items-center">
                     <label class="mx-2 whitespace-nowrap">PO Date:&nbsp; </label>
@@ -249,7 +249,7 @@
             showLoadingIcon();
 
             //Styles Dropdown
-            let response = await fetch('/options/suppliers');
+            let response = await fetch('/options/suppliers?search={{order.Supplier}}');
             const styles = await response.json();
             await appendOptions('id_Supplier', styles, "{{order.Supplier}}");
 
