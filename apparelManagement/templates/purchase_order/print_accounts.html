@@ -5,165 +5,183 @@
 {% endblock %}
 
 {% block content %}
-    <div class="row mt-3 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-        <div class="col col-md-11 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-lg fw-bold">SOFTWOOD PRIVATE LIMITED</div>
-            <div class="fs-md">20-KM Off Ferozpur Road, Main Bazar Youhannabad, Lahore</div>
-            <div class="fs-md">+92 042 35951191, info@softwoodtextiles.com</div>
-        </div>
-    </div>
-    
-    <div class="row mt-0 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-        <div class="col col-md-11 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md fw-bold">Purchase Order</div>
-        </div>
-    </div>
-    <div class="row mt-3 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-        <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md fw-bold">Order Date:</div>
-        </div>
-        <div class="col col-md-4 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md">{{order.OrderDate|date:'d-m-Y'}}</div>
-        </div>
-        <div class="col col-md-1"></div>
-        <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md fw-bold">Delivery:</div>
-        </div>
-        <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md">{{order.DeliveryDate|date:'d-m-Y'}}</div>
-        </div>
-    </div>
-    <div class="row mt-0 {{theme.justify}} {{theme.align}} {{theme.textJustify}}">
-        <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md fw-bold">Supplier:</div>
-        </div>
-        <div class="col col-md-4 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md">{{order.Supplier.Name}}</div>
-        </div>
-        <div class="col col-md-1"></div>
-        <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md fw-bold">PO Number:</div>
-        </div>
-        <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}">
-            <div class="fs-md">{{order.id}}</div>
+    <!--Document Heading-->
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                <h1 class="{{theme.titleBold}}">SOFTWOOD PRIVATE LIMITED</h1>
+            </div>
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                <div class="{{theme.headingNormal}}">20-KM Off Ferozpur Road, Main Bazar Youhannabad, Lahore</div>
+            </div>
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                <div class="{{theme.headingNormal}}">+92 042 35951191, info@softwoodtextiles.com</div>
+            </div>
         </div>
     </div>
 
-    <div id="invtable">
-        <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} {{theme.border}}">
-            <div class="col col-md-3">
-                <div class="fs-md fw-bold">Inventory</div>
-            </div>
-            <div class="col col-md-2">
-                <div class="fs-md fw-bold">Variant</div>
-            </div>
-            <div class="col col-md-2">
-                <div class="fs-md fw-bold">Unit</div>
-            </div>
-            <div class="col col-md-1">
-                <div class="fs-md fw-bold">Quantity</div>
-            </div>
-            <div class="col col-md-2">
-                <div class="fs-md fw-bold">Price</div>
-            </div>
-            <div class="col col-md-1">
-                <div class="fs-md fw-bold">Amount</div>
+    <!--Document Name-->
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                <h3 class="{{theme.headingBold}}">Purchase Order</h3>
             </div>
         </div>
-        {% for data in inv %}
-            <div class="row mt-0 {{theme.justify}} {{theme.textJustify}} {{theme.border}}">
-                <div class="col col-md-3">
-                    <div class="fs-md">{{data.Name}}</div>
+    </div>
+
+    <!--Document main data-->
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Order Date:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.OrderDate|date:'d-m-Y'}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Delivery Date:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.DeliveryDate|date:'d-m-Y'}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Supplier:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.Supplier.Name}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">PO Number:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.id}}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!--Document details-->
+    <div id="invtable" class="w-full">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-11 mt-4 px-3 {{theme.border}} {{theme.tableHead}}">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
                 </div>
-                <div class="col col-md-2">
-                    <div class="fs-md">{{data.Variant}}</div>
+                <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Variant
+                    </div>
                 </div>
-                <div class="col col-md-2">
-                    <div class="fs-md">{{data.Unit}}</div>
+                <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Unit
+                    </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="fs-md">{{data.Quantity}}</div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Quantity
+                    </div>
                 </div>
-                <div class="col col-md-2">
-                    <div class="fs-md">{{data.Currency}} {{data.Price}}</div>
+                <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Price
+                    </div>
                 </div>
-                <div class="col col-md-1">
-                    <div class="fs-md">{{data.Value}}</div>
+                <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Amount
+                    </div>
                 </div>
             </div>
-            <div class="row {{theme.justify}} {{theme.textJustify}}">
-                <div class="col col-md-2">
-                    <div class="fs-md fw-bold">Work order</div>
+            {% for data in inv %}
+                <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                    <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Name}}</h5>
+                    </div>
+                    <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Variant}}</h5>
+                    </div>
+                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Unit}}</h5>
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Quantity}}</h5>
+                    </div>
+                    <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Currency}} {{data.Price}}</h5>
+                    </div>
+                    <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Value}}</h5>
+                    </div>
                 </div>
-                <div class="col col-md-3">
-                    <div class="fs-md fw-bold">Style</div>
-                </div>
-                <div class="col col-md-2">
-                    <div class="fs-md fw-bold">Delivery Date</div>
-                </div>
-                <div class="col col-md-1">
-                    <div class="fs-md fw-bold">Quantty</div>
-                </div>
-            </div>
-            {% for allocOption in alloc %}
-                {% if allocOption.POInvId == data.id %}
-                    <div class="row {{theme.justify}} {{theme.textJustify}}">
-                        <div class="col col-md-2">
-                            <div class="fs-md">{{allocOption.WorkOrder}}</div>
-                        </div>
-                        <div class="col col-md-3">
-                            <div class="fs-md">{{allocOption.StyleCode}}</div>
-                        </div>
-                        <div class="col col-md-2">
-                            <div class="fs-md">{{allocOption.DeliveryDate|date:'d-m-Y'}}</div>
-                        </div>
-                        <div class="col col-md-1">
-                            <div class="fs-md">{{allocOption.Quantity}}</div>
+                <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Work Order
                         </div>
                     </div>
-                {% endif %}
-                
-            {% endfor %}
-        {% endfor %}
+                    <div class="flex col-[3/6] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Style
+                        </div>
+                    </div>
+                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Delivery Date
+                        </div>
+                    </div>
+                    <div class="flex col-[8/0] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Quantity
+                        </div>
+                    </div>
+                </div>
+                {% for allocOption in alloc %}
+                    {% if allocOption.POInvId == data.id %}
+                        <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.WorkOrder}}</h5>
+                            </div>
+                            <div class="flex col-[3/6] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.StyleCode}}</h5>
+                            </div>
+                            <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.DeliveryDate|date:'d-m-Y'}}</h5>
+                            </div>
+                            <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.Quantity}}</h5>
+                            </div>
+                        </div>
+                    {% endif %}                   
+                {% endfor %}   
+            {% endfor %}                
+        </div>
     </div>
-    
-    <div class="fixed-bottom" style="bottom: 50px;">
-        <div class="row mt-3 justify-content-end {{theme.align}} {{theme.textJustify}}">
-            <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}"> 
-                <div class="fs-md fw-bold">Net Amount:</div>
-            </div>
-            <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}"> 
-                <div class="fs-md">{{summary.Currency}} {{summary.beforeTaxAmount}}</div>
-            </div>
-            <div class="col col-md-2"></div> 
-        </div>
-        <div class="row mt-0 justify-content-end {{theme.align}} {{theme.textJustify}}">
-            <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}"> 
-                <div class="fs-md fw-bold">Tax Amount:</div>
-            </div>
-            <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}"> 
-                <div class="fs-md">{{summary.Currency}} {{summary.tax}}</div>
-            </div>
-            <div class="col col-md-2"></div> 
-        </div>
-        <div class="row mt-0 justify-content-end {{theme.align}} {{theme.textJustify}}">
-            <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}"> 
-                <div class="fs-lg fw-bold">Grand Total:</div>
-            </div>
-            <div class="col col-md-2 {{theme.align}} {{theme.justify}} {{theme.border}}"> 
-                <div class="fs-lg fw-bold">{{summary.Currency}} {{summary.afterTaxAmount}}</div>
-            </div>
-            <div class="col col-md-2"></div> 
-        </div>
-    </div>
-{% endblock %}
 
-{% block footer %}
-<div class="fixed-bottom">
-    <div class="row mt-3 {{theme.justify}} {{theme.textJustify}} border-top border-dark ">  
-        <div class="fs-sm">
-            This is a system generated document and does not require signature.
+    <!--Document Summary-->
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-8 mt-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[5/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Net Amount:</h3>
+            </div>
+            <div class="flex col-[7/9] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.beforeTaxAmount}}/-</div>
+            </div>
+            <div class="flex col-[5/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Tax Amount:</h3>
+            </div>
+            <div class="flex col-[7/9] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.tax}}/-</div>
+            </div>
+            <div class="flex col-[5/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Grand Total:</h3>
+            </div>
+            <div class="flex col-[7/9] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.afterTaxAmount}}/-</div>
+            </div>
         </div>
-    </div>  
-</div>
+    </div>
 {% endblock %}

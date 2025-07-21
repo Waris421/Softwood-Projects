@@ -87,7 +87,7 @@ def calculateFinalConsumption(dfConsumption: pd.DataFrame) -> pd.Series:
     
     dfConsumption.drop(inplace=True, columns=['ConsUnitGroup','InvUnitGroup','InvUnit'])
 
-    dfConsumption['ConsUnitFactor'] = np.where(dfConsumption['ConsUnitFactor'].isna(), 1.0, dfConsumption['ConsUnitFactor'])
+    dfConsumption['ConsUnitFactor'] = np.where(dfConsumption['ConsUnitFactor'].isna(), 1/dfConsumption['InvUnitFactor'], dfConsumption['ConsUnitFactor'])
 
     dfConsumption['Consumption'] = dfConsumption['Consumption'].astype(float)
 
@@ -278,6 +278,8 @@ def UpdateStyleCard(
     dfRoute = dfRoute[dfRoute['Stage'].str.len()>0]
     
     dfRoute['id'] = np.where(dfRoute['id'].str.len()==0, np.nan, dfRoute['id'])
+    #This is in response to a bug
+    dfRoute['id'] = np.where(dfRoute['id']=='None', np.nan, dfRoute['id'])
     dfRoute['id'] = dfRoute['id'].astype('Int64')
 
     dfRoute['Style'] = styleCard
@@ -320,5 +322,7 @@ def ProcessStyleData(styleCard: models.StyleCard):
         consumption = [model_to_dict(models.StyleConsumption())]
 
     route = models.StyleRoute.objects.filter(Style=styleCard).values('id', 'Sequence','Stage').order_by('Sequence')
+    if not route:
+        route = [model_to_dict(models.StyleRoute())]
     
     return model_to_dict(styleCard), variants, consumption, route

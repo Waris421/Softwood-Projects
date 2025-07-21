@@ -7,7 +7,7 @@
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     <!-- The main style form-->
-    <form method="POST" id="styleForm" autocomplete="off">
+    <form method="POST" id="styleForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/2] items-center">
@@ -38,12 +38,15 @@
     </form>
     
     <!-- Buttons to go to each of a style's detail table-->
-    <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-        <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
-            <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
-            <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+    <div class="{{theme.formActions}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+                <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
+                <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+            </div>
         </div>
     </div>
+    
     
     <!-- Variants Table -->
     <form method="POST" id="variantsForm" autocomplete="off" hidden>
@@ -238,10 +241,7 @@
             //Style Categories dropdown
             response = await fetch('/options/categories');
             const categories = await response.json();
-            const emptyRow = {
-                "value": "",
-                "text": "-----------"
-            }
+            const emptyRow = {"value": "","text": "-----------"}
             categories.unshift(emptyRow);
             await appendOptions('id_Category', categories);
 

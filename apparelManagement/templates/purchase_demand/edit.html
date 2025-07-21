@@ -8,7 +8,7 @@
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
 
     <!-- The main Demand form-->
-    <form method="POST" id="demandForm" autocomplete="off">
+    <form method="POST" id="demandForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-8 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/2] items-center">

@@ -465,25 +465,33 @@ class MarkGroupCompletion(APIView):
 
     def post(self, request:Request):
         try:        
-            user = generic_services.getAPIUser(request)
+            user = auth_service.getAPIUser(request)
         except:
             response = {'error': 'Access Denied'}
             status=  rest_framework.status.HTTP_401_UNAUTHORIZED
             return Response(data=response, status=status)            
 
-        cardId = request.data.get('cardId')
+        print(user)
+
+        cardId = int(request.data.get('bundleId'))
 
         try:
             core_sheet_service.CompleteCardGroup(cardId)
             
             response = {'message': 'Saved Successfully'}
             status = rest_framework.status.HTTP_200_OK
-
-            return Response (data=response, status=status)
+        except LookupError as e:
+            response = {'error': str(e)}
+            status = rest_framework.status.HTTP_404_NOT_FOUND
+        except ValueError as e:
+            response = {'error': str(e)}
+            status = rest_framework.status.HTTP_409_CONFLICT
         except Exception as e:
             response = {'error': str(e)}
             status=  rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, status=status)
+        
+        
+        return Response(data=response, status=status)
 
 class AssignWorkerCard(APIView):
     permission_classes = [AllowAny]

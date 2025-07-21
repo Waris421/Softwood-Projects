@@ -105,7 +105,14 @@ def CompleteCardGroup(cardId: int):
     except:
         raise LookupError('Card not added in system')
     
-    models.RFIDCard.objects.filter(GroupNumber=groupNumber).update(GroupStatus='Complete')
+    cards = models.RFIDCard.objects.filter(GroupNumber=groupNumber)
+
+    currentGroupStatus = cards.values_list('GroupStatus',flat=True).first()
+    
+    if currentGroupStatus == 'Complete':
+        raise ValueError('Group is already complete')
+
+    cards.update(GroupStatus='Complete')
 
 def AssignCardGroup(dfAssignment: pd.DataFrame):
     dfAssignment = dfAssignment[

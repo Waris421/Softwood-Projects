@@ -8,7 +8,7 @@
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
 
     <!-- The main Order form-->
-    <form method="POST" id="orderForm" autocomplete="off">
+    <form method="POST" id="orderForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-12 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/4] items-center">
@@ -21,7 +21,7 @@
                 </div>
                 <div class="flex col-[7/9] items-center">
                     <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
-                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer"> </select>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')"> </select>
                 </div>
                 <div class="flex col-[9/11] items-center">
                     <label class="mx-2 whitespace-nowrap">DD:&nbsp; </label>
@@ -61,11 +61,13 @@
     </form>
     
     <!-- Buttons-->
-    <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-        <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
-            <button id="btn_calculateVar" class="{{theme.buttonBasic}}" type="button" onclick="calculateVariants()">
-                Calculate Variants
-            </button>
+    <div class="{{theme.formActions}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+                <button id="btn_calculateVar" class="{{theme.buttonBasic}}" type="button" onclick="calculateVariants()">
+                    Calculate Variants
+                </button>
+            </div>
         </div>
     </div>
 
@@ -151,6 +153,8 @@
             //Customer dropdown
             response = await fetch('/options/customers');
             const customers = await response.json();
+            const newRow = { "value": '', "text": "-----------" };
+            customers.unshift(newRow);
             await appendOptions('id_Customer', customers);
 
             //Order Types dropdown
@@ -171,25 +175,14 @@
 
     <script> //To set customer based on the customer in style.
         async function getCustomerForStyle(style) {
-            const styleOptions = document.getElementById('id_Style').options;
+            const styleSelect = document.getElementById('id_Style');
             
-            let customer = '';
-            for (const option of styleOptions) {
-                if (option.value === style) {
-                    customer = option.text.split(' -')[0];
-                    break;
-                }
-            }
-            customerSelect = document.getElementById('id_Customer');
-            for (const option of customerSelect.options) {
-                if (style==='null' && option.value === 'null') {
-                    option.selected = true;
-                    break;
-                }else if(customer === option.value) {
-                    option.selected = true;
-                    break;
-                } 
-            }
+            const customer = Array.from(styleSelect.options).find(option => option.value === style).text.split(' -')[0].trim();
+
+            response = await fetch(`/options/customers?search=${customer}`);
+            const customers = await response.json();
+            await appendOptions('id_Customer', customers, customer);
+        
             await calculateVariants();
         }
     </script>

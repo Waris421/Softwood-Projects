@@ -40,18 +40,34 @@ def yesOrNo(request):
 
 @login_required(login_url='/login')
 def getCustomersList(request):
-    if request.method == 'GET':
-        objects = appModels.Customer.objects.all()     
-        dfData = pd.DataFrame(index=range(objects.count()))
-        
-        dfData['text'] = pd.DataFrame(objects.values('Name'))
-        dfData['value'] = pd.DataFrame(objects.values('Name'))
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+    
+    search = request.GET.get('search','')
+    selectedCode = request.GET.get('code', None)
 
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+    searchFilter = Q()
+    if selectedCode:
+        searchFilter &= Q(Name=selectedCode)
+    elif search:
+        searchFilter &= (
+            Q(Name__icontains=search) |
+            Q(TradeName__icontains=search)
+        )
+    
+    fields = ['Name','TradeName']
+    customers = appModels.Customer.objects.filter(searchFilter)[:15].values(*fields)
+    if customers:
+        dfCustomers = pd.DataFrame(customers)
+    else:
+        dfCustomers = pd.DataFrame(columns=fields)
+    del customers
+    
+    dfCustomers.rename(inplace=True, columns={'Name':'value', 'TradeName':'text'})
+    dfCustomers['text'] = dfCustomers['value'].astype(str)+' - '+dfCustomers['text'].astype(str)
 
-        cols = [i for i in dfData]
-        data = [dict(zip(cols, i)) for i in dfData.values]
-        return JsonResponse(data, safe=False)
+    customers = dfToListOfDicts(dfCustomers)
+    return JsonResponse(customers, safe=False)
 
 @login_required(login_url='/login')
 def getSuppliersList(request: HttpRequest):
@@ -67,8 +83,7 @@ def getSuppliersList(request: HttpRequest):
     elif search:
         searchFilter &= (
             Q(Name__icontains=search) |
-            Q(TradeName__icontains=search) |
-            Q(Address__icontains=search)
+            Q(TradeName__icontains=search)
         )
 
     fields = ['Name','TradeName']
@@ -212,20 +227,36 @@ def getProductionStages(request):
     
 @login_required(login_url='/login')
 def getStyles(request):
-    if request.method == 'GET':
-        data = appModels.StyleCard.objects.all().values('StyleCode','Customer')
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+
+    search = request.GET.get('search','')
+    selectedCode = request.GET.get('code', None)
+
+    searchFilter = Q()
+    if selectedCode:
+        searchFilter &= Q(StyleCode=selectedCode)
+    elif search:
+        searchFilter &= (
+            Q(StyleCode__icontains=search) |
+            Q(StyleCode__icontains=search) | 
+            Q(Customer__Name__icontains=search)
+        )
+
+    fields = ['StyleCode','Customer']
+    data = appModels.StyleCard.objects.filter(searchFilter).values(*fields)
+    if data:
         dfData = pd.DataFrame(data)
-        del data
+    else:
+        dfData = pd.DataFrame(columns=fields)
+    del data
 
-        dfData['text'] = dfData['Customer']+' - '+dfData['StyleCode']
-        dfData.rename(inplace=True, columns={'StyleCode':'value'})
-        dfData.drop(inplace=True, columns=['Customer'])
+    dfData['text'] = dfData['Customer']+' - '+dfData['StyleCode']
+    dfData.rename(inplace=True, columns={'StyleCode':'value'})
+    dfData.drop(inplace=True, columns=['Customer'])
 
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
-
-        cols = [i for i in dfData]
-        data = [dict(zip(cols, i)) for i in dfData.values] 
-        return JsonResponse(data, safe=False)
+    data = dfToListOfDicts(dfData)
+    return JsonResponse(data, safe=False)
 
 @login_required(login_url='/login')
 def getOrderTypes(request):

@@ -5,7 +5,7 @@ from datetime import date, timedelta, datetime
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
+from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
 from core.constants.generic import GST_RATE, LOCAL_CURRENCY
 
 def getInventoryPrice (inventory: models.Inventory):
@@ -196,39 +196,45 @@ def PrepareDataForAutoReq(startingOrder: int, endingOrder: int):
     if not startingOrder:
         return None, None
 
-    requirement = models.InvRequirement.objects.filter(OrderNumber__gte=startingOrder).filter(OrderNumber__lte=endingOrder)
-    requirement = requirement.values('OrderNumber','InventoryCode','Variant','Quantity')
+    fields = ['OrderNumber','InventoryCode','Variant','Quantity']
+    requirement = models.InvRequirement.objects.filter(OrderNumber__gte=startingOrder).filter(OrderNumber__lte=endingOrder).values(*fields)
     if requirement:
         dfRequirement = pd.DataFrame(requirement)
     else:
-        dfRequirement = pd.DataFrame(columns=['OrderNumber','InventoryCode','Variant','Quantity'])
+        dfRequirement = pd.DataFrame(columns=fields)
     del requirement
 
-    if dfRequirement.empty:
-        return None, None
-
-    poAllocation = models.POAllocation.objects.filter(WorkOrder__gte=startingOrder).filter(WorkOrder__lte=endingOrder)
-    poAllocation = poAllocation.values('POInvId','WorkOrder','Quantity')
+    fields = ['POInvId','WorkOrder','Quantity']
+    poAllocation = models.POAllocation.objects.filter(WorkOrder__gte=startingOrder).filter(WorkOrder__lte=endingOrder).values(*fields)
     if poAllocation:
         dfAllocation = pd.DataFrame(poAllocation)
     else:
-        dfAllocation = pd.DataFrame(columns=['POInvId','WorkOrder','Quantity'])
+        dfAllocation = pd.DataFrame(columns=fields)
     del poAllocation
 
-    poInventory = models.POInventory.objects.filter(id__in=dfAllocation['POInvId'].to_list())
-    poInventory = poInventory.values('id','Inventory','Variant')
+    fields = ['id','Inventory','Variant']
+    poInventory = models.POInventory.objects.filter(id__in=dfAllocation['POInvId'].to_list()).values(*fields)
     if poInventory:
         dfPOInventory = pd.DataFrame(poInventory)
     else:
-        dfPOInventory = pd.DataFrame(columns=['id','Inventory','Variant'])
+        dfPOInventory = pd.DataFrame(columns=fields)
     del poInventory
 
-    inventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values('Code','Name')
+    fields = ['Code','Name']
+    inventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values(*fields)
     if inventories:
         dfInventories = pd.DataFrame(inventories)
     else:
-        dfInventories = pd.DataFrame(columns=['Code','Name'])
+        dfInventories = pd.DataFrame(columns=fields)
     del inventories
+
+    fields = ['OrderNumber','StyleCode']
+    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfRequirement['OrderNumber']).values(*fields)
+    if workOrders:
+        dfWorkOrders = pd.DataFrame(workOrders)
+    else:
+        dfWorkOrders = pd.DataFrame(columns=fields)
+    del workOrders, fields
 
     dfRequirement.rename(inplace=True, columns={'Quantity':'Required'})
 
@@ -254,22 +260,18 @@ def PrepareDataForAutoReq(startingOrder: int, endingOrder: int):
     else:
         dfRequirement['Ordered'] = 0
     
+    dfRequirement = pd.merge(left=dfRequirement, right=dfWorkOrders, on='OrderNumber', how='left')
+
     dfRequirement['ToOrder'] = dfRequirement['Required'] - dfRequirement['Ordered']
     dfRequirement = dfRequirement[dfRequirement['ToOrder']>0]
 
-    dfRequirement.sort_values(by='InventoryCode', ascending=True, inplace=True)
+    dfRequirement.sort_values(by=['InventoryName', 'Variant', 'OrderNumber'], ascending=[True, True, True], inplace=True)
 
     dfInventories = dfRequirement[['InventoryCode','InventoryName']]
     dfInventories = dfInventories.drop_duplicates(subset=['InventoryCode'], keep='first')
     dfInventories.rename(inplace=True, columns={'InventoryCode':'value','InventoryName':'text'})
-    
-    cols = [i for i in dfInventories]
-    invs = [dict(zip(cols, i)) for i in dfInventories.values]
 
-    cols = [i for i in dfRequirement]
-    requirement = [dict(zip(cols, i)) for i in dfRequirement.values]
-
-    return requirement, invs
+    return dfToListOfDicts(dfRequirement), dfToListOfDicts(dfInventories)
 
 def GetOrderList(searchTerm: str, supplier: str, poNumber: int):
     '''
@@ -630,6 +632,8 @@ def PrintPO(orderObject: models.PurchaseOrder):
     dfAllocation = pd.merge(left=dfAllocation, right=dfWorkOrders, left_on='WorkOrder', right_on='OrderNumber', how='left')
     del dfWorkOrders
     dfAllocation.drop(inplace=True, columns=['OrderNumber'])
+    
+    dfAllocation.sort_values(inplace=True, by='DeliveryDate', ascending=True)
 
     #Calculate data for summary row
     summary = {}
@@ -646,11 +650,7 @@ def PrintPO(orderObject: models.PurchaseOrder):
     summary['tax'] = "{:,.2f}".format(summary['tax'])
     summary['afterTaxAmount'] = "{:,.2f}".format(summary['afterTaxAmount'])
     
-    cols = [i for i in dfPOInventory]
-    poInv = [dict(zip(cols, i)) for i in dfPOInventory.values]
+    poInv = dfToListOfDicts(dfPOInventory)
+    alloc = dfToListOfDicts(dfAllocation)
 
-    cols = [i for i in dfAllocation]
-    alloc = [dict(zip(cols, i)) for i in dfAllocation.values]
-    
-    #TODO: return POInvAlloc and POSummary as a dict or list of dicts
     return orderObject, poInv, alloc, summary

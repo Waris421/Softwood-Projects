@@ -5,21 +5,12 @@
 {% endblock %}
 
 {% block content %}
-  <div class="{{theme.border}}">
+  <div class="{{theme.border}} {{theme.formHeading}}">
     <form action="{% url 'apparelManagement:Style' %}" method="get">
       <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
         <div class="flex flex-col col-[1/3] items-center">
           <span class="text-sm text-gray-500 mb-1">Customer:</span>
-          <select name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-            <option value="">---------</option>
-              {% for data in customers %}
-                <option value="{{ data }}"
-                {% if data == selectedCustomer %}
-                selected
-                {% endif %}>
-                    {{ data }}
-                </option>
-              {% endfor %}
+          <select id="customerFilter" name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/customers')">
           </select>
         </div>
         <div class="flex flex-col col-[3/5] items-center">
@@ -99,5 +90,15 @@
         button.href = '/style/'+ selectedCode + '/delete/';
       }
     });       
+  </script>
+
+  <script>  //To run when the page loads
+    window.addEventListener('load', async () => {
+      let response = await fetch(`/options/customers?search={{selectedCustomer}}`);
+      const customers = await response.json();
+      const emptyRow = {"value": "","text": "-----------"}
+      customers.unshift(emptyRow);
+      await appendOptions('customerFilter', customers, '{{selectedCustomer}}');
+    });
   </script>
 {% endblock %}

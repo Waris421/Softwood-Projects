@@ -11,13 +11,12 @@
         </script>
 
         <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
-        <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
 
         <link rel="stylesheet" href="{% static 'style.css' %}">
         
         <style>
             body {
-                font-family: 'Inter', sans-serif; /* Using Inter font as recommended */
+                font-family: 'Inter', sans-serif;
             }
             @media print {
                 @page {
@@ -25,10 +24,22 @@
                     margin: 1cm;
                 }
                 body {
+                    width: calc(100% - 1cm);
+                    text-align: center;
                     background-color: #fff !important;
                     color: #000 !important;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
+                }
+                footer {
+                    position: fixed;
+                    bottom: 0;
+                    width: calc(100% - 1cm);
+                    text-align: center;
+                    page-break-inside: avoid;
+                }
+                .print-full-width {
+                    padding-bottom: 150px;
                 }
             }
         </style>
@@ -41,9 +52,8 @@
         <div class="w-full p-4 print-full-width">
             {% block content %} {% endblock %} 
         </div>
+        <footer>
+            {% block footer %} {% endblock %}
+        </footer>
     </body>
-
-    <footer>
-        {% block footer %} {% endblock %}
-    </footer>
 </html>

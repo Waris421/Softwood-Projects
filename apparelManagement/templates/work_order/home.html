@@ -5,13 +5,12 @@
 {% endblock %}
 
 {% block content %}
-  <div class="{{theme.border}}">
+  <div class="{{theme.border}} {{theme.formHeading}}">
     <form action="{% url 'apparelManagement:WOs' %}" method="get" autocomplete="off">
       <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
         <div class="flex flex-col col-[1/4] items-center">
           <span class="text-sm text-gray-500 mb-1">Customer:</span>
-          <select id="customerFilter" name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-            <option value="">  ---------  </option>
+          <select id="customerFilter" name="customerFilter" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/customers')">
           </select>
         </div>
         <div class="flex flex-col col-[4/7] items-center">
@@ -105,8 +104,10 @@
     <script>//To run when the page loads
         window.addEventListener('load', async () => {
             //Customer dropdown
-            let response = await fetch('/options/customers');
+            let response = await fetch('/options/customers?search={{selectedCustomer}}');
             const customers = await response.json();
+            const newRow = { "value": '', "text": "-----------" };
+            customers.unshift(newRow);
             await appendOptions('customerFilter', customers, '{{selectedCustomer}}');
         });
     </script>

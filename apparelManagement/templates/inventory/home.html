@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block content %}
-  <div class="{{theme.border}}">
+  <div class="{{theme.border}} {{theme.formHeading}}">
     <form action="{% url 'apparelManagement:Inv' %}" method="get" autocomplete="off">
       <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
         <div class="flex flex-col col-[1/4] items-center">

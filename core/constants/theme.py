@@ -1,5 +1,5 @@
 theme = {
-    'navigationBar': 'navbar bg-gray-900 text-white dark:bg-gray-800 dark:text-gray-200',
+    'navigationBar': 'navbar sticky top-0 z-50 bg-gray-900 text-white dark:bg-gray-900 dark:text-gray-200',
     'navigationDropdown':'dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-50 text-gray-800 dark:text-gray-200',
     'pageBody': 'container mx-auto p-4 dark:text-gray-200',
     
@@ -70,10 +70,14 @@ theme = {
     'falseClass': 'material-symbols-outlined',
     'falseValue': 'thumb_down',
 
+    #Content Placements
+    'formHeading': 'sticky top-16 z-40 bg-gray-100 dark:bg-gray-900',
+    'formActions':'sticky top-48 z-30 bg-gray-100 dark:bg-gray-900',
+
     #Print formats
     'titleBold': 'text-4xl font-bold',
-    'headingNormal': 'text-xl',
-    'headingBold': 'text-xl font-bold',
+    'headingNormal': 'text-base',
+    'headingBold': 'text-base font-bold',
     'content': 'text-[10px]',
     'footer': 'text-sm',
     'rowEntry': 'flex p-2 flex-grow flex-shrink basis-0 min-w-[100px] sm:min-w-[120px]',

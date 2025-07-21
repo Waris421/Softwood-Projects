@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block content %}    
-    <div class="{{theme.border}}">
+    <div class="{{theme.border}} {{theme.formHeading}}">
         {% csrf_token %}
         <form action="{% url 'apparelManagement:purchaseDemand' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">

@@ -8,7 +8,7 @@
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     
     <!-- The main style form-->
-    <form method="POST" id="styleForm" autocomplete="off">
+    <form method="POST" id="styleForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/2] items-center">
@@ -25,7 +25,7 @@
                 </div>
                 <div class="flex col-[1/2] items-center">
                     <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
-                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" required> </select>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')" required> </select>
                 </div>
                 <div class="flex col-[2/3] items-center">
                     <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
@@ -39,14 +39,16 @@
     </form>
 
     <!-- Buttons to go to each of a style's detail table-->
-    <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-        <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
-            <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
-            <button id="btn_consumptionForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consumptionForm')">Consumption</button>
-            <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+    <div class="{{theme.formActions}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+                <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
+                <button id="btn_consumptionForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consumptionForm')">Consumption</button>
+                <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+            </div>
         </div>
     </div>
-
+    
     <!-- Variants Table -->
     <form method="POST" id="variantsForm" autocomplete="off" hidden>
         <div class="{{theme.border}}">
@@ -283,7 +285,7 @@
             showLoadingIcon();
 
             //Customer dropdown
-            let response = await fetch('/options/customers');
+            let response = await fetch('/options/customers?search={{style.Customer}}');
             const customers = await response.json();
             await appendOptions('id_Customer', customers, "{{style.Customer}}");
             

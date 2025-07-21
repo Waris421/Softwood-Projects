@@ -8,7 +8,7 @@
     {% csrf_token %}                        <!--This is to protect against CSRF attacks-->
     
     <!-- The main Order form-->
-    <form method="POST" id="orderForm" autocomplete="off">
+    <form method="POST" id="orderForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-14 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/3] items-center">
@@ -613,7 +613,7 @@
             ];
             const selectedOption = 'SUP';
 
-            showDropDown(options, printPO, selectedOption);
+            showDropDown(options, printPO, selectedOption, false);
         }
         async function printPO(selectedFormat) {            
             showLoadingIcon();

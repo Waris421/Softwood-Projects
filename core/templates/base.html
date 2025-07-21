@@ -184,17 +184,31 @@
     </script>
 
     <script>  //To show options dialogue box
-      async function showDropDown(optionsURL, onOkFunction, selected=null) {
-        const response = await fetch(optionsURL);
-        const options = await response.json();
-
+      async function showDropDown(optionsParam, onOkFunction, selected=null, searchBox=true) {
         const modal = document.getElementById('dropdown');
         const selectElement = document.getElementById('dialogSelect');
         const okButton = document.getElementById('dialogOK');
 
-        selectElement.addEventListener('click', function() {
-            showSearchBox(selectElement, optionsURL);
-        });
+        selectElement.innerHTML = '';
+        okButton.onclick = null;
+
+        let options = [];
+        if (searchBox) {
+          const response = await fetch(optionsParam);
+          options = await response.json();
+          selectElement.onclick = () => showSearchBox(selectElement, optionsParam);
+        } else {
+          options = optionsParam;
+          selectElement.onclick = null;
+          
+          for (const option of options) {
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.text = option.text;
+
+            selectElement.appendChild(optionElement);
+          }
+        }
 
         if (selected) {
           selectElement.value = selected;

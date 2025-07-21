@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime, dfToListOfDicts
 
 pd.options.mode.chained_assignment = None
 
@@ -321,11 +321,13 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     del dfInventories
     dfRequirement.drop(inplace=True, columns=['Code'])
     dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
-
-    cols = [i for i in dfRequirement]
-    requirement = [dict(zip(cols, i)) for i in dfRequirement.values]
     
-    return order, variants, requirement
+    if dfRequirement.empty:
+        blankRow = pd.DataFrame([[''] * len(dfRequirement.columns)], columns=dfRequirement.columns)
+        dfRequirement = pd.concat([dfRequirement, blankRow], ignore_index=True)
+        del blankRow
+    
+    return order, variants, dfToListOfDicts(dfRequirement)
 
 #To calculate requirement from stylecard
 def CalculateRequirement(styleCode: str, orderNumber: int):

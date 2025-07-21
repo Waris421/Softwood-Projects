@@ -133,7 +133,7 @@ def UpdateInv(request: HttpRequest, pk: str):
         data = {field: request.POST.get(field) for field in fields}
         try:
             inventory_card_service.EditInventory(data, inv)
-            return redirect(reverse('editInv', kwargs={'pk': pk}))
+            return redirect(reverse('apparelManagement:editInv', kwargs={'pk': pk}))
         except Exception as e:
             print(e)
             return generic_services.showMessageResponse(request, str(e))
@@ -427,7 +427,7 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
     try:
         orderObject = models.WorkOrder.objects.get(OrderNumber=pk)
     except:
-        return HttpResponse('Resouse not found', status=401)
+        return generic_services.showMessageResponse(request, 'Resouse not found', 401)
 
 
     if request.method == 'POST':
@@ -649,7 +649,9 @@ def AutoInventoryRequirement(request: HttpRequest):
     else:
         startingOrder = request.GET.get('startingOrder',None)
         endingOrder = request.GET.get('endingOrder',None)
-        searchTerm = request.GET.get('search','')
+        inventories = request.GET.get('inventories','').split(',')
+        if not inventories[0]:
+            inventories = inventories[1:]
 
         if startingOrder == 'null':
             startingOrder = None
@@ -663,7 +665,7 @@ def AutoInventoryRequirement(request: HttpRequest):
 
         context = {
             'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
-            'startingOrder':startingOrder, 'endingOrder':endingOrder, 'search':searchTerm,
+            'startingOrder':startingOrder, 'endingOrder':endingOrder, 'inventories':json.dumps(inventories),
             'requirement':requirement}   
         #This is in response to a bug where the code was giving error when there was no inventory in the list.
         if invs:
