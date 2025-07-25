@@ -7,7 +7,7 @@ from typing import Dict
 import warnings
 
 from .. import models
-from core.services.generic_services import truncateTime
+from core.services.generic_services import truncateTime, dfToListOfDicts
 
 def createNotifications (notification: Dict, groupName: 'str'):
     '''
@@ -53,10 +53,7 @@ def GetNotifications (user: User):
 
     dfNotifications['width'] = dfNotifications['body'].apply(calculateWidth)
  
-    #This converts the dataframe back to list of dicts so it can be shown to user
-    cols = [i for i in dfNotifications]
-    data = [dict(zip(cols, i)) for i in dfNotifications.values]
-    return data
+    return dfToListOfDicts(dfNotifications)
 
 def GetNotificationDetails(id: int):
     notification = models.Notification.objects.get(id=id)

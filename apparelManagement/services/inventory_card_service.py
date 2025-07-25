@@ -1,11 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from typing import Dict
+from typing import Dict, Any
 
 from .. import models
-
-pd.options.mode.chained_assignment = None
+from core.services.generic_services import dfToListOfDicts
 
 def GetInventories (group: str, stockFilter: str):
     if group:
@@ -64,11 +63,8 @@ def GetInventories (group: str, stockFilter: str):
    
     dfInventory = dfInventory.sort_values (by='Code')
     dfInventory = dfInventory.sort_values (by='Group')
-
-    #This converts the dataframe back to list of dicts so it can be shown to user
-    cols = [i for i in dfInventory]
-    data = [dict(zip(cols, i)) for i in dfInventory.values]
-    return data
+    
+    return dfToListOfDicts(dfInventory)
 
 def AddInventory (data: Dict[str, str]):
     '''
@@ -140,7 +136,7 @@ def getInventoryCardDropDowns ():
 
     return groups, unitTypes, auditReq, inUse, currencies,  codeP1
 
-def GenenrateCode (jsonData: Dict):
+def GenenrateCode (jsonData: Dict[str, Any]):
     part1 = jsonData['part_0']
     part2 = jsonData['part_1']
     part3 = jsonData['part_2']

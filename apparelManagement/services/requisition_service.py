@@ -5,11 +5,10 @@ from django.utils.timezone import localtime
 
 from .. import models
 
-from core.services.generic_services import convertTexttoObject, concatenateValues
+from core.services.generic_services import convertTexttoObject, concatenateValues, dfToListOfDicts
 from core.constants.generic import LOCAL_TIMEZONE
 
 def GetRequisitionList (
-        searchTerm: str,
         departmentFilter: str,
         statusFilter: str,
         requisitionNumber: int
@@ -35,28 +34,29 @@ def GetRequisitionList (
             case _:
                 raise ValueError('Invalid Input')
      
-    requisitions = requisitions.values('id','DateTime','Department','RequestBy')
+    fields = ['id','DateTime','Department','RequestBy']
+    requisitions = requisitions.values(*fields)
     if requisitions:
         dfRequisitions = pd.DataFrame(requisitions)
     else:
-        return []
+        dfRequisitions = pd.DataFrame(columns=fields)
     del requisitions
 
-    reqInvs = models.RequisitionInventory.objects.filter(Requisition__in=dfRequisitions['id'].to_list())
-    reqInvs = reqInvs.values('Requisition','Inventory')
+    fields = ['Requisition','Inventory']
+    reqInvs = models.RequisitionInventory.objects.filter(Requisition__in=dfRequisitions['id'].to_list()).values(*fields)
     if reqInvs:
         dfRequisitionInvs = pd.DataFrame(reqInvs)
     else:
-        dfRequisitionInvs = pd.DataFrame(columns=['Requisition','Inventory'])
+        dfRequisitionInvs = pd.DataFrame(columns=fields)
     del reqInvs
 
-    invCards = models.Inventory.objects.filter(Code__in=dfRequisitionInvs['Inventory'].to_list()).values('Code','Name')
+    fields = ['Code','Name']
+    invCards = models.Inventory.objects.filter(Code__in=dfRequisitionInvs['Inventory'].to_list()).values(*fields)
     if invCards:
         dfInvCards = pd.DataFrame(invCards)
     else:
-        dfInvCards = pd.DataFrame(columns=['Code','Name'])
-    del invCards
-    
+        dfInvCards = pd.DataFrame(columns=fields)
+    del invCards, fields    
 
     dfRequisitions = pd.merge(left=dfRequisitions, right=dfRequisitionInvs, left_on='id', right_on='Requisition', how='left')
     del dfRequisitionInvs
@@ -74,21 +74,16 @@ def GetRequisitionList (
         'Name': concatenateValues,
     }).reset_index()
 
-    dfRequisitions['DateTime'] = pd.to_datetime(dfRequisitions['DateTime']).dt.tz_convert(LOCAL_TIMEZONE)
+    if not dfRequisitions.empty:
+        dfRequisitions['DateTime'] = pd.to_datetime(dfRequisitions['DateTime']).dt.tz_convert(LOCAL_TIMEZONE)
 
-    dfRequisitions = dfRequisitions.sort_values(by='DateTime', ascending=True)
+        dfRequisitions = dfRequisitions.sort_values(by='DateTime', ascending=True)
 
-    dfRequisitions['Date'] = dfRequisitions['DateTime'].dt.strftime('%d-%b')
-    dfRequisitions['Time'] = dfRequisitions['DateTime'].dt.strftime('%I:%M %p')
+        dfRequisitions['Date'] = dfRequisitions['DateTime'].dt.strftime('%d-%b')
+        dfRequisitions['Time'] = dfRequisitions['DateTime'].dt.strftime('%I:%M %p')
     dfRequisitions.drop(inplace=True, columns=['DateTime'])
 
-    searchTerm = searchTerm.lower()
-    mask = dfRequisitions.apply(lambda row: any(searchTerm in str(val).lower() for val in row.values), axis=1)
-    dfRequisitions = dfRequisitions[mask]
-
-    cols = [i for i in dfRequisitions]
-    data = [dict(zip(cols, i)) for i in dfRequisitions.values]
-    return data
+    return dfToListOfDicts(dfRequisitions)
 
 def PrepareDataForOrderRequitionAdd (order: int):
     try:
@@ -96,62 +91,68 @@ def PrepareDataForOrderRequitionAdd (order: int):
     except:
         raise LookupError('Work Order not found')
 
-    consumption = models.StyleConsumption.objects.filter(Style=workOrder.StyleCode).values('InventoryCode','FinalCons')
+    fields = ['InventoryCode','FinalCons']
+    consumption = models.StyleConsumption.objects.filter(Style=workOrder.StyleCode).values(*fields)
     if consumption:
         dfConsumption = pd.DataFrame(consumption)
     else:
-        dfConsumption = pd.DataFrame(columns=['InventoryCode','FinalCons'])
+        dfConsumption = pd.DataFrame(columns=fields)
     del consumption
     
-    requirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values('InventoryCode','Variant','Quantity')
+    fields = ['InventoryCode','Variant','Quantity']
+    requirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
     if requirement:
         dfRequirement = pd.DataFrame(requirement)
     else:
-        dfRequirement = pd.DataFrame(columns=['InventoryCode','Variant','Quantity'])
+        dfRequirement = pd.DataFrame(columns=fields)
     del requirement
 
-    received = models.RecAllocation.objects.filter(WorkOrder=workOrder).values('RecInvId','Quantity')
+    fields = ['RecInvId','Quantity']
+    received = models.RecAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
     if received:
         dfReceived = pd.DataFrame(received)
     else:
-        dfReceived = pd.DataFrame(columsn=['RecInvId','Quantity'])
+        dfReceived = pd.DataFrame(columns=fields)
     del received
 
-    receivedInvs = models.RecInventory.objects.filter(id__in=dfReceived['RecInvId'].to_list()).values('id','InventoryCode','Variant')
+    fields = ['id','InventoryCode','Variant']
+    receivedInvs = models.RecInventory.objects.filter(id__in=dfReceived['RecInvId'].to_list()).values(*fields)
     if receivedInvs:
         dfReceivedIvs = pd.DataFrame(receivedInvs)
     else:
-        dfReceivedIvs = pd.DataFrame(columns=['id','InventoryCode','Variant'])
+        dfReceivedIvs = pd.DataFrame(columns=fields)
     del receivedInvs
 
-    requisition = models.RequisitionAllocation.objects.filter(WorkOrder=workOrder)
-    requisition = requisition.values('RequisitionInventory','Quantity')
+    fields = ['RequisitionInventory','Quantity']
+    requisition = models.RequisitionAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
     if requisition:
         dfRequisition = pd.DataFrame(requisition)
     else:
-        dfRequisition = pd.DataFrame(columns=['RequisitionInventory','Quantity'])
+        dfRequisition = pd.DataFrame(columns=fields)
     del requisition
     
-    requisitionInvs = models.RequisitionInventory.objects.filter(id__in=dfRequisition['RequisitionInventory'].to_list())
-    requisitionInvs = requisitionInvs.values('id','Inventory','Variant')
+    fields = ['id','Inventory','Variant']
+    requisitionInvs = models.RequisitionInventory.objects.filter(id__in=dfRequisition['RequisitionInventory'].to_list()).values(*fields)
     if requisitionInvs:
         dfRequisitionInvs = pd.DataFrame(requisitionInvs)
     else:
-        dfRequisitionInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
+        dfRequisitionInvs = pd.DataFrame(columns=fields)
     del requisitionInvs
     
-    issued = models.IssueAllocation.objects.filter(WorkOrder=workOrder).values('IssueInventory','Quantity')
+    fields = ['IssueInventory','Quantity']
+    issued = models.IssueAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
     if issued:
         dfIssued = pd.DataFrame(issued)
     else:
-        dfIssued = pd.DataFrame(columns=['IssueInventory','Quantity'])
+        dfIssued = pd.DataFrame(columns=fields)
     del issued, workOrder
     
-    issuedInvs = models.IssueInventory.objects.filter(id__in=dfIssued['IssueInventory'].to_list()).values('id','Inventory','Variant')
+    fields = ['id','Inventory','Variant']
+    issuedInvs = models.IssueInventory.objects.filter(id__in=dfIssued['IssueInventory'].to_list()).values(*fields)
     if issuedInvs:
         dfIssuedInvs = pd.DataFrame(issuedInvs)
     else:
-        dfIssuedInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
+        dfIssuedInvs = pd.DataFrame(columns=fields)
     del issuedInvs
     
     dfResults = pd.merge(left=dfConsumption, right=dfRequirement, left_on='InventoryCode',right_on='InventoryCode', how='outer')
@@ -213,42 +214,40 @@ def PrepareDataForOrderRequitionAdd (order: int):
     dfInventories = dfInventories.drop_duplicates(subset=['InventoryCode'], keep='first')
     dfInventories.rename(inplace=True, columns={'InventoryCode':'value','Name':'text'})
     
-    cols = [i for i in dfInventories]
-    invs = [dict(zip(cols, i)) for i in dfInventories.values]
-    
-    cols = [i for i in dfResults]
-    data = [dict(zip(cols, i)) for i in dfResults.values]
-    return data, invs
+    return dfToListOfDicts(dfResults), dfToListOfDicts(dfInventories)
 
 def PrepareDataForInvRequisitionAdd (code: str):
-    receiptInvs = models.RecInventory.objects.filter(InventoryCode=code).values('id','ReceiptNumber','Variant','Quantity')
+    fields = ['id','ReceiptNumber','Variant','Quantity']
+    receiptInvs = models.RecInventory.objects.filter(InventoryCode=code).values(*fields)
     if receiptInvs:
         dfReceiptInvs = pd.DataFrame(receiptInvs)
     else:
-        return None
+        dfReceiptInvs = pd.DataFrame(columns=fields)
+    del receiptInvs
     
-    receipts = models.InventoryReciept.objects.filter(id__in=dfReceiptInvs['ReceiptNumber'].to_list())
-    receipts = receipts.values('id','ReceiptDate','Supplier')
+    fields = ['id','ReceiptDate','Supplier']
+    receipts = models.InventoryReciept.objects.filter(id__in=dfReceiptInvs['ReceiptNumber'].to_list()).values(*fields)
     if receipts:
         dfReceipts = pd.DataFrame(receipts)
     else:
-        dfReceipts = pd.DataFrame(columns=['id','ReceiptDate','Supplier'])
+        dfReceipts = pd.DataFrame(columns=fields)
     del receipts
 
-    receiptAlloc = models.RecAllocation.objects.filter(RecInvId__in=dfReceiptInvs['id'].to_list())
-    receiptAlloc = receiptAlloc.values('RecInvId','Quantity')
+    fields = ['RecInvId','Quantity']
+    receiptAlloc = models.RecAllocation.objects.filter(RecInvId__in=dfReceiptInvs['id'].to_list()).values(*fields)
     if receiptAlloc:
         dfReceiptAlloc = pd.DataFrame(receiptAlloc)
     else:
-        dfReceiptAlloc = pd.DataFrame(columns=['RecInvId','Quantity'])
+        dfReceiptAlloc = pd.DataFrame(columns=fields)
     del receiptAlloc
 
-    previousData = models.RequisitionInventory.objects.filter(Inventory=code).values('Variant','Quantity')
+    fields = ['Variant','Quantity']
+    previousData = models.RequisitionInventory.objects.filter(Inventory=code).values(*fields)
     if previousData:
         dfPreviousData = pd.DataFrame(previousData)
     else:
-        dfPreviousData = pd.DataFrame(columns=['Variant','Quantity'])
-    del previousData
+        dfPreviousData = pd.DataFrame(columns=fields)
+    del previousData, fields
         
     dfReceiptAlloc = dfReceiptAlloc.groupby('RecInvId')['Quantity'].sum().reset_index()
     dfReceiptAlloc.rename(inplace=True, columns={'Quantity':'AllocatedQty'})
@@ -398,47 +397,3 @@ def AddRequistionForInv (
         inv.save()
 
     return requisition.id
-
-def EditRequisition (
-        requisition: models.Requisition,
-        dfRequisition: pd.DataFrame,
-        dfInventory: pd.DataFrame,
-        dfAllocation: pd.DataFrame
-):
-    '''
-    Update the Requisition from the data in the Requisition table.
-    '''
-    if requisition.Confirmation:
-        raise PermissionError('This requisition is already closed')
-    
-    previousInventories = models.RequisitionInventory.objects.filter(Requisition=requisition).values('id','Inventory','Variant')
-    print(previousInventories)
-
-def ProcessRequsitionData (requisition: models.Requisition):
-    '''
-    Get the data of the provided Receipt.
-    '''
-
-    if requisition.Confirmation:
-        raise PermissionError('This requisition is already closed')
-    
-    inventories = models.RequisitionInventory.objects.filter(Requisition=requisition).values('Inventory','Variant','Quantity')
-
-    #Convert time of receipt from UTC to local time
-    requisition.DateTime = localtime(requisition.DateTime)
-    
-    requisition = {
-        'RequisitionNumber': requisition.id,
-        'Date': requisition.DateTime.date,
-        'Time': requisition.DateTime.time,
-        'Department': requisition.Department,
-        'RequestBy': requisition.RequestBy,
-        'StoreComments': '' if requisition.StoreComments is None else requisition.StoreComments
-    }
-    
-    #Replace any None values with blank
-    for item in inventories:
-        for key, value in item.items():
-            item[key] = '' if value is None else value
-
-    return requisition, inventories

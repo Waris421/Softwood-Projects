@@ -24,7 +24,7 @@
                     <input type="number" name="Tax" class="{{theme.textInput}}">
                 </div>
                 <div class="flex col-[6/7] items-center">
-                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="SendForm()">Save</button>
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
                 </div>   
             </div>
         </div>
@@ -331,7 +331,7 @@
         }
 
         function formToTable(group, form, data){
-            let rows = form.querySelectorAll('.row');
+            let rows = form.querySelectorAll('[row]');
             //Remove unnecesary rows
             rows = dropElements(rows);
 

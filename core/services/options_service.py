@@ -331,18 +331,24 @@ def getOpenPOs(request:HttpRequest):
     if request.method != 'GET':
         return HttpResponse ('No allowed', status=405)
 
+    search = request.GET.get('search', '')
+    
     #Create a query that checks if a PO number exists in the recept table
     exists = Exists(appModels.InventoryReciept.objects.filter(PONumber=OuterRef('id')))
     
+    fields = ['id', 'Supplier']
     #get the po's whose po number doesn't exist in reciept table
-    data = appModels.PurchaseOrder.objects.annotate(received=exists).filter(received=False).values('id', 'Supplier')
+    data = appModels.PurchaseOrder.objects.annotate(received=exists).filter(received=False).values(*fields)
+
+    if search:
+        searchFilter = Q(id__icontains=search) | Q(Supplier__Name__icontains=search)
+        data = data.filter(searchFilter)
 
     #Generate a dataframe, if there is data, otherwise return empty list
-    if data.exists():
+    if data:
         dfData = pd.DataFrame(data)
     else:
-        return JsonResponse([{'value': None, 'text': '-----------'}], safe=False)
-    
+        dfData = pd.DataFrame(columns=fields)    
     del data
 
     #make po number the value of the dropdown
@@ -358,8 +364,8 @@ def getOpenPOs(request:HttpRequest):
     #Append empty row at the start.
     dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
 
-    cols = [i for i in dfData]
-    data = [dict(zip(cols, i)) for i in dfData.values] 
+
+    data = dfToListOfDicts(dfData) 
     return JsonResponse(data, safe=False)
 
 @login_required(login_url='/login')

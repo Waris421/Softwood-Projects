@@ -3,10 +3,7 @@ import numpy as np
 
 from .. import models
 
-from core.services.generic_services import concatenateValues
-
-pd.options.mode.chained_assignment = None
-pd.set_option('display.max_columns', None)
+from core.services.generic_services import concatenateValues, dfToListOfDicts
 
 def AddIssuance(requisition: models.Requisition, comments: str):
     issuance = {
@@ -118,9 +115,7 @@ def GetIssuanceList (
     mask = dfIssuances.apply(lambda row: any(searchTerm in str(val).lower() for val in row.values), axis=1)
     dfIssuances = dfIssuances[mask]
 
-    cols = [i for i in dfIssuances]
-    data = [dict(zip(cols, i)) for i in dfIssuances.values]
-    return data
+    return dfToListOfDicts(dfIssuances)
 
 def ProcessRequisitionData(requisition: models.Requisition):
     fields = ['id', 'Inventory','Variant','Quantity']
@@ -158,6 +153,4 @@ def ProcessRequisitionData(requisition: models.Requisition):
 
     dfResults['WorkOrder'] = np.where(dfResults['WorkOrder'].isna(), '', dfResults['WorkOrder'])
 
-    cols = [i for i in dfResults]
-    data = [dict(zip(cols, i)) for i in dfResults.values]
-    return data
+    return dfToListOfDicts(dfResults)

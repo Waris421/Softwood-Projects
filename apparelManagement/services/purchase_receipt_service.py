@@ -5,10 +5,7 @@ from django.forms import model_to_dict
 from django.db.models import Q
 
 from .. import models
-from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
-
-pd.options.mode.chained_assignment = None
-pd.set_option('display.max_columns', None)
+from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
 
 def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
     '''
@@ -86,13 +83,9 @@ def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
     dfReceipts = dfReceipts[mask]
 
     dfReceipts = dfReceipts.sort_values(by='ReceiptNumber', ascending=False)
-
-    cols = [i for i in dfReceipts]
-    data = [dict(zip(cols, i)) for i in dfReceipts.values]
-    return data
+    return dfToListOfDicts(dfReceipts)
 
 def GetPOData(purchaseOrder: models.PurchaseOrder):
-    print(purchaseOrder)
     fields = ['id','Inventory','Variant','Quantity']
     poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder).values(*fields)
     if poInventories:
@@ -113,9 +106,7 @@ def GetPOData(purchaseOrder: models.PurchaseOrder):
     del dfInventories
     dfPOInventories.drop(inplace=True, columns=['Code','Inventory'])
     
-    cols = [i for i in dfPOInventories]
-    data = [dict(zip(cols, i)) for i in dfPOInventories.values]
-    return data
+    return dfToListOfDicts(dfPOInventories)
 
 def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame):
     '''
@@ -318,11 +309,8 @@ def ProcessReceiptData(receiptObject: models.InventoryReciept):
     dfRecInventories.rename(inplace=True, columns={'Name':'InventoryName'})
 
     dfRecInventories['QualityComments'] = np.where(dfRecInventories['QualityComments'].isna(), '', dfRecInventories['QualityComments'])
-
-    cols = [i for i in dfRecInventories]
-    recIinventories = [dict(zip(cols, i)) for i in dfRecInventories.values]
     
-    return receipt, recIinventories
+    return receipt, dfToListOfDicts(dfRecInventories)
 
 def GetReceiptAllocation(recInventory: models.RecInventory):
     '''

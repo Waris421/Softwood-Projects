@@ -15,7 +15,7 @@
                         <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
                             <div class="flex col-[1/2] items-center">
                                 <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
-                                <input type="text" class="{{theme.textInput}}" name="Code" required>
+                                <input type="text" class="{{theme.textInput}}" name="Code" id="id_Code" required>
                             </div>
                             <div class="flex col-[2/4] items-center">
                                 <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
@@ -90,7 +90,7 @@
                 </div>
                 <div class="flex col-[3/4] items-center">
                     <div class="card-body">
-                        <h5 class="card-title">Inventory Code Generator</h5>
+                        <h5 class="card-title {{theme.justify}}">Inventory Code Generator</h5>
                         <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}" onchange="getCodeParts(this)">
                             <div class="flex col-[1/2] items-center my-2">
                                 <label class="mx-2 whitespace-nowrap">Part 1:&nbsp; </label>
@@ -151,8 +151,6 @@
 
     <script>    //Handle Inventory Code Generator
         async function getCodeParts(source) {
-            showMessage('This feature is under construction');
-            return;
             const elements = source.children;
 
             let parts = {};
@@ -216,8 +214,9 @@
             return response;
         }
 
+        //Put the code in the inventory code box, if it valid.
         async function finaliseCode(source) {
-            const codeValue = source.parentElement.children[4].children[1].value;
+            const codeValue = source.parentElement.parentElement.children[4].children[1].value;
 
             if (codeValue) {
                 const response = await fetch('/inv/'+codeValue+'/check');

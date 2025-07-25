@@ -54,32 +54,26 @@ class NotificationAdmin(admin.ModelAdmin):
     list_filter = ('User',)
     search_fields = ('Summary','Body')
 
-@admin.register(models.StyleCard)
-class StyleAdmin(admin.ModelAdmin):
-    '''Admin View for Style'''
+@admin.register(models.InventoryCodePart1)
+class InventoryCodeP1Admin(admin.ModelAdmin):
+    '''Admin View for InventoryCodeP1'''
 
-    list_display = ('StyleCode','Customer')
-    list_filter = ('Customer',)
+    list_display = ('Code', 'Name')
+    list_filter = ('Code',)
+    ordering = ('Code',)
 
+@admin.register(models.InventoryCodePart2)
+class InventoryCodeP2Admin(admin.ModelAdmin):
+    '''Admin View for InventoryCodeP2'''
 
-@admin.register(models.InventoryReciept)
-class ReceiptAdmin(admin.ModelAdmin):
-    '''Admin View for Receipt'''
+    list_display = ('Code', 'Name')
+    list_filter = ('Code',)
+    ordering = ('Part1',)
 
-    list_display = ('id','ReceiptDate','Supplier')
-    list_filter = ('Supplier',)
-    ordering = ('id',)
+@admin.register(models.InventoryCodePart3)
+class InventoryCodeP3Admin(admin.ModelAdmin):
+    '''Admin View for InventoryCodeP3'''
 
-@admin.register(models.Issuance)
-class IssuanceAdmin(admin.ModelAdmin):
-    '''Admin View for Issuance'''
-
-    list_display = ('id', 'Department')
-    list_filter = ('Department',)
-
-@admin.register(models.Requisition)
-class RequisitionAdmin(admin.ModelAdmin):
-    '''Admin View for Requisition'''
-
-    list_display = ('id', 'Department')
-    list_filter = ('Department',)
+    list_display = ('Code', 'Name')
+    list_filter = ('Code',)
+    ordering = ('Part2',)

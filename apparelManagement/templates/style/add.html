@@ -24,7 +24,7 @@
                 </div>
                 <div class="flex col-[1/2] items-center">
                     <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
-                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer"> </select>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')"> </select>
                 </div>
                 <div class="flex col-[2/3] items-center">
                     <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
@@ -236,12 +236,13 @@
             //Customer dropdown
             let response = await fetch('/options/customers');
             const customers = await response.json();
+            const emptyRow = {"value": "","text": "-----------"};
+            customers.unshift(emptyRow);
             await appendOptions('id_Customer', customers);
 
             //Style Categories dropdown
             response = await fetch('/options/categories');
             const categories = await response.json();
-            const emptyRow = {"value": "","text": "-----------"}
             categories.unshift(emptyRow);
             await appendOptions('id_Category', categories);
 

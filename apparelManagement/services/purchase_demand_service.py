@@ -4,11 +4,8 @@ import numpy as np
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues
+from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
 from core.services.auth_service import canApprovePD
-
-pd.options.mode.chained_assignment = None
-pd.set_option('display.max_columns', None)
 
 def GetPurchaseDemandList (
     searchTerm: str,
@@ -96,10 +93,7 @@ def GetPurchaseDemandList (
     dfDemands = dfDemands[mask]
 
     dfDemands = dfDemands.sort_values(by='PDNumber', ascending=False)
-
-    cols = [i for i in dfDemands]
-    data = [dict(zip(cols, i)) for i in dfDemands.values]
-    return data
+    return dfToListOfDicts(dfDemands)
 
 def AddPurchaseDemand(
         dfDemand: pd.DataFrame,
@@ -251,10 +245,7 @@ def ProcessDemandData(purchaseDemand: models.PurchaseDemand):
     dfPDInventories.drop(inplace=True, columns=['Code'])
     dfPDInventories.rename(inplace=True, columns={'Name':'InventoryName'})
 
-    cols = [i for i in dfPDInventories]
-    inventories = [dict(zip(cols, i)) for i in dfPDInventories.values]
-
-    return demand, inventories
+    return demand, dfToListOfDicts(dfPDInventories)
 
 def GetDataForPDApproval (demand: models.PurchaseDemand):
     if not demand.Approval == None:
@@ -303,7 +294,6 @@ def GetDataForPDApproval (demand: models.PurchaseDemand):
 
     #Get context for the PD and return it
 
-    #print(data)
     return data, None
 
 def ApprovePD (request, demand: models.PurchaseDemand, approval: str):

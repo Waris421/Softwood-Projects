@@ -12,11 +12,11 @@
             <div class="grid grid-cols-10 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/3] items-center">
                     <span class="text-sm text-gray-500 mb-1">Starting Order:</span>
-                    <select id="id_StartingOrder" class="{{theme.dropdown}}" name="startingOrder"></select>
+                    <select id="id_StartingOrder" class="{{theme.dropdown}}" name="startingOrder" onclick="showSearchBox(this, '/options/workorders')"></select>
                 </div>
                 <div class="flex flex-col col-[3/5] items-center">
                     <span class="text-sm text-gray-500 mb-1">Ending Order:</span>
-                    <select id="id_EndingOrder" class="{{theme.dropdown}}" name="endingOrder"></select>
+                    <select id="id_EndingOrder" class="{{theme.dropdown}}" name="endingOrder" onclick="showSearchBox(this, '/options/workorders')"></select>
                 </div>
                 <div class="flex flex-col col-[5/7] items-center">
                     <span class="text-sm text-gray-500 mb-1">Inventory:</span>
@@ -47,7 +47,7 @@
     <!-- Inventory Requirement Summary -->
     <form method="POST" id="requirementForm" autocomplete="off">
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-11 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
                 <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
@@ -75,22 +75,27 @@
                 </div>
                 <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Required
+                        Unit
                     </div>
                 </div>
                 <div class="flex col-[10/11] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Ordered
+                        Required
                     </div>
                 </div>
                 <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Ordered
+                    </div>
+                </div>
+                <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Balance
                     </div>
                 </div>
             </div>
             {% for data in requirement %}
-                <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}" style="display: none;">
+                <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}" style="display: none;">
                     <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
                         <input type="checkbox" class="{{theme.checkbox}}">
                     </div>
@@ -108,12 +113,15 @@
                         <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
                     </div>
                     <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
-                        <input type="number" class="{{theme.textInput}}" value="{{data.Required}}" name="Quantity" readonly>
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly>
                     </div>
                     <div class="flex col-[10/11] {{theme.align}} {{theme.justify}}">
-                        <input type="number" class="{{theme.textInput}}" value="{{data.Ordered}}" name="Ordered" readonly>
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Required}}" name="Quantity" readonly>
                     </div>
                     <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Ordered}}" name="Ordered" readonly>
+                    </div>
+                    <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
                         <input type="number" class="{{theme.textInput}}" value="{{data.ToOrder}}" name="ToOrder">
                     </div>
                 </div>
@@ -126,10 +134,12 @@
             showLoadingIcon();
 
             //orders Dropdown
-            let response = await fetch('/options/workorders');
-            const orders = await response.json();
+            let response = await fetch('/options/workorders?search={{startingOrder}}');
+            let orders = await response.json();
             await appendOptions('id_StartingOrder', orders, Number("{{startingOrder}}"));
 
+            response = await fetch('/options/workorders?search={{endingOrder}}');
+            orders = await response.json();
             await appendOptions('id_EndingOrder', orders, Number("{{endingOrder}}"));
 
             handleInventorySelection();

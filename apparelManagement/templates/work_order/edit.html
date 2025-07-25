@@ -264,12 +264,12 @@
             //Order Types dropdown
             response = await fetch('/options/ordertypes');
             const orderTypes = await response.json();
-            await appendOptions('id_Type', orderTypes, "{{order.type}}");
+            await appendOptions('id_Type', orderTypes, "{{order.Type}}");
 
             //Currencies dropdown
             response = await fetch('/options/currencies');
             const currencies = await response.json();
-            await appendOptions('id_Currency', currencies, "{{order.currency}}");
+            await appendOptions('id_Currency', currencies, "{{order.Currency}}");
 
             hideLoadingIcon();
         });

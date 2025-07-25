@@ -83,7 +83,7 @@ def AddInv (request: HttpRequest):
 
         try:
             inventoryCode = inventory_card_service.AddInventory(data)
-            return redirect(reverse('editInv', kwargs={'pk': inventoryCode}))
+            return redirect(reverse('apparelManagement:editInv', kwargs={'pk': inventoryCode}))
         except Exception as e:
             print(e)
             return generic_services.showMessageResponse(request, str(e), 405)
@@ -691,7 +691,8 @@ def PurchaseOrder(request:HttpRequest):
     if supplierFilter == 'null':
         supplierFilter = None
 
-    Order = purchase_order_service.GetOrderList(searchTerm=searchTerm, supplier=supplierFilter, poNumber=poFilter)
+    Order = purchase_order_service.GetOrderList(supplier=supplierFilter, poNumber=poFilter)
+    Order = generic_services.applySearch(Order, searchTerm)
     data = generic_services.paginate(Order, pageNumber)
 
     context = {'order': data.object_list, 'page_obj': data
@@ -960,7 +961,6 @@ def AddPurchaseReceipt(request: HttpRequest):
         except:
             inventory = []   
 
-        print(inventory)
         context = {
             'inventory': inventory,'poNumber': poNumber,
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
@@ -1240,7 +1240,8 @@ def Requisition (request: HttpRequest):
     if not requisitionNumber:
         requisitionNumber = None
 
-    requisition = requisition_service.GetRequisitionList(searchTerm, departmentFilter, statusFilter, requisitionNumber)
+    requisition = requisition_service.GetRequisitionList(departmentFilter, statusFilter, requisitionNumber)
+    requisition = generic_services.applySearch(requisition, searchTerm)
     
     data = generic_services.paginate(requisition, pageNumber)
 

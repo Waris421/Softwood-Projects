@@ -132,8 +132,8 @@
     <!--Allocation dialog box-->
     <input type="checkbox" id="allocationToggle" class="modal-toggle" />
     <div class="modal" role="dialog" id="allocationTable">
-        <form method="POST" id="allocationForm" autocomplete="off">
-            <div class="{{theme.dialogBox}}">
+        <div class="{{theme.dialogBox}}">
+            <form method="POST" id="allocationForm" autocomplete="off">
                 <div class="modal-content">
                     <div class="{{theme.dialogBoxHeader}}">
                         <h3 class="{{theme.dialogBoxTitle}}">Allocation</h3>
@@ -185,9 +185,10 @@
 
                         <button type="button" class="{{theme.buttonBasic}}" onclick="closeAllocation()">OK</button>
                     </div>
-                </div>
-            </div>
-        </form>
+                </div><label class="modal-backdrop" for="allocationToggle"></label>
+            </form>
+        </div>
+        <label class="modal-backdrop" for="allocationToggle"></label>
     </div>
 
     <!--Inventory search dialog box-->
@@ -278,7 +279,10 @@
         async function openAllocation(source) {
             showLoadingIcon();
             
-            const id = source.parentElement.parentElement.children[0].children[0].value;
+            const row = source.parentElement.parentElement;
+            const invName = row.children[2].children[0].value;
+            const variant = row.children[3].children[0].value;
+            const id = row.children[0].children[0].value;
 
             let allocation;
 
@@ -295,7 +299,10 @@
             const allocationTable = document.getElementById('allocationTable');
 
             const title = allocationTable.querySelector('.modal-header');
-            title.textContent += `#${id}`;
+            title.textContent = `Allocation: ${invName}`;
+            if (variant) {
+                title.textContent += ` - (${variant})`;
+            }
             
             const allocationArea = allocationTable.querySelector('.modal-body');
 
@@ -350,6 +357,16 @@
             document.getElementById('allocationToggle').checked = true;
 
             changeQty();
+
+            const escapeKeyHandlerForAllocBox = (event) => {
+                if (event.code == 'Escape') {
+                    document.getElementById('allocationToggle').checked = false;
+
+                    document.removeEventListener('keyup', escapeKeyHandlerForAllocBox);
+                }
+            }
+
+            document.addEventListener('keyup', escapeKeyHandlerForAllocBox);
 
             hideLoadingIcon();
         }

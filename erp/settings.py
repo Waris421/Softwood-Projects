@@ -168,7 +168,7 @@ SESSION_SAVE_EVERY_REQUEST = True # "False" by default
 #Settings for emails
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST","")
-EMAIL_PORT = os.environ.get("DJANGO_EMAIL_PORT","")
+EMAIL_PORT = int(os.environ.get("DJANGO_EMAIL_PORT",""))
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_ADDRESS","")
-EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_PASSSWORD","")
+EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_PASSWORD","")
