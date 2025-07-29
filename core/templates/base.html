@@ -248,10 +248,16 @@
         //Insert the row after the clicked row
         tableData.insertBefore(copy, rowToCopy.nextSibling);
         
-        //Change the serial numbers of the button for future usage
+        //Change the row numbers and id of select elements
         const rows = tableData.children;
         for (let i=0;i<rows.length;i++) {
-            rows[i].setAttribute("row",i);
+          const currentRow = rows[i];
+          currentRow.setAttribute("row",i);
+
+          const selectsInRow = currentRow.querySelectorAll('select');
+          selectsInRow.forEach(select => {
+            select.id = `id_${select.name}_${i}`;
+          });
         }
 
         //Reset the sequence in any column named Sequence
@@ -492,15 +498,6 @@
                     await submitForms();
                 }
             }
-            
-            //Allow user to close the search box using escape
-            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
-            if (typeof invSearchTableToggle === 'object') {
-                if (event.key == 'Escape' && invSearchTableToggle.checked) {
-                    //Allow user to close the search box using escape
-                    invSearchTableToggle.checked = false;
-                }
-            } 
         });
     </script>
   </body>

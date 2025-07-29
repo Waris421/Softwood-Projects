@@ -77,3 +77,10 @@ class InventoryCodeP3Admin(admin.ModelAdmin):
     list_display = ('Code', 'Name')
     list_filter = ('Code',)
     ordering = ('Part2',)
+
+@admin.register(models.InventoryReciept)
+class InventoryReceiptAdmin(admin.ModelAdmin):
+    '''Admin View for InventoryReceipt'''
+    list_display = ('id', 'Supplier', 'PONumber')
+    list_filter = ('Supplier',)
+    ordering = ('id',)

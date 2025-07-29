@@ -72,7 +72,6 @@ def updateModelWithDF (
             #New Entry. Need to add to DB
             toCreate.append(targetTable(**rowDict))
 
-    
     #This ensures that the code below it is part of one db transation. If any one part of transaction fails, it calls back all changes made.
     with transaction.atomic():
         if toCreate:

@@ -3,13 +3,10 @@ import numpy as np
 
 from django.contrib.auth.models import User
 from django.db.models import Sum, Q
-from django.http import JsonResponse
 from django.forms import model_to_dict
 
 from .. import models
 from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime, dfToListOfDicts
-
-pd.options.mode.chained_assignment = None
 
 #Get the List of Orders.
 def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
@@ -225,7 +222,6 @@ def UpdateWorkOrder(
             raise ValueError (e)
         del dfRequirement, dfPreviousRequirement
 
-#To process the data of already added order
 def ProcessOrderData(workOrder: models.WorkOrder):
     order = model_to_dict(workOrder)
 
@@ -327,6 +323,7 @@ def ProcessOrderData(workOrder: models.WorkOrder):
         dfRequirement = pd.concat([dfRequirement, blankRow], ignore_index=True)
         del blankRow
     
+    dfRequirement.sort_values(inplace=True, by='InventoryName')
     return order, variants, dfToListOfDicts(dfRequirement)
 
 #To calculate requirement from stylecard
@@ -505,28 +502,33 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
     requirement = [dict(zip(cols, i)) for i in dfRequirement.values]
     return requirement
 
-def GetRequirementHistory (inventoryCode: str, variant: str, workOrder: int):
-    poAllocation = models.POAllocation.objects.filter(WorkOrder=workOrder).values('POInvId','Quantity')
+def GetRequirementHistory (invRequirement: models.InvRequirement, workOrder: models.WorkOrder):
+    inventoryCode = invRequirement.InventoryCode
+    variant = invRequirement.Variant
+
+    fields = ['POInvId','Quantity']
+    poAllocation = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
     if poAllocation:
         dfPOAllocation = pd.DataFrame(poAllocation)
     else:
-        dfPOAllocation = pd.DataFrame(columns=['POInvId', 'Quantity'])
+        dfPOAllocation = pd.DataFrame(columns=fields)
     del poAllocation
 
+    fields = ['id','PONumber','Quantity']
     poInventory = models.POInventory.objects.filter(id__in=dfPOAllocation['POInvId'].to_list())
-    poInventory = poInventory.filter(Inventory=inventoryCode).filter(Variant=variant).values('id','PONumber','Quantity')
+    poInventory = poInventory.filter(Inventory=inventoryCode).filter(Variant=variant).values(*fields)
     if poInventory:
         dfPOInventory = pd.DataFrame(poInventory)
     else:
-        dfPOInventory = pd.DataFrame(columns=['id','PONumber','Quantity'])
+        dfPOInventory = pd.DataFrame(columns=fields)
     del poInventory
 
-    purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfPOInventory['PONumber'].to_list())
-    purchaseOrders = purchaseOrders.values('id','OrderDate','Supplier')
+    fields = ['id','OrderDate','Supplier']
+    purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfPOInventory['PONumber'].to_list()).values(*fields)
     if purchaseOrders:
         dfPurchaseOrders = pd.DataFrame(purchaseOrders)
     else:
-        dfPurchaseOrders = pd.DataFrame(columns=['id','OrderDate','Supplier'])
+        dfPurchaseOrders = pd.DataFrame(columns=fields)
     del purchaseOrders
 
     recAllocation = models.RecAllocation.objects.filter(WorkOrder=workOrder).values('RecInvId','Quantity')
@@ -563,7 +565,7 @@ def GetRequirementHistory (inventoryCode: str, variant: str, workOrder: int):
     dfResults.rename(inplace=True, columns={'PONumber':'ReceiptNo', 'OrderDate':'ReceiptDate'})
     
     dfResults['Type'] = 'Order'
-    dfResults['url'] = 'purchaseorder/'+dfResults['ReceiptNo'].astype(str)+'/edit'
+    dfResults['url'] = '/purchaseorder/'+dfResults['ReceiptNo'].astype(str)+'/edit'
 
     dfReceiptsInterM = pd.merge(left=dfRecInventory, right=dfRecAllocation, left_on='id', right_on='RecInvId', how='left')
     del dfRecAllocation, dfRecInventory
@@ -576,16 +578,14 @@ def GetRequirementHistory (inventoryCode: str, variant: str, workOrder: int):
     dfReceiptsInterM.rename(inplace=True, columns={'ReceiptNumber':'ReceiptNo'})
 
     dfReceiptsInterM['Type'] = 'Receipt'
-    dfReceiptsInterM['url'] = 'purchasereceipt/'+dfReceiptsInterM['ReceiptNo'].astype(str)+'/edit'
+    dfReceiptsInterM['url'] = '/purchasereceipt/'+dfReceiptsInterM['ReceiptNo'].astype(str)+'/edit'
 
     dfResults = pd.concat([dfResults, dfReceiptsInterM])
     del dfReceiptsInterM
 
     #TODO: Also get the history of Issuances and Free Stock
 
-    cols = [i for i in dfResults]
-    data = [dict(zip(cols, i)) for i in dfResults.values]  
-    return JsonResponse(data, safe=False)
+    return dfToListOfDicts(dfResults)
 
 def PrintWO (order: models.WorkOrder):
     '''

@@ -6,7 +6,6 @@ from django.db.models import Exists, OuterRef, Q, Count
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
-from rest_framework.authtoken.models import Token
 from rest_framework.request import Request
 import rest_framework
 
@@ -304,27 +303,36 @@ def getMerchandisers(request):
 
 @login_required(login_url='/login')
 def getWorkOrders(request: HttpRequest):
-    if request.method == 'GET':
-        status = request.GET.get('status', None)
-        
-        objects = appModels.WorkOrder.objects.all()
-        if objects.count() < 1:
-            return JsonResponse([], safe=False)
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+    
+    search = request.GET.get('search', '')
+    #TODO: Implement the shipment status filter
+    
+    searchFilter = Q()
+    if search and search != 'None' and search !='null':
+        searchFilter &= (
+            Q(OrderNumber__icontains=search) |
+            Q(StyleCode__StyleCode__icontains=search) | 
+            Q(Customer__Name__icontains=search)
+        )
+    
+    fields = ['OrderNumber','StyleCode','Customer']
+    data = appModels.WorkOrder.objects.filter(searchFilter).values(*fields)
 
-        data = objects.values('OrderNumber','StyleCode','Customer')
+    if data:
         dfData = pd.DataFrame(data)
-
-        dfData.rename(inplace=True, columns={'OrderNumber':'value'})
-        dfData['text'] = dfData['value'].astype(str)+' - '+dfData['StyleCode']+' - '+dfData['Customer']
-        dfData.drop(inplace=True, columns=['Customer','StyleCode'])
-
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
-
-        cols = [i for i in dfData]
-        data = [dict(zip(cols, i)) for i in dfData.values] 
-        return JsonResponse(data, safe=False)
     else:
-        return HttpResponse ('No allowed', status=405)
+        dfData = pd.DataFrame(columns=fields)
+
+    dfData.rename(inplace=True, columns={'OrderNumber':'value'})
+    dfData['text'] = dfData['value'].astype(str)+' - '+dfData['StyleCode']+' - '+dfData['Customer']
+    dfData.drop(inplace=True, columns=['Customer','StyleCode'])
+
+    dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+
+    data = dfToListOfDicts(dfData)
+    return JsonResponse(data, safe=False)
 
 @login_required(login_url='/login')
 def getOpenPOs(request:HttpRequest):

@@ -478,15 +478,28 @@ def CalculateRequirement(request: HttpRequest):
 
 @login_required(login_url='/login')
 def GetRequirementHistory (request: HttpRequest):
-    data = json.loads(request.body.decode('utf-8'))
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
 
-    inventoryCode = data['inventory']
-    variant = data['variant']
-    workOrder = data['workOrder']
+    requirementId = request.GET.get('id', None)
+    workOrder = request.GET.get('workOrder', None)
+    
+    if (not requirementId) or (not workOrder):
+        return HttpResponse('Invalid Input', status=400)
     
     try:
-        requirement = work_order_service.GetRequirementHistory(inventoryCode, variant, workOrder)
-        return requirement
+        requirement = models.InvRequirement.objects.get(id=requirementId)
+    except:
+        return HttpResponse('Requirement not found', status=404)
+
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
+    except:
+        return HttpResponse('Work Order not found', status=404)
+    
+    try:
+        requirementHistory = work_order_service.GetRequirementHistory(requirement, workOrder)
+        return JsonResponse(requirementHistory, safe=False)
     except Exception as e:
         print(e)
         return HttpResponse(e, status=400)
@@ -957,9 +970,14 @@ def AddPurchaseReceipt(request: HttpRequest):
 
         try:
             purchaseOrder = models.PurchaseOrder.objects.get(id=poNumber)
-            inventory = purchase_receipt_service.GetPOData(purchaseOrder)
         except:
-            inventory = []   
+            pass
+            
+        try:
+            inventory = purchase_receipt_service.GetPOData(purchaseOrder)
+            background = purchase_receipt_service.GetPOContext(purchaseOrder)
+        except:
+            inventory = []
 
         context = {
             'inventory': inventory,'poNumber': poNumber,
@@ -999,6 +1017,22 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
         return render(request, 'purchase_receipt/edit.html', context)
 
 @login_required(login_url='/login')
+def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
+    if request.method != 'GET':
+        return HttpResponse('Not allowed', status=405)
+    
+    try:
+        recInventory = models.RecInventory.objects.get(id=pk)
+    except:
+        return HttpResponse('Invalid Input', status=404)
+    
+    totalQty = request.GET.get('totalQty', None)
+
+    allocation = purchase_receipt_service.ReAllocateReceiptInventory(recInventory, totalQty)
+
+    return JsonResponse(allocation, safe=False)
+
+@login_required(login_url='/login')
 def GetReceiptAllocation(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponse('No Allowed', status=405)
@@ -1023,9 +1057,9 @@ def PurchaseDemand (request: HttpRequest):
         return HttpResponse('Not Allowed', status=405)
     
     searchTerm = request.GET.get('searchTerm', '')
-    departmentFilter = request.GET.get('departmentFilter', None)
+    departmentFilter = request.GET.get('departmentFilter', '')
     statusFilter = request.GET.get('statusFilter', 'OnApp')
-    pdNumber = request.GET.get('demandFilter', None)
+    pdNumber = request.GET.get('demandFilter', '')
     pageNumber = request.GET.get('pageNumber',1)
 
     if (departmentFilter == 'None') or (departmentFilter == 'null'):
@@ -1072,15 +1106,15 @@ def AddPurchaseDemand (request: HttpRequest):
 @login_required(login_url='/login')
 def EditPurchaseDemand (request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='change'):
-        return HttpResponse('Access Denied', status=403)
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
     try:
         demand = models.PurchaseDemand.objects.get(id=pk)
     except:
-        return HttpResponse('Demand not found', status=400)
+        return generic_services.showMessageResponse(request, 'Demand not found', 400)
     
     if demand.Approval != None:
-        return HttpResponse('This demand is closed.', status=405)
+        return generic_services.showMessageResponse(request, 'This demand is closed.', 405)
     
     if request.method == 'POST':
         #convert json data to a dict.
@@ -1137,21 +1171,21 @@ def CopyPurchaseDemand (request: HttpRequest, pk:int):
 @login_required(login_url='/login')
 def DeletePurchaseDemand (request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='delete'):
-        return HttpResponse('Access Denied', status=403)
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
     try:
         demand = models.PurchaseDemand.objects.get(id=pk)
     except:
-        return HttpResponse('Demand not found', status=400)
+        return generic_services.showMessageResponse(request, 'Demand not found', 400)
     
     if demand.Approval != None:
-        return HttpResponse('This demand is closed.', status=405)
+        return generic_services.showMessageResponse(request, 'This demand is closed.', 405)
     
     if request.method == 'POST':
         if ('confirm' in request.POST):
             try:
                 demand.delete()
-                return redirect('/purchasedemand')
+                return redirect(reverse('apparelManagement:purchaseDemand'))
             except Exception as e:
                 context = {
                     'object':demand, 'confirm':True,
@@ -1172,17 +1206,20 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
     try:
         demand = models.PurchaseDemand.objects.get(id=pk)
     except:
-        return HttpResponse('Demand not found', status=400)
+        return generic_services.showMessageResponse(request, 'Demand not found', 400)
     
     if not canApprovePD(request.user):
-        return HttpResponse('You do not have access to this file', status=405)
+        return generic_services.showMessageResponse(request, 'You do not have access to this file', 405)
 
     if request.method == 'POST':
         approval = request.POST.get('Approval')
 
         try:
             purchase_demand_service.ApprovePD(request, demand, approval)
-            return redirect('/purchasedemand')
+            return redirect(reverse('apparelManagement:purchaseDemand'))
+        except PermissionError as e:
+            print(e)
+            return HttpResponse(e, status=405)
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
@@ -1192,26 +1229,27 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
             
             context = {
                 'demand': demand, 'context': context,
-                'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+                'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+                }
             
             return render(request, 'purchase_demand/approve.html', context)
         except Exception as e:
             print(e)
-            return HttpResponse(e, status=400)
+            return generic_services.showMessageResponse(request, str(e), 400)
 
 @login_required(login_url='/login')
 def ConvertPDtoPO (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='add'):
-        return HttpResponse('Access Denied', status=403)
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
     if request.method != 'POST':
-        return HttpResponse('Not Allowed', status=405)
+        return generic_services.showMessageResponse(request, 'Not Allowed', 405)
     
     data = json.loads(request.body.decode('utf-8'))
     try:
         demand = models.PurchaseDemand.objects.get(id=data['pdNumber'])
     except:
-        return HttpResponse('Demand not found', status=400)
+        return generic_services.showMessageResponse(request, 'Demand not found', 400)
 
     try:
         poNumber = purchase_demand_service.ConvertPDtoPO(demand, data['supplier'])

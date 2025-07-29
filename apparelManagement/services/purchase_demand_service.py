@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from django.forms import model_to_dict
+from django.http import HttpRequest
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
@@ -191,7 +192,8 @@ def EditPurchaseDemand(
     
     dfPDInventory['id'] = np.where(dfPDInventory['id'].str.len()==0, np.nan, dfPDInventory['id'])
     dfPDInventory['id'] = dfPDInventory['id'].astype('Int64')
-    dfPDInventory.rename(inplace=True, columns={'InventoryCode':'Inventory'})
+    dfPDInventory.drop(inplace=True, columns=['InventoryName'])
+    dfPDInventory.rename(inplace=True, columns={'InventoryCode':'Inventory','VariantCode':'Variant'})
     dfPDInventory = pd.merge(left=dfPDInventory, right=dfPrevioiusInventories, on='id', how='left')
 
     try:
@@ -296,8 +298,8 @@ def GetDataForPDApproval (demand: models.PurchaseDemand):
 
     return data, None
 
-def ApprovePD (request, demand: models.PurchaseDemand, approval: str):
-    if not canApprovePD(request):
+def ApprovePD (request: HttpRequest, demand: models.PurchaseDemand, approval: str):
+    if not canApprovePD(request.user):
         raise PermissionError('Not Allowed')
 
     if approval == 'None':
@@ -317,11 +319,16 @@ def ConvertPDtoPO (demand: models.PurchaseDemand, supplier: str) -> int:
     '''
     Convert a PD to PO and return the PO Number
     '''
-    if (demand.PONumber) or (not demand.Approval):
+    if not supplier:
+        raise ValueError('No Supplier is selected')  
+
+    if (demand.PONumber):
         raise ValueError('This demand is already closed')
     
-    if (supplier == 'None') or (supplier == 'null'):
-        raise ValueError('No Supplier is selected')     
+    if (not demand.Approval):
+        raise ValueError('Approval is awaited')
+
+    print(demand.Approval)
 
     try:
         supplier = models.Supplier.objects.get(Name=supplier)

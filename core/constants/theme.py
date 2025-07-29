@@ -30,7 +30,7 @@ theme = {
     'buttonSecondary': 'flex flex-grow btn rounded-btn h-[4rem] text-lg text-white bg-gradient-to-b from-green-500 to-green-600 hover:opacity-60',
     'plusButton': 'btn btn-sm btn-outline btn-success dark:btn-success-content dark:border-success-content dark:text-success-content',
     'minusButton': 'btn btn-sm btn-outline btn-danger dark:btn-danger-content dark:border-danger-content dark:text-danger-content',
-    'emptyButton': 'flex flex-grow btn btn-ghost',
+    'emptyButton': 'btn btn-sm btn btn-ghost',
     
     #Dropdowns
     'dropdown': 'select select-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',

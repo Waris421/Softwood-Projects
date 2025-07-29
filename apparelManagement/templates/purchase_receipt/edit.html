@@ -34,7 +34,7 @@
                 </div>
                 <div class="flex col-[1/3] items-center">
                     <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
-                    <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier"> </select>
+                    <input type="text" class="{{theme.textInput}}" value="{{receipt.Supplier}}" name="Supplier" readonly>
                 </div>
                 <div class="flex col-[3/5] items-center">
                     <label class="mx-2 whitespace-nowrap">Bilty#:&nbsp; </label>
@@ -154,7 +154,7 @@
                          </div>
                          <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
                             <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
-                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onchange="getDefaultQty(this)"></select>
+                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onclick="showSearchBox(this, '/options/workorders')" onchange="getDefaultQty(this)"></select>
                             </div>
                             <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
                                 <input type="number" class="{{theme.textInput}}" value="" name="Quantity" min="0" onchange="changeQty()">
@@ -179,6 +179,7 @@
                         <label class="font-semibold">|| Free Qty:&nbsp; </label>
                         <div id="freeQuantity" class="mr-4"></div>
 
+                        <button type="button" class="{{theme.buttonSecondary}}" onclick="reAllocate()">Re-allocate</button>
                         <button type="button" class="{{theme.buttonBasic}}" onclick="closeAllocation()">OK</button>
                     </div>
                 </div>
@@ -190,11 +191,6 @@
         window.addEventListener('load', async () => {
             //Show loading icon to users
             showLoadingIcon();
-
-            //Styles Dropdown
-            let response = await fetch('/options/suppliers');
-            const suppliers = await response.json();
-            await appendOptions('id_Supplier', suppliers, "{{receipt.Supplier}}");
 
             response = await fetch('/options/workorders');
             const workOrders = await response.json();
@@ -363,6 +359,71 @@
 
             document.getElementById('allocationToggle').checked = false;
             await submitForms();
+        }
+    </script>
+
+    <script>    //To reallocate qty to wos
+        async function reAllocate() {
+            showLoadingIcon();
+            try {
+                await implmentReAllocate();
+            } catch (e) {
+                showMessage(e);
+            }
+
+            hideLoadingIcon();
+        }
+
+        async function implmentReAllocate() {
+            const recId = document.getElementById('recId').value;
+            const InvTableRows = Array.from(document.getElementById('inventoryForm').children[0].children);
+            InvTableRows.splice(0,1);
+
+            let recQty = 0.0;
+
+            for (const row of InvTableRows) {
+                const idBox = row.children[0].children[0];
+                const qtyBox = row.children[3].children[0];
+
+                if (idBox.value == recId) {
+                    recQty = parseFloat(qtyBox.value);
+                    break;
+                }
+            }
+
+            const response = await fetch(`/purchasereceipt/${recId}/re-allocate?totalQty=${recQty}`);
+            
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+            const allocations = await response.json();
+            
+            await rePopulateAllocBox(allocations);
+        }
+
+        async function rePopulateAllocBox(allocations) {
+            //Get the modal
+            const dialogBox = document.getElementById('allocationTable').children[0].children[0].children[0];
+            
+            //Get all the rows in an array
+            const rows = Array.from(dialogBox.children[1].children);
+            
+            //Remove header row
+            rows.shift();
+
+            for (let i=0; i<rows.length; i++) {
+                const row = rows[i];
+                const allocation = allocations[i]
+
+                const response = await fetch(`/options/workorders?search=${allocation.WorkOrder}`);
+                const workOrders = await response.json();
+                await appendOptions(`id_WorkOrder_${i+1}`, workOrders, allocation.WorkOrder);
+                
+                const qtyBox = row.children[1].children[0];
+                qtyBox.value = allocation.Quantity;
+            }
+            changeQty();
         }
     </script>
 

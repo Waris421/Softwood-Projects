@@ -100,10 +100,7 @@
 
     <script> //To convert PD to PO
         async function makePO() {
-            const response = await fetch('/options/suppliers');
-            const suppliers = await response.json();
-
-            showDropDown(suppliers, convertToPO, null, true);
+            showDropDown('/options/suppliers', convertToPO, null, true);
         }
 
         async function convertToPO(supplier) {

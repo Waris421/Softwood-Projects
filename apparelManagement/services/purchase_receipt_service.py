@@ -94,13 +94,13 @@ def GetPOData(purchaseOrder: models.PurchaseOrder):
         dfPOInventories = pd.DataFrame(columns=[fields])
     del poInventories
 
-    fields=['Code','Name']
+    fields=['Code','Name', 'Unit']
     inventories = models.Inventory.objects.filter(Code__in=dfPOInventories['Inventory'].to_list()).values(*fields)
     if inventories:
         dfInventories = pd.DataFrame(inventories)
     else:
         dfInventories = pd.DataFrame(columns=fields)
-    del inventories
+    del inventories, fields
 
     dfPOInventories = pd.merge(left=dfPOInventories, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
     del dfInventories
@@ -108,13 +108,20 @@ def GetPOData(purchaseOrder: models.PurchaseOrder):
     
     return dfToListOfDicts(dfPOInventories)
 
+def GetPOContext(purchaseOrder: models.PurchaseOrder):
+    poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder)
+    fields = ['WorkOrder']
+    poAllocations = models.POAllocation.objects.filter(POInvId__in=poInventories).values(*fields)
+    del poInventories
+
+    print(poAllocations)
+
 def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame):
     '''
     Add the receipt from new receipt Form
     '''
     dfRecInventories = dfRecInventories[dfRecInventories['Quantity'].str.len()>0]
     dfRecInventories['Quantity'] = dfRecInventories['Quantity'].astype(float)
-    dfRecInventories = dfRecInventories[dfRecInventories['Quantity']>0]
     if dfRecInventories.empty:
         raise ValueError('No Inventory provided')
 
@@ -234,7 +241,7 @@ def EditPurchaseReceipt (
     if dfRecInventory.empty:
         raise ValueError('No Inventory provided')
     
-    dfRecInventory.drop(inplace=True, columns=['InventoryName','Variant'])
+    dfRecInventory.drop(inplace=True, columns=['InventoryName','Variant',''])
 
     dfRecInventory['id'] = dfRecInventory['id'].astype(int)
 
@@ -325,4 +332,37 @@ def GetReceiptAllocation(recInventory: models.RecInventory):
     else:
         return []
 
+def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: str):
+    purchaseOrder = recInventory.ReceiptNumber.PONumber
+    inventory = recInventory.InventoryCode
+    variant = recInventory.Variant
+
+    try:
+        poInventory = models.POInventory.objects.get(
+            PONumber=purchaseOrder,
+            Inventory=inventory,
+            Variant=variant
+        )
+    except:
+        raise ValueError('Bad Inventory value in PO')
+    del purchaseOrder, inventory, variant
     
+    fields = ['WorkOrder','Quantity']
+    poAllocations = models.POAllocation.objects.filter(POInvId=poInventory).values(*fields)
+    if poAllocations:
+        dfAllocations = pd.DataFrame(poAllocations)
+    else:
+        dfAllocations = pd.DataFrame(columms=fields)
+    del poAllocations, fields
+
+    totalReceivedQty = float(totalQtyStr)
+
+    totalPOQty = float(dfAllocations['Quantity'].sum())
+
+    if totalReceivedQty < totalPOQty:
+        reductionFactor = totalReceivedQty / totalPOQty
+        dfAllocations['Quantity'] = dfAllocations['Quantity'] * reductionFactor
+
+        dfAllocations['Quantity'] = np.floor(dfAllocations['Quantity'] * 100) / 100
+
+    return dfToListOfDicts(dfAllocations)
