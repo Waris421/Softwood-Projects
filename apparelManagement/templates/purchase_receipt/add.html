@@ -11,7 +11,7 @@
     <form method="POST" id="receiptForm" autocomplete="off">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-11 my-2 {{theme.justify}} {{theme.align}}">
-                <div class="flex col-[1/3] items-center">
+                <div class="flex col-[1/3] items-center relative">
                     <label class="mx-2 whitespace-nowrap">PO:&nbsp; </label>
                     <select id="id_PO" class="{{theme.dropdown}}" name="PONumber" onclick="showSearchBox(this, '/options/purchaseorders/open', getPO)" value="{{poNumber}}"> </select>
                 </div>

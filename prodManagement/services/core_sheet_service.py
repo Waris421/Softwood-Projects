@@ -24,10 +24,60 @@ def areBundlesUnique(newBundles: pd.Series, workOrder: models.WorkOrder, current
 
     return True
 
+def assignCardGroup(cut: models.Cut, dfBundle: pd.DataFrame):
+    bundles = models.Bundle.objects.filter(Cut=cut)
+    fields = ['RFIDCard','Bundle']
+    previousAssignments = models.BundleCardAssignment.objects.filter(Bundle__in=bundles).values(*fields)
+    dfPreviousAssignemnts = pd.DataFrame(previousAssignments) if previousAssignments else pd.DataFrame(columns=fields)
+    del previousAssignments
+
+    fields = ['CardId', 'GroupNumber']
+    availableCards = models.RFIDCard.objects.filter(GroupStatus='Complete').filter(GroupNumber__isnull=False).values(*fields)
+    dfAvailableCards = pd.DataFrame(availableCards) if availableCards else pd.DataFrame(columns=fields)
+    del availableCards
+
+    dfBundle = pd.merge(left=dfBundle, right=dfPreviousAssignemnts, left_on='id', right_on='Bundle', how='left')
+    del dfPreviousAssignemnts
+    dfBundle = dfBundle[dfBundle['RFIDCard'].isna()]
+    dfBundle.drop(inplace=True, columns=['Bundle', 'RFIDCard'])
+
+    numOfBundles = dfBundle['id'].nunique()
+    numOfAvialableGroups = dfAvailableCards['GroupNumber'].nunique()
+
+    if numOfBundles > numOfAvialableGroups:
+        raise ValueError('Not enough cards available in system')
+    del numOfBundles, numOfAvialableGroups
+
+    dfAvailableCards['CardId'] = generic_services.convertTexttoObject(models.RFIDCard, dfAvailableCards['CardId'], 'CardId')
+    dfBundle['id'] = generic_services.convertTexttoObject(models.Bundle, dfBundle['id'], 'id')
+
+    availableGroups = dfAvailableCards['GroupNumber'].unique()
+    allAssignments = []
+    groupsToUpdateStatus = []
+
+    for i, bundle in enumerate(dfBundle['id']):
+        groupNumberToAssign = availableGroups[i]
+
+        groupsToUpdateStatus.append(groupNumberToAssign)
+
+        cardsToAssign = dfAvailableCards[dfAvailableCards['GroupNumber'] == groupNumberToAssign]
+
+        for card in cardsToAssign['CardId']:
+            card.GroupStatus = 'Incomplete'
+            allAssignments.append(
+                models.BundleCardAssignment(
+                    Bundle=bundle,
+                    RFIDCard=card
+                )
+            )
+    
+    models.RFIDCard.objects.filter(GroupNumber__in=groupsToUpdateStatus).update(GroupStatus='Incomplete')
+    models.BundleCardAssignment.objects.bulk_create(allAssignments)
+
 def GetCoreSheetList(workOrder: models.WorkOrder):
     fields = ['OrderNumber','StyleCode','Customer','Merchandiser','ExcessCut']
     if workOrder:
-        workOrders = models.WorkOrder.objects.fitler(OrderNumber=workOrder.OrderNumber).values(*fields)
+        workOrders = models.WorkOrder.objects.filter(OrderNumber=workOrder.OrderNumber).values(*fields)
     else:
         workOrders = models.WorkOrder.objects.all().values(*fields)
     
@@ -98,10 +148,11 @@ def GetCoreSheetList(workOrder: models.WorkOrder):
     
     return generic_services.dfToListOfDicts(dfWorkOrders)
 
-@transaction.atomic
 def CompleteCardGroup(cardId: int):
     try:
         groupNumber = models.RFIDCard.objects.get(CardId=cardId).GroupNumber
+        if groupNumber is None:
+            raise LookupError('Card not added in system')
     except:
         raise LookupError('Card not added in system')
     
@@ -111,54 +162,10 @@ def CompleteCardGroup(cardId: int):
     
     if currentGroupStatus == 'Complete':
         raise ValueError('Group is already complete')
-
-    cards.update(GroupStatus='Complete')
-
-def AssignCardGroup(dfAssignment: pd.DataFrame):
-    dfAssignment = dfAssignment[
-        (dfAssignment['Bundle'].str.len() > 0) &
-        (dfAssignment['Group'].str.len() > 0)
-    ].copy()
-
-    dfAssignment['Bundle'] = dfAssignment['Bundle'].astype(int)
-    dfAssignment['Group'] = dfAssignment['Group'].astype(int)
     
-    if dfAssignment['Group'].duplicated().any():
-        raise ValueError('Duplicate Card Group')
-    
-    dfAssignment['Bundle'] = generic_services.convertTexttoObject(models.Bundle, dfAssignment['Bundle'], 'id')
-    
-    cardGroupUpdates = []
-    bundleCardAssignments = []
-
-    cards = models.RFIDCard.objects.filter(GroupNumber__in=dfAssignment['Group'].tolist())
-
-    #Create a mapping for quick lookup: {groupNumber: [card1, card2, ...]}
-    cardsByGroup: Dict[int, List[models.RFIDCard]] = {}
-    for card in cards:
-        cardsByGroup.setdefault(card.GroupNumber, []).append(card)
-
     with transaction.atomic():
-        for _, row in dfAssignment.iterrows():
-            bundleObj = row['Bundle']
-            groupNumber = row['Group']
-
-            cardsInGroup = cardsByGroup.get(groupNumber, [])
-
-            for card in cardsInGroup:
-                if card.GroupStatus == 'InComplete':
-                    raise ValueError('One of the groups is already assigned')
-                card.GroupStatus = 'InComplete'
-                cardGroupUpdates.append(card)
-
-                assignment = models.BundleCardAssignment(
-                    RFIDCard=card,
-                    Bundle=bundleObj
-                )
-                bundleCardAssignments.append(assignment)
-        
-        models.RFIDCard.objects.bulk_update(cardGroupUpdates, ['GroupStatus'])
-        models.BundleCardAssignment.objects.bulk_create(bundleCardAssignments)
+        models.BundleCardAssignment.objects.filter(RFIDCard__in=cards).delete()
+        cards.update(GroupStatus='Complete')
 
 def GetOrderCuttingDetail(workOrder: models.WorkOrder):
     cuts = models.Cut.objects.filter(WorkOrder=workOrder).values('id','CutNumber')
@@ -226,12 +233,18 @@ def EditCoreSheet(dfCut: pd.DataFrame, dfBundle: pd.DataFrame, workOrder: models
 
     if not areBundlesUnique(dfBundle['BundleNumber'], workOrder, cut):
         raise ValueError('Duplicate bundles numbers are provided')  
-    cut.save()
-    
-    dfBundle['id'] = dfBundle['id'].replace('', None).astype(pd.Int64Dtype())
-    dfBundle.rename(inplace=True, columns={'BundleNumber':'Bundle'})
-    dfBundle['Cut'] = cut
-    
-    generic_services.updateModelWithDF(models.Bundle, dfBundle, dfPreviousBundles)
+
+    with transaction.atomic():
+        cut.save()
+        
+        dfBundle['id'] = dfBundle['id'].replace('', None).astype(pd.Int64Dtype())
+        dfBundle.rename(inplace=True, columns={'BundleNumber':'Bundle'})
+        dfBundle['Cut'] = cut
+        
+        try:
+            generic_services.updateModelWithDF(models.Bundle, dfBundle, dfPreviousBundles)
+            assignCardGroup(cut, dfBundle[['id']])
+        except Exception as e:
+            raise ValueError(e)
 
     return cut.id

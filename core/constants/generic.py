@@ -68,7 +68,6 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         ]},
         {'groupName': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'views': [
             {'displayName': 'Core Sheet', 'viewName': 'PM:coreSheets'},
-            {'displayName': 'Card Assignment', 'viewName': 'PM:assignBundleCards'},
         ]},
         {'groupName': 'Stitching', 'appName': 'prodManagement', 'modelName': 'Serial', 'views': [
             {'displayName': 'Scan Report', 'viewName': 'PM:serials'},
@@ -91,7 +90,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
 
 APP_OPTIONS = [
     {'groupValue':'PM', 'groupName':'Production', 'options':[
-        {'route':'/mark-group-complete/', 'name':'Mark Group Completion', 'modelName':'BundleCardAssignment', 'deviceType':'Phone'},
+        {'route':'/mark-group-complete/', 'name':'Mark Group Completion', 'modelName':'BundleCardAssignment', 'deviceType':'Tablet'},
         {'route':'/rfid-worker-assign/', 'name':'Assign Worker Card', 'modelName':'Worker', 'deviceType':'Tablet'},
         {'route':'/esp-op-w-assign/', 'name':'Box Management', 'modelName':'Operation', 'deviceType':'Tablet'},
     ]},

@@ -519,25 +519,6 @@ class AssignWorkerCard(APIView):
             return Response(data=response, status=status)
 
 @login_required(login_url='/login')
-def AssignCardToBundles(request: HttpRequest):
-    if request.method == 'POST':
-        jsonData = json.loads(request.body.decode('utf-8'))
-
-        _, dfAssignment = generic_services.refineJson(jsonData)
-        
-        try:
-            core_sheet_service.AssignCardGroup(dfAssignment)
-            return HttpResponse('OK')
-        except Exception as e:
-            return HttpResponse(e, status=400)
-
-    else:
-        context = {
-            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
-        }
-        return render(request, 'CS/assign.html', context)
-
-@login_required(login_url='/login')
 def Serials(request:HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)

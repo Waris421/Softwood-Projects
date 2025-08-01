@@ -14,12 +14,12 @@
                     <label class="mx-2 whitespace-nowrap">Order#:&nbsp; </label>
                     <input id="id_Order" type="number" class="{{theme.textInput}}" value="{{order.OrderNumber}}" name="OrderNumber" onchange="changePrimaryKey(this)">
                 </div>
-                <div class="flex col-[4/7] items-center">
+                <div class="flex col-[4/7] items-center relative">
                     <label class="mx-2 whitespace-nowrap">Style:&nbsp; </label>
                     <select id="id_Style" class="{{theme.dropdown}}" name="Style" onclick="showSearchBox(this, '/options/styles')"></select>
                     <button type="button" class="material-symbols-outlined {{theme.hyperLink}}" onclick="window.open('/style/{{order.StyleCode}}/edit', '_blank');">open_in_new</button>
                 </div>
-                <div class="flex col-[7/9] items-center">
+                <div class="flex col-[7/9] items-center relative">
                     <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
                     <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')"> </select>
                 </div>

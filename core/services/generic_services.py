@@ -14,6 +14,7 @@ import google.generativeai as genai
 
 from django.db import transaction
 from django.db.models import Model
+from django.db import models as dbModels
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import HttpRequest
 from django.shortcuts import render
@@ -78,8 +79,8 @@ def updateModelWithDF (
             targetTable.objects.bulk_create(toCreate)
 
         if toUpdate:
-            # Exclude fields like 'id', auto_now_add, etc.
-            fieldsToUpdate = [field.name for field in targetTable._meta.fields if field.name != 'id' and not field.auto_created]
+            # Update only those cols that are provided by user. Exclude fields like 'id'.
+            fieldsToUpdate = [col for col in newData.columns if col != 'id']
             
             targetTable.objects.bulk_update(toUpdate, fields=fieldsToUpdate)
 

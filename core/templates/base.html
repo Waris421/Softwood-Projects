@@ -90,9 +90,9 @@
 
     <!--Simple drop down-->
     <dialog id="dropdown" class="modal">
-      <div class="modal-box max-w-lg">
+      <div class="modal-box max-w-lg h-[50vh]">
         <h3 class="font-bold text-lg">Select an Option</h3>
-        <div class="py-4">
+        <div class="py-4 relative">
             <select id="dialogSelect" class="{{theme.dropdown}}"></select>
         </div>
         <div class="modal-action">
@@ -349,8 +349,6 @@
         const originalValue = source.value;
 
         const searchContainer = document.createElement('div');
-        searchContainer.classList.add('bg-base-100', 'rounded-box', 'shadow', 'w-full', 'mt-2', 'dark:bg-gray-900', 'dark:text-white');
-        searchContainer.style.zIndex = '10';
         
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
@@ -447,14 +445,14 @@
 
         searchContainer.appendChild(listContainer);
 
-        searchContainer.style.left = `${rect.left}px`;
-        searchContainer.style.top = `${rect.bottom}px`;
-        searchContainer.style.width = `${rect.width}px`;
+        searchContainer.classList.add('bg-base-100', 'rounded-box', 'shadow', 'w-full', 'mt-2', 'dark:bg-gray-900', 'dark:text-white');
+        searchContainer.style.zIndex = '10';
+        searchContainer.style.left = '0';
+        searchContainer.style.top = `100%`;
+        searchContainer.style.position = 'absolute';
         
         source.parentNode.appendChild(searchContainer);
         
-        //Bug: This doesn't work correctly.
-        //document.body.appendChild(searchContainer);
         searchInput.focus();
 
         function handleClickOutside(clickEvent) {

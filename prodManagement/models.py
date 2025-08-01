@@ -88,6 +88,7 @@ class Bundle(models.Model):
     Cut = models.ForeignKey(Cut, on_delete=models.CASCADE)
     Size = models.CharField(max_length=31)
     Bundle = models.PositiveIntegerField()
+    CreatedAt = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [

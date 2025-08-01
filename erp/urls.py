@@ -22,5 +22,6 @@ urlpatterns = [
     path ('', include ('qualityControl.urls')),
     path ('', include ('marketing.urls')),
     path ('', include ('prodManagement.urls')),
+    path ('', include ('planning.urls')),
     path ('', include ('authentication.urls')),
 ]
