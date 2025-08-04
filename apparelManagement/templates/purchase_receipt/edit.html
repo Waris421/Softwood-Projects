@@ -14,6 +14,7 @@
                 <div class="flex col-[1/2] items-center">
                     <label class="mx-2 whitespace-nowrap">PO:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{receipt.PONumber}}" name="PONumber" readonly>
+                    <button type="button" class="material-symbols-outlined {{theme.hyperLink}}" onclick="window.open('/purchaseorder/{{receipt.PONumber}}/edit', '_blank');">open_in_new</button>
                 </div>
                 <div class="flex col-[2/3] items-center">
                     <label class="mx-2 whitespace-nowrap">GRN:&nbsp; </label>
@@ -179,7 +180,8 @@
                         <label class="font-semibold">|| Free Qty:&nbsp; </label>
                         <div id="freeQuantity" class="mr-4"></div>
 
-                        <button type="button" class="{{theme.buttonSecondary}}" onclick="reAllocate()">Re-allocate</button>
+                        <button type="button" class="{{theme.buttonSecondary}}" onclick="reAllocate('distribute')">Distribute</button>
+                        <button type="button" class="{{theme.buttonSecondary}}" onclick="reAllocate('proportionate')">Prioritize</button>
                         <button type="button" class="{{theme.buttonBasic}}" onclick="closeAllocation()">OK</button>
                     </div>
                 </div>
@@ -363,10 +365,10 @@
     </script>
 
     <script>    //To reallocate qty to wos
-        async function reAllocate() {
+        async function reAllocate(allocationMethod) {
             showLoadingIcon();
             try {
-                await implmentReAllocate();
+                await implmentReAllocate(allocationMethod);
             } catch (e) {
                 showMessage(e);
             }
@@ -374,7 +376,7 @@
             hideLoadingIcon();
         }
 
-        async function implmentReAllocate() {
+        async function implmentReAllocate(allocationMethod) {
             const recId = document.getElementById('recId').value;
             const InvTableRows = Array.from(document.getElementById('inventoryForm').children[0].children);
             InvTableRows.splice(0,1);
@@ -391,7 +393,7 @@
                 }
             }
 
-            const response = await fetch(`/purchasereceipt/${recId}/re-allocate?totalQty=${recQty}`);
+            const response = await fetch(`/purchasereceipt/${recId}/re-allocate?totalQty=${recQty}&allocationMethod=${allocationMethod}`);
             
             if (!response.ok) {
                 const errorMessage = await response.text();

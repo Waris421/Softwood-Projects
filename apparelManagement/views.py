@@ -421,16 +421,15 @@ def AddWorkOrder(request: HttpRequest):
 
 @login_required(login_url='/login')
 def UpdateWorkOrder(request: HttpRequest, pk: int):
-    if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='change'):
-        return HttpResponse('Access Denied', status=403)
-
     try:
         orderObject = models.WorkOrder.objects.get(OrderNumber=pk)
     except:
         return generic_services.showMessageResponse(request, 'Resouse not found', 401)
 
-
     if request.method == 'POST':
+        if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='change'):
+            return generic_services.showMessageResponse(request, 'Access Denied', 403)
+        
         #Convert the json to a dict
         jsonData = json.loads(request.body.decode('utf-8'))
 
@@ -443,6 +442,9 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
             print(e)
             return HttpResponse(e, status=400)
     else:
+        if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='view'):
+            return generic_services.showMessageResponse(request, 'Access Denied', 403)
+        
         order, variants, requirement = work_order_service.ProcessOrderData(orderObject)
         context = {'order':order,
                    'var':variants,
@@ -463,18 +465,25 @@ def CalculateVariants(request: HttpResponse):
 
 @login_required(login_url='/login')
 def CalculateRequirement(request: HttpRequest):
-    if request.method == 'POST':
-        #convert json to a dict.
-        data = json.loads(request.body.decode('utf-8'))
-        
-        styleCode = data['styleCode']
-        orderNumber = data['orderNumber']
-
-        requirement = work_order_service.CalculateRequirement(styleCode, orderNumber)
-
-        return JsonResponse(data=requirement, safe=False)
-    else:
+    if request.method != 'POST':
         return HttpResponse('Not allowed', status=302)
+    
+    #convert json to a dict.
+    data = json.loads(request.body.decode('utf-8'))
+    
+    styleCode = data['styleCode']
+    orderNumber = data['orderNumber']
+
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+        styleCard = models.StyleCard.objects.get(StyleCode=styleCode)
+    except Exception as e:
+        print(e)
+        return HttpResponse('Invalid Input', status=400)
+
+    requirement = work_order_service.CalculateRequirement(styleCard, workOrder)
+
+    return JsonResponse(data=requirement, safe=False)
 
 @login_required(login_url='/login')
 def GetRequirementHistory (request: HttpRequest):
@@ -1026,9 +1035,17 @@ def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
     except:
         return HttpResponse('Invalid Input', status=404)
     
+    allocationMethod = request.GET.get('allocationMethod', '')
+    if not allocationMethod:
+        return HttpResponse('Allocation Priority not defined', status=404)
+
     totalQty = request.GET.get('totalQty', None)
 
-    allocation = purchase_receipt_service.ReAllocateReceiptInventory(recInventory, totalQty)
+    try:
+        allocation = purchase_receipt_service.ReAllocateReceiptInventory(recInventory, totalQty, allocationMethod)
+    except Exception as e:
+        print(e)
+        return HttpResponse(e, status=400)
 
     return JsonResponse(allocation, safe=False)
 

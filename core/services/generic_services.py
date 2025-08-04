@@ -42,6 +42,10 @@ def updateModelWithDF (
     if 'id' not in newData.columns:
         raise ValueError("id columns are missing in previousData df.")
 
+    # Convert 'id' columns to integer type for accurate comparison
+    newData['id'] = pd.to_numeric(newData['id'], errors='coerce').astype('Int64')
+    previousData['id'] = pd.to_numeric(previousData['id'], errors='coerce').astype('Int64')
+    
     if not previousData.empty:
         #Find out entries that are present in dfPrevious but not in dfNew. These are the one's deleted by user
         deletedIds = previousData[~previousData['id'].isin(newData['id'])]['id'].tolist()

@@ -37,6 +37,7 @@ theme = {
 
     #Text Input
     'textInput': 'input input-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
+    'textInputTransparent': 'input input-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700',
     'textInputLarge': 'textarea textarea-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
 
     'checkbox': 'checkbox',
@@ -81,6 +82,11 @@ theme = {
     'content': 'text-[10px]',
     'footer': 'text-sm',
     'rowEntry': 'flex p-2 flex-grow flex-shrink basis-0 min-w-[100px] sm:min-w-[120px]',
+
+    #Text Colors
+    'redText': 'text-red-600',
+    'blueText': 'text-blue-600',
+    'grayText': 'text-gray-200 dark:text-gray-700',
 
     #Chart Colors
     'red': '#DC143C',

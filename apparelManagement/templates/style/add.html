@@ -51,7 +51,7 @@
     <!-- Variants Table -->
     <form method="POST" id="variantsForm" autocomplete="off" hidden>
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+            <div class="grid grid-cols-5 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Variant 1
@@ -90,15 +90,15 @@
     <!-- Route Table -->
     <form method="POST" id="routeForm" autocomplete="off" hidden>
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+            <div class="grid grid-cols-5 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Sequence
+                        Stage
                     </div>
                 </div>
                 <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Stage
+                        Pre-Requisites
                     </div>
                 </div>
                 <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
@@ -109,10 +109,28 @@
             </div>
             <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
-                    <input type="text" class="{{theme.textInput}}" name="Sequence" required>
+                    <select class="{{theme.dropdown}}" id="id_RouteType_1" name="type"></select>
                 </div>
                 <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
-                    <select class="{{theme.dropdown}}" id="id_RouteType_1" name="type"></select>
+                    <div class="dropdown w-full">
+                        <div tabindex="0" role="button" class="{{theme.emptyButton}} w-full">
+                            Select options
+                        </div>
+                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
+                            <li>
+                                <label class="label cursor-pointer">
+                                    <span class="label-text">Option 1</span>
+                                    <input type="checkbox" name="selectedOptions[]" value="option1" class="checkbox" />
+                                </label>
+                            </li>
+                            <li>
+                                <label class="label cursor-pointer">
+                                    <span class="label-text">Option 2</span>
+                                    <input type="checkbox" name="selectedOptions[]" value="option2" class="checkbox" />
+                                </label>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">

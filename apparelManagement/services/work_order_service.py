@@ -7,6 +7,19 @@ from django.forms import model_to_dict
 
 from .. import models
 from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime, dfToListOfDicts
+from core.constants.theme import theme
+
+def applyColors(dfRequirement: pd.DataFrame):
+    if 'Quantity' in dfRequirement.columns:
+        dfRequirement.rename(inplace=True, columns={'Quantity':'Required'})
+    
+    dfRequirement['Color'] = theme['redText']
+
+    dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Ordered'], theme['blueText'], dfRequirement['Color'])
+
+    dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Received'], theme['grayText'], dfRequirement['Color'])
+
+    return dfRequirement['Color']
 
 #Get the List of Orders.
 def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
@@ -205,16 +218,11 @@ def UpdateWorkOrder(
         dfRequirement = dfRequirement[dfRequirement['Quantity']>0]
 
         dfRequirement.drop(inplace=True, columns=['Ordered','InventoryName',''])
-        
-        dfRequirement = pd.merge(left=dfRequirement, right=dfPreviousRequirement, on=['InventoryCode','Variant'], how='left')
 
         dfRequirement['InventoryCode'] = convertTexttoObject(models.Inventory, dfRequirement['InventoryCode'], 'Code')
         dfRequirement['OrderNumber'] = workOrder
-        
-        dfRequirement['id_x'] = np.where(dfRequirement['id_x'].str.len()==0, np.nan, dfRequirement['id_x'])
 
-        dfRequirement['id'] = np.where(dfRequirement['id_x'].isna(), dfRequirement['id_y'], dfRequirement['id_x'])
-        dfRequirement.drop(inplace=True, columns=['id_x','id_y'])
+        dfRequirement['id'] = np.where(dfRequirement['id'].str.len()==0, None, dfRequirement['id'])
         
         try:
             updateModelWithDF(models.InvRequirement, dfRequirement, dfPreviousRequirement)
@@ -317,6 +325,8 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     del dfInventories
     dfRequirement.drop(inplace=True, columns=['Code'])
     dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
+
+    dfRequirement['Color'] = applyColors(dfRequirement[['Quantity','Ordered','Received']])
     
     if dfRequirement.empty:
         blankRow = pd.DataFrame([[''] * len(dfRequirement.columns)], columns=dfRequirement.columns)
@@ -327,50 +337,42 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     return order, variants, dfToListOfDicts(dfRequirement)
 
 #To calculate requirement from stylecard
-def CalculateRequirement(styleCode: str, orderNumber: int):
-    consumption = models.StyleConsumption.objects.filter(Style=styleCode).values('InventoryCode','FinalCons','HasVariant','SizeDetails')
-    if consumption:
-        dfConsumption = pd.DataFrame(consumption)
-        dfConsumption.rename(columns={'FinalCons':'Consumption'}, inplace=True)
-    else:
-        dfConsumption = pd.DataFrame(columns=['InventoryCode','Consumption','HasVariant','SizeDetails'])
+def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrder):
+    fields = ['id','InventoryCode','Variant']
+    currentRequirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
+    dfCurrentRequirement = pd.DataFrame(currentRequirement) if currentRequirement else pd.DataFrame(columns=fields)
+    del currentRequirement
+
+    fields = ['InventoryCode','FinalCons','HasVariant','SizeDetails']
+    consumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
+    dfConsumption = pd.DataFrame(consumption) if consumption else pd.DataFrame(columns=fields)
+    dfConsumption.rename(columns={'FinalCons':'Consumption'}, inplace=True)
     del consumption
 
-    variants = models.OrderVariant.objects.filter(OrderNumber=orderNumber).values('Name','Quantity')
-    if variants:
-        dfVariants = pd.DataFrame(variants)
-    else:
-        dfVariants = pd.DataFrame(columns=['Name','Quantity'])
+    fields = ['Name','Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber=workOrder).values(*fields)
+    dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)
     del variants
     dfVariants = dfVariants.loc[(dfVariants['Quantity'] > 0)]
 
-    ordered = models.POAllocation.objects.filter(WorkOrder=orderNumber).values('POInvId','Quantity')
-    if ordered:
-        dfOrdered = pd.DataFrame(ordered)
-    else:
-        dfOrdered = pd.DataFrame(columns=['POInvId','Quantity'])
+    fields = ['POInvId','Quantity']
+    ordered = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfOrdered = pd.DataFrame(ordered) if ordered else pd.DataFrame(columns=fields)
     del ordered
 
-    orderedInv = models.POInventory.objects.filter(id__in=dfOrdered['POInvId'].to_list()).values('id','Inventory','Variant')
-    if orderedInv:  
-        dfOrderedInvs = pd.DataFrame(orderedInv)
-    else:
-        dfOrderedInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
+    fields = ['id','Inventory','Variant']
+    orderedInv = models.POInventory.objects.filter(id__in=dfOrdered['POInvId'].to_list()).values(*fields)
+    dfOrderedInvs = pd.DataFrame(orderedInv) if orderedInv else pd.DataFrame(columns=fields)
     del orderedInv
 
-    received = models.RecAllocation.objects.filter(WorkOrder=orderNumber).values('RecInvId','Quantity')
-    if received:
-        dfReceived = pd.DataFrame(received)
-    else:
-        dfReceived = pd.DataFrame(columns=['RecInvId','Quantity'])
+    fields = ['RecInvId','Quantity']
+    received = models.RecAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfReceived = pd.DataFrame(received) if received else pd.DataFrame(columns=fields)
     del received
 
-    receivedInv = models.RecInventory.objects.filter(id__in=dfReceived['RecInvId'].to_list())
-    receivedInv = receivedInv.values('id','InventoryCode','Variant')
-    if receivedInv:
-        dfReceivedInvs = pd.DataFrame(receivedInv)
-    else:
-        dfReceivedInvs = pd.DataFrame(columns=['id','Inventory','Variant'])
+    fields = ['id','InventoryCode','Variant']
+    receivedInv = models.RecInventory.objects.filter(id__in=dfReceived['RecInvId'].to_list()).values(*fields)
+    dfReceivedInvs = pd.DataFrame(receivedInv) if receivedInv else pd.DataFrame(columns=fields)
     del receivedInv
 
     dfSimpleConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
@@ -442,7 +444,7 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
 
         dfRequirement = pd.concat([dfRequirement, dfSizeAndVariantRequirement])
 
-    excessCut = models.WorkOrder.objects.get(OrderNumber=orderNumber).ExcessCut
+    excessCut = workOrder.ExcessCut
     dfRequirement['Required'] = dfRequirement['Required'] * (1+(excessCut/100)) * 1.02
     dfRequirement['Required'] = dfRequirement['Required'].apply(lambda x: round(x, 2))
 
@@ -478,6 +480,7 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
             Ordered=('Ordered', 'mean'),
             Received=('Received', 'sum'),
         ).reset_index()
+    
     del dfReceived, dfReceivedInvs
 
     fields = ['Code','Name']
@@ -496,11 +499,15 @@ def CalculateRequirement(styleCode: str, orderNumber: int):
     for col in ['Required','Ordered','Received']:
         dfRequirement[col] = np.where(dfRequirement[col].isna(), 0, dfRequirement[col])
     
-    dfRequirement['id'] = None
+    dfRequirement = pd.merge(left=dfRequirement, right=dfCurrentRequirement, left_on=['InventoryCode','Variant'], right_on=['InventoryCode','Variant'], how='left')
+    del dfCurrentRequirement
+    dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id'])
 
-    cols = [i for i in dfRequirement]
-    requirement = [dict(zip(cols, i)) for i in dfRequirement.values]
-    return requirement
+    dfRequirement['Color'] = applyColors(dfRequirement[['Required','Ordered','Received']])
+
+    dfRequirement.sort_values(inplace=True, by='InventoryName')
+
+    return dfToListOfDicts(dfRequirement)
 
 def GetRequirementHistory (invRequirement: models.InvRequirement, workOrder: models.WorkOrder):
     inventoryCode = invRequirement.InventoryCode

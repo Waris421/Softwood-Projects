@@ -6,6 +6,7 @@ from django.forms.models import model_to_dict
 
 from .. import models
 from core.services import generic_services
+from core.constants import prod
 
 def GetOperations(sectionFilter: str, machineType: str, skillLevel: str, ratePerSAM: str):
     operations = models.Operation.objects
@@ -31,12 +32,12 @@ def GetOperations(sectionFilter: str, machineType: str, skillLevel: str, ratePer
         dfOperations = pd.DataFrame(columns=fields)
     del operations, fields
     
-    sections = generic_services.operationSections
+    sections = prod.operationSections
     sectionMapping = {item['value']: item['text'] for item in sections if item['value'] is not None}
     dfOperations['Section'] = dfOperations['Section'].map(sectionMapping).fillna(dfOperations['Section'])
     del sections, sectionMapping
 
-    machineTypes = generic_services.machineTypes
+    machineTypes = prod.machineTypes
     machineTypeMapping = {item['value']: item['text'] for item in machineTypes if item['value'] is not None}
     dfOperations['MachineType'] = dfOperations['MachineType'].map(machineTypeMapping).fillna(dfOperations['MachineType'])
     del machineTypes, machineTypeMapping

@@ -332,7 +332,7 @@ def GetReceiptAllocation(recInventory: models.RecInventory):
     else:
         return []
 
-def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: str):
+def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: str, allocationMethod: str):
     purchaseOrder = recInventory.ReceiptNumber.PONumber
     inventory = recInventory.InventoryCode
     variant = recInventory.Variant
@@ -349,19 +349,39 @@ def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: s
     
     fields = ['WorkOrder','Quantity']
     poAllocations = models.POAllocation.objects.filter(POInvId=poInventory).values(*fields)
-    if poAllocations:
-        dfAllocations = pd.DataFrame(poAllocations)
-    else:
-        dfAllocations = pd.DataFrame(columms=fields)
-    del poAllocations, fields
+    dfAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
+    del poAllocations
+    
+    fields = ['OrderNumber','DeliveryDate']
+    orderDDs = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocations['WorkOrder'].to_list()).values(*fields)
+    dfOrderDDs = pd.DataFrame(orderDDs) if orderDDs else pd.DataFrame(columns=fields)
+    del orderDDs, fields
 
     totalReceivedQty = float(totalQtyStr)
 
     totalPOQty = float(dfAllocations['Quantity'].sum())
 
     if totalReceivedQty < totalPOQty:
-        reductionFactor = totalReceivedQty / totalPOQty
-        dfAllocations['Quantity'] = dfAllocations['Quantity'] * reductionFactor
+        if allocationMethod == 'distribute':
+            reductionFactor = totalReceivedQty / totalPOQty
+            dfAllocations['Quantity'] = dfAllocations['Quantity'] * reductionFactor
+        else:
+            dfAllocations = pd.merge(dfAllocations, dfOrderDDs, left_on='WorkOrder', right_on='OrderNumber', how='left')
+            dfAllocations.sort_values(by='DeliveryDate', ascending=True, inplace=True)
+
+            remainingQty = totalReceivedQty
+            dfAllocations['NewQuantity'] = 0
+
+            for index, row in dfAllocations.iterrows():
+                allocatedQty = min(row['Quantity'], remainingQty)
+                dfAllocations.at[index, 'NewQuantity'] = allocatedQty
+                remainingQty -= allocatedQty
+
+                if remainingQty<=0:
+                    break
+            
+            dfAllocations['Quantity'] = dfAllocations['NewQuantity']
+            dfAllocations.drop(columns=['OrderNumber', 'DeliveryDate', 'NewQuantity'], inplace=True)
 
         dfAllocations['Quantity'] = np.floor(dfAllocations['Quantity'] * 100) / 100
 
