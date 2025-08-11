@@ -112,7 +112,6 @@ def AddStyleCard(
     if(styleCode == ''):
         raise ValueError ('No Style Code is Provided')
     
-    dfRoute = dfRoute[dfRoute['Sequence'].str.len() > 0]
     dfRoute = dfRoute[dfRoute['type'].str.len() > 0]
 
     #Replace any blank variants with Nan
@@ -127,9 +126,6 @@ def AddStyleCard(
 
     if dfRoute.empty:
         raise ValueError('No Production route is provided')
-    
-    if dfRoute['Sequence'].duplicated().any():
-        raise ValueError('Incorrect Sequence is Provided')
 
     #Convert Customer to model objects and assign to style
     dfStyle['Customer'] = convertTexttoObject(models.Customer, dfStyle['Customer'],'Name')
@@ -166,6 +162,7 @@ def AddStyleCard(
     dfVariants['VariantCode'] = dfVariants['Variant1']+'-'+dfVariants['Variant2']
     dfVariants.drop(inplace=True, columns=['Variant1','Variant2'])
 
+    
     for _, row in dfVariants.iterrows():
         newEntry = models.StyleVariant(**row.to_dict())
         newEntry.save()
@@ -175,9 +172,23 @@ def AddStyleCard(
     
     dfRoute.rename(inplace=True, columns={'type':'Stage'})
 
-    for _, row in dfRoute.iterrows():
+    #save entries without pre-requisites first to create db entries
+    stylePreReqMapping = {}
+    for _, row in dfRoute[['Style','Stage', 'Cost']].iterrows():
         newEntry = models.StyleRoute(**row.to_dict())
         newEntry.save()
+        stylePreReqMapping[newEntry.Stage] = newEntry
+    
+    #Now assign the pre-reqs to each of the style route.
+    for _, row in dfRoute.iterrows():
+        currentStage = row['Stage']
+        preReqs = row['PreReqs']
+
+        styleRoute = stylePreReqMapping[currentStage]
+
+        for preReq in preReqs:
+            preReqStyleRoute = stylePreReqMapping[preReq]
+            styleRoute.PreReqs.add(preReqStyleRoute)
 
     return styleCard.StyleCode
 
@@ -274,19 +285,49 @@ def UpdateStyleCard(
         consumption.save()
 
     dfRoute.rename(inplace=True, columns={'type':'Stage'})
-
     dfRoute = dfRoute[dfRoute['Stage'].str.len()>0]
     
-    dfRoute['id'] = np.where(dfRoute['id'].str.len()==0, np.nan, dfRoute['id'])
-    #This is in response to a bug
-    dfRoute['id'] = np.where(dfRoute['id']=='None', np.nan, dfRoute['id'])
-    dfRoute['id'] = dfRoute['id'].astype('Int64')
+    dfRoute['id'] = dfRoute['id'].replace(['', 'None'], pd.NA).astype('Int64')
 
     dfRoute['Style'] = styleCard
     try:
-        updateModelWithDF(models.StyleRoute, dfRoute, dfPreviousRoute)
+        updateModelWithDF(models.StyleRoute, dfRoute[['id','Stage', 'Style']], dfPreviousRoute)
     except Exception as e:
         raise ValueError(f'Error Saving Route: {e}')
+
+    #Get the freshly saved ids for each stage.
+    fields = ['id','Stage','PreReqs__Stage']
+    routePreReqs = models.StyleRoute.objects.filter(Style=styleCard).values(*fields)
+    dfSavedRoute = pd.DataFrame(routePreReqs) if routePreReqs else pd.DataFrame(columns=fields)
+    del routePreReqs, fields
+    
+    dfRoute.drop(inplace=True, columns=['id', 'Style'])
+    dfSavedRoute = dfSavedRoute.groupby(['id', 'Stage']).agg(
+        PreReqs=('PreReqs__Stage', lambda x: list(x.dropna()))
+    ).reset_index()
+    dfRoute = pd.merge(left=dfRoute, right=dfSavedRoute, on='Stage', how='left')
+    del dfSavedRoute
+
+    #Set names of old and new preseqs
+    dfRoute.rename(inplace=True, columns={'PreReqs_x':'NewPreReqs', 'PreReqs_y':'OldPresReqs'})
+
+    #Create a mapping dict to map stage names with id for object mapping
+    stageToId = dfRoute.set_index('Stage')['id'].to_dict()
+
+    #Map stage names to ids.
+    dfRoute['NewPreReqs'] = dfRoute['NewPreReqs'].apply(lambda stages: [stageToId.get(s, None) for s in stages])
+    dfRoute['OldPresReqs'] = dfRoute['OldPresReqs'].apply(lambda stages: [stageToId.get(s, None) for s in stages])
+
+    dfRoute.drop(inplace=True, columns=['Stage'])
+
+    for _, row in dfRoute.iterrows():
+        styleRoute = models.StyleRoute.objects.get(id=row['id'])
+        
+        if row['OldPresReqs']:
+            styleRoute.PreReqs.remove(*row['OldPresReqs'])
+        
+        if row['NewPreReqs']:
+            styleRoute.PreReqs.add(*row['NewPreReqs'])
  
 def ProcessStyleData(styleCard: models.StyleCard):   
     variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
@@ -321,8 +362,14 @@ def ProcessStyleData(styleCard: models.StyleCard):
     if not consumption:
         consumption = [model_to_dict(models.StyleConsumption())]
 
-    route = models.StyleRoute.objects.filter(Style=styleCard).values('id', 'Sequence','Stage').order_by('Sequence')
-    if not route:
-        route = [model_to_dict(models.StyleRoute())]
+    fields = ['id', 'Stage', 'PreReqs__Stage']
+    route = models.StyleRoute.objects.filter(Style=styleCard).values(*fields)
+    dfRoute = pd.DataFrame(route) if route else pd.DataFrame(columns=fields)
+    del route, fields
     
-    return model_to_dict(styleCard), variants, consumption, route
+    dfRoute.rename(inplace=True, columns={'PreReqs__Stage':'PreReqs'})
+    dfRoute = dfRoute.groupby(['id', 'Stage']).agg(
+        PreReqs=('PreReqs', lambda x: list(x.dropna()))
+    ).reset_index()
+    
+    return model_to_dict(styleCard), variants, consumption, dfToListOfDicts(dfRoute)

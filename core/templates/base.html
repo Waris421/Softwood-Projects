@@ -226,7 +226,7 @@
     </script>
 
     <script>  //To add or remove rows from tables 
-      async function addRow (source) {        
+      async function addRow (source, nextFunction=null) {        
         const rowToCopy = source.parentElement.parentElement;
         const tableData = rowToCopy.parentElement     //Fetch the table body
         
@@ -266,6 +266,9 @@
         for (const sequence of sequences) {
             sequence.value = previousSequence+1;
             previousSequence = parseInt(sequence.value);
+        }
+        if (nextFunction) {
+          nextFunction(copy);
         }
       }
 
@@ -484,6 +487,58 @@
         }
         document.addEventListener('click', handleClickOutside);
         searchInput.addEventListener('keydown', handleEscapeKey);
+      }
+    </script>
+
+    <script>  //To convert a tabular table form data to json friendly format
+      function formToTable(group, form, data){
+        let rows = form.querySelectorAll('[row]');
+        //Remove unnecesary rows
+        rows = dropElements(rows);
+
+        for (const row of rows) {
+            let rowNum = row.getAttribute('row');
+
+            let cols = row.children;
+            //Remove unnecessary columns
+            cols = dropElements(cols, cols.length-1, cols.length-1);
+            cols.forEach(col => {
+              const arr = extractValuefromCol(col);
+              data[`${group}_${arr[0]}_${rowNum}`] = arr[1]; 
+            });
+        }
+        return data;
+      }
+
+      function dropElements(obj, startFrom=0, endAt=0) {
+        const arr = Object.values(obj);
+
+        arr.splice(startFrom, endAt - startFrom + 1);
+
+        return arr;
+      }
+
+      function extractValuefromCol(col) {
+        const simpleInput = col.querySelector('input.input-bordered');
+        if (simpleInput) {
+            return [simpleInput.name,simpleInput.value];
+        }
+        
+        const selectInput = col.querySelector('select.select-bordered');
+        if (selectInput) {
+            return [selectInput.name, selectInput.value];
+        
+        }
+        const multiSelectDiv = col.querySelector('div.dropdown');
+        if (multiSelectDiv) {
+            const selectedItems = multiSelectDiv.querySelectorAll('ul.dropdown-content li input[type="checkbox"]:checked');
+            values = Array.from(selectedItems).map(item => item.value);
+            
+            name = multiSelectDiv.getAttribute('inputName');
+            
+            return [name, values];
+        }
+        return ['','']
       }
     </script>
 

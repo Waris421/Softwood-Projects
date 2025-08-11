@@ -250,9 +250,10 @@ class StyleRoute (models.Model):
 
     id = models.AutoField (primary_key=True)
     Style = models.ForeignKey(StyleCard, on_delete = models.CASCADE)
-    Sequence = models.PositiveIntegerField (null=True, blank=True, default=1)
     Stage = models.CharField (max_length=50, choices = Routes, blank=True, null=True)
     Cost = models.FloatField (null=True)
+
+    PreReqs = models.ManyToManyField('self', blank=True, symmetrical=False)
 
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.

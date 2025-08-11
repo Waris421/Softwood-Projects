@@ -117,6 +117,8 @@ def refineJson(jsonData: Dict[str, Any]) -> pd.DataFrame | List[pd.DataFrame]:
                 raise KeyError('Invalid Format')
             
             if nameParts[-1].isdigit():
+                if nameParts[1] == '':
+                    continue
                 #Last part of the name is a number, meaning that a row number is provided
                 rowNum = int(nameParts[-1])
                 colName = '_'.join(nameParts[1:-1])

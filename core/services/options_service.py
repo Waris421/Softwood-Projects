@@ -14,7 +14,7 @@ from django_countries import countries
 import pandas as pd
 
 from apparelManagement import models as appModels
-from marketing import models as marketingModels
+from planning import models as planningModels
 from prodManagement import models as prodModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
@@ -75,6 +75,7 @@ def getSuppliersList(request: HttpRequest):
 
     search = request.GET.get('search','')
     selectedCode = request.GET.get('code', None)
+    showAll = request.GET.get('showAll', False)
 
     searchFilter = Q()
     if selectedCode:
@@ -86,17 +87,20 @@ def getSuppliersList(request: HttpRequest):
         )
 
     fields = ['Name','TradeName']
-    suppliers = appModels.Supplier.objects.filter(searchFilter)[:15].values(*fields)
-
-    if suppliers:
-        dfSupplier = pd.DataFrame(suppliers)
-        dfSupplier['text'] = dfSupplier['Name'].astype(str)+' - '+dfSupplier['TradeName'].astype(str)
-        dfSupplier.drop(inplace=True, columns=['TradeName'])
-        dfSupplier.rename(inplace=True, columns={'Name':'value'})
-        
-        suppliers = dfToListOfDicts(dfSupplier)  
+    
+    suppliers = appModels.Supplier.objects.filter(searchFilter)
+    
+    if showAll == 'true':
+        suppliers = suppliers.values(*fields)
     else:
-        suppliers = []
+        suppliers = suppliers[:15].values(*fields)
+
+    dfSupplier = pd.DataFrame(suppliers) if suppliers else pd.DataFrame(columns=fields)
+    dfSupplier['text'] = dfSupplier['Name'].astype(str)+' - '+dfSupplier['TradeName'].astype(str)
+    dfSupplier.drop(inplace=True, columns=['TradeName'])
+    dfSupplier.rename(inplace=True, columns={'Name':'value'})
+        
+    suppliers = dfToListOfDicts(dfSupplier)  
 
     return JsonResponse(suppliers, safe=False)
 
@@ -718,10 +722,7 @@ def GetWorkers(request: HttpRequest):
 
     fields = ['WorkerCode', 'WorkerName','Department','SubDepartment']
     workers = workers.values(*fields)
-    if workers:
-        dfWorkers = pd.DataFrame(workers)
-    else:
-        dfWorkers = pd.DataFrame(columns=fields)
+    dfWorkers = pd.DataFrame(workers) if workers else pd.DataFrame(columns=fields)
     del workers
 
     dfSubDepartments = pd.DataFrame(operationSections)
@@ -740,6 +741,31 @@ def GetWorkers(request: HttpRequest):
     dfWorkers = pd.concat([pd.DataFrame([emptyRow]), dfWorkers]).reset_index(drop=True)
 
     return JsonResponse(dfToListOfDicts(dfWorkers), safe=False)
+
+@login_required(login_url='/login')
+def GetCapacities(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+    
+    search = request.GET.get('search', '')
+    
+    filters = Q()
+    if search:
+        filters &= Q(Source__icontains=search)
+    
+    fields = ['id', 'Source','Capacity']
+    capacities = planningModels.Capacity.objects.filter(filters).values(*fields)
+    dfCapacities = pd.DataFrame(capacities) if capacities else pd.DataFrame(columns=fields)
+    del capacities, fields
+    
+    dfCapacities['text'] = dfCapacities['Source'].astype(str)+' - '+dfCapacities['Capacity'].astype(int).astype(str)+'pcs'
+    dfCapacities.rename(inplace=True, columns={'id':'value'})
+    dfCapacities.drop(inplace=True, columns=['Source', 'Capacity'])
+
+    emptyRow = {'value': None, 'text': '-------------'}
+    dfCapacities = pd.concat([pd.DataFrame([emptyRow]), dfCapacities]).reset_index(drop=True)
+
+    return JsonResponse(dfToListOfDicts(dfCapacities), safe=False)
 
 class AppOptions(APIView):
     permission_classes = [AllowAny]

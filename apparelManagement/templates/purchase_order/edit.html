@@ -30,7 +30,7 @@
                 <div class="flex col-[10/12] items-center">
                     <label class="mx-2 whitespace-nowrap">Tax:&nbsp; </label>
                     <input id="id_Tax" type="number" class="{{theme.textInput}}" value="{{order.Tax}}" name="Tax">
-                    <input type="text" id="allocId" name="allocId" value="" class="" hidden>
+                    <input type="text" id="allocId" class="{{theme.textInput}}" name="allocId" value="" class="" hidden>
                 </div>
                 <div class="flex col-[12/15] btn-group items-center">
                     <button class="{{theme.buttonBasic}}" onclick="submitForms()" type="button">          <!--Save Button-->
@@ -87,10 +87,10 @@
             {% for data in inv %}
                 <div class="grid grid-cols-8 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                     <div hidden>
-                        <input type="number" value="{{data.id}}" name="id">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="id">
                     </div>
                     <div hidden>
-                        <input type="text" value="{{data.Inventory}}" name="InvCode">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Inventory}}" name="InvCode">
                     </div>
                     <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" name="InventoryName" value="{{data.InventoryName}}" readonly>
@@ -265,7 +265,7 @@
             response = await fetch('/options/currencies');
             const currencies = await response.json();
 
-            //Apply the relevant dropdowns on all rows of consumption
+            //Apply the relevant dropdowns on all rows of inventory data
             for (const [index, data] of inventoryData.entries()) {
                 await appendOptions(`id_Currency_${index+1}`, currencies, data.Currency);
             }

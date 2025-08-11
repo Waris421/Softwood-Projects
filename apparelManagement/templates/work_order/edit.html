@@ -119,10 +119,10 @@
                         <span class="material-symbols-outlined {{data.Color}}" style="font-size: 24px;" onclick="getContextForRequirement(this)">info</span>
                     </div>
                     <div hidden>
-                        <input value="{{data.id}}" name="id">
+                        <input value="{{data.id}}" class="{{theme.textInput}}" name="id">
                     </div>
                     <div hidden>
-                        <input value="{{data.InventoryCode}}" name="InventoryCode">
+                        <input value="{{data.InventoryCode}}" class="{{theme.textInput}}" name="InventoryCode">
                     </div>
                     <div class="flex col-[2/5] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInputTransparent}} {{data.Color}}" value="{{data.InventoryName}}" name="InventoryName" readonly>
@@ -309,7 +309,7 @@
         });
     </script>
 
-    <script> //To Generate Requirement from selected style
+    <script> //To Calculate Requirement from selected style
         async function calculateRequirement(){
             showLoadingIcon();
 

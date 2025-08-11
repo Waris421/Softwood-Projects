@@ -603,26 +603,27 @@ def PrintPO(orderObject: models.PurchaseOrder):
     Get the data to print the PO.
     '''
     #Get the inventory table of the PO.
-    poInventory = models.POInventory.objects.filter(PONumber=orderObject).values('id','Inventory','Variant','Quantity','Price','Currency')
-    dfPOInventory = pd.DataFrame(poInventory)
+    fields = ['id','Inventory','Variant','Quantity','Price','Currency']
+    poInventory = models.POInventory.objects.filter(PONumber=orderObject).values(*fields)
+    dfPOInventory = pd.DataFrame(poInventory) if poInventory else pd.DataFrame(columns=fields)
     del poInventory
 
     #Get the inventory cards
-    invCards = models.Inventory.objects.filter(Code__in=dfPOInventory['Inventory'].to_list())
-    invCards = invCards.values('Code','Name','Unit')
-    dfInventoryCards = pd.DataFrame(invCards)
+    fields = ['Code','Name','Unit']
+    invCards = models.Inventory.objects.filter(Code__in=dfPOInventory['Inventory'].to_list()).values(*fields)
+    dfInventoryCards = pd.DataFrame(invCards) if invCards else pd.DataFrame(columns=fields)
     del invCards
 
     #Get the allocations in the po
-    allocation = models.POAllocation.objects.filter(POInvId__in=dfPOInventory['id'].to_list())
-    allocation = allocation.values('POInvId','WorkOrder','Quantity')
-    dfAllocation = pd.DataFrame(allocation)
+    fields = ['POInvId','WorkOrder','Quantity']
+    allocation = models.POAllocation.objects.filter(POInvId__in=dfPOInventory['id'].to_list()).values(*fields)
+    dfAllocation = pd.DataFrame(allocation) if allocation else pd.DataFrame(columns=fields)
     del allocation
 
-    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocation['WorkOrder'].to_list())
-    workOrders = workOrders.values('OrderNumber','StyleCode','DeliveryDate')
-    dfWorkOrders = pd.DataFrame(workOrders)
-    del workOrders
+    fields = ['OrderNumber','StyleCode','DeliveryDate']
+    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocation['WorkOrder'].to_list()).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders, fields
 
     #merge poinventory with inventory cards to get the inventory name and unit
     dfPOInventory = pd.merge(left=dfPOInventory, right=dfInventoryCards, left_on='Inventory', right_on='Code', how='left')

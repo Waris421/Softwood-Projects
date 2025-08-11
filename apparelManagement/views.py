@@ -246,7 +246,7 @@ def AddStyle (request: HttpRequest):
             return HttpResponse(styleCode, status=200)
         except Exception as e:
             print(e)
-            return generic_services.showMessageResponse(request, str(e))
+            return HttpResponse(e, status=400)
          
     else:
         context = {
@@ -434,6 +434,7 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         jsonData = json.loads(request.body.decode('utf-8'))
 
         dfOrder, dfVariants, dfRequirement = generic_services.refineJson(jsonData)
+        del jsonData
 
         try:
             work_order_service.UpdateWorkOrder(orderObject, dfOrder, dfVariants, dfRequirement)

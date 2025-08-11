@@ -19,7 +19,27 @@ def applyColors(dfRequirement: pd.DataFrame):
 
     dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Received'], theme['grayText'], dfRequirement['Color'])
 
+    dfRequirement['Color'] = dfRequirement['Color']+' text-center'
+
     return dfRequirement['Color']
+
+def getWorkOrders(startDate, endDate):
+    fields = ['OrderNumber','StyleCode','Customer','DeliveryDate','ExcessCut']
+    workOrders = models.WorkOrder.objects.filter(DeliveryDate__gte=startDate, DeliveryDate__lte=endDate).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders
+
+    fields = ['OrderNumber','POQuantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber__in=dfWorkOrders['OrderNumber'].to_list()).values(
+        'OrderNumber'
+    ).annotate(POQuantity=Sum('Quantity')).order_by('OrderNumber')
+    dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)
+    del variants
+
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfVariants, left_on='OrderNumber', right_on='OrderNumber', how='left')
+    del dfVariants
+    
+    return dfWorkOrders
 
 #Get the List of Orders.
 def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
@@ -217,7 +237,7 @@ def UpdateWorkOrder(
         dfRequirement['Quantity'] = dfRequirement['Quantity'].astype(float)
         dfRequirement = dfRequirement[dfRequirement['Quantity']>0]
 
-        dfRequirement.drop(inplace=True, columns=['Ordered','InventoryName',''])
+        dfRequirement.drop(inplace=True, columns=['Ordered','InventoryName'])
 
         dfRequirement['InventoryCode'] = convertTexttoObject(models.Inventory, dfRequirement['InventoryCode'], 'Code')
         dfRequirement['OrderNumber'] = workOrder
@@ -504,7 +524,7 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id'])
 
     dfRequirement['Color'] = applyColors(dfRequirement[['Required','Ordered','Received']])
-
+    
     dfRequirement.sort_values(inplace=True, by='InventoryName')
 
     return dfToListOfDicts(dfRequirement)

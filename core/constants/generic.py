@@ -86,6 +86,13 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
             {'displayName': 'Under Process', 'viewName': 'QC:pendingTrimAudit'},
         ]},
     ],
+    'planning': [
+        {'groupName':'Dashboard', 'appName':'planning', 'modelName':'Capacity', 'views':[], 'viewName':'planning:planning'},
+        {'groupName':'Presets', 'appName':'planning', 'modelName':'Capacity', 'views':[
+            {'displayName':'Production Planning', 'viewName':'planning:setSource'},
+            {'displayName':'Capacity', 'viewName':'planning:capacity'},
+        ]},
+    ],
 }
 
 APP_OPTIONS = [

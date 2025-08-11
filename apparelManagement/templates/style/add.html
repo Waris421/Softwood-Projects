@@ -47,7 +47,6 @@
         </div>
     </div>
     
-    
     <!-- Variants Table -->
     <form method="POST" id="variantsForm" autocomplete="off" hidden>
         <div class="{{theme.border}}">
@@ -112,28 +111,15 @@
                     <select class="{{theme.dropdown}}" id="id_RouteType_1" name="type"></select>
                 </div>
                 <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
-                    <div class="dropdown w-full">
+                    <div class="dropdown w-full" inputName="PreReqs">
                         <div tabindex="0" role="button" class="{{theme.emptyButton}} w-full">
                             Select options
                         </div>
-                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
-                            <li>
-                                <label class="label cursor-pointer">
-                                    <span class="label-text">Option 1</span>
-                                    <input type="checkbox" name="selectedOptions[]" value="option1" class="checkbox" />
-                                </label>
-                            </li>
-                            <li>
-                                <label class="label cursor-pointer">
-                                    <span class="label-text">Option 2</span>
-                                    <input type="checkbox" name="selectedOptions[]" value="option2" class="checkbox" />
-                                </label>
-                            </li>
-                        </ul>
+                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full"></ul>
                     </div>
                 </div>
                 <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
-                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this, updateOptions)">
                         <span>+</span>
                     </button>
                     <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
@@ -172,7 +158,6 @@
             const variantForm = allForms['variantsForm'];
             const routeForm = allForms['routeForm'];
 
-            console.log(variantForm);
             const style = styleForm.elements;
 
             let data = {};
@@ -198,8 +183,6 @@
             
             const data = JSON.stringify(obj);
             
-            //console.log (csrf);
-            
             try {
                 const response = await fetch('add', {
                     method: 'POST',
@@ -217,33 +200,39 @@
                 alert(`Error occured. Check with administrator. Error: ${errorMessage}`);
             }
         }
+    </script>
 
-        function formToTable(group, form, data){
-            let rows = form.querySelectorAll('[row]');
-            //Remove unnecesary rows
-            rows = dropElements(rows);
+    <script>    //To update options of the route
+        function updateOptions(source) {
+            const rows = Array.from(source.parentElement.children);
+            rows.shift();
 
-            for (const row of rows) {
-                let rowNum = row.getAttribute('row');
-                let cols = row.children;
-                //Remove unnecessary columns
-                cols = dropElements(cols, cols.length-1, cols.length-1);
+            let stagesFromPreviousRows = [];
 
-                for (const col of cols) {
-                    name = col.firstElementChild.name+'_'+rowNum;
-                    value = col.firstElementChild.value;
-                    data[group+'_'+name] = value;                    
+            rows.forEach((row) => {
+                const stageElement = row.querySelector('select[name^="type"]');
+                const prereqDropdownList = row.querySelector('.dropdown-content.menu');
+                const dropdownButton = row.querySelector('.dropdown .btn');
+
+                const currentSelectedPrereqs = Array.from(prereqDropdownList.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(checkbox => checkbox.value);
+
+                prereqDropdownList.innerHTML = '';
+
+                stagesFromPreviousRows.forEach(stage => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <label class="label cursor-pointer">
+                            <span class="label-text">${stage}</span>
+                            <input type="checkbox" name="prereqs" value="${stage}" class="checkbox" ${currentSelectedPrereqs.includes(stage) ? 'checked' : ''}>
+                        </label>
+                    `;
+                    prereqDropdownList.appendChild(li);                    
+                });
+                if (stageElement.value && stageElement.value !== '-----------') {
+                    stagesFromPreviousRows.push(stageElement.value);
                 }
-            }
-            return data;
-        }
-
-        function dropElements(obj, startFrom=0, endAt=0) {
-            const arr = Object.values(obj);
-
-            arr.splice(startFrom, endAt - startFrom + 1);
-
-            return arr;
+            });
         }
     </script>
 

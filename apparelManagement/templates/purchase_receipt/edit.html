@@ -95,7 +95,7 @@
             {% for data in inv %}
                 <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                     <div hidden>
-                        <input type="number" value="{{data.id}}" name="id">
+                        <input type="number" value="{{data.id}}" class="{{theme.textInput}}" name="id">
                     </div>
                     <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName" readonly>

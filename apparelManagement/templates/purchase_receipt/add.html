@@ -42,7 +42,7 @@
     <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
         <div class="flex col-[1/3] items-center">
             <form method="POST" id="inventoryForm" autocomplete="off">
-                <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}" row="0">
                     <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                         <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                             Inventory
@@ -67,7 +67,7 @@
                 {% for data in inventory %}
                     <div class="grid grid-cols-9 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                         <div hidden>
-                            <input type="number" value="{{data.id}}" name="POInvId">
+                            <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="POInvId">
                         </div>
                         <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                             <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="Name" readonly>

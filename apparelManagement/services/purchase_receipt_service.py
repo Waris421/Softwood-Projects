@@ -241,7 +241,7 @@ def EditPurchaseReceipt (
     if dfRecInventory.empty:
         raise ValueError('No Inventory provided')
     
-    dfRecInventory.drop(inplace=True, columns=['InventoryName','Variant',''])
+    dfRecInventory.drop(inplace=True, columns=['InventoryName','Variant'])
 
     dfRecInventory['id'] = dfRecInventory['id'].astype(int)
 
