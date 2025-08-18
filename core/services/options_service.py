@@ -12,6 +12,7 @@ import rest_framework
 from django_countries import countries
 
 import pandas as pd
+from numpy import where
 
 from apparelManagement import models as appModels
 from planning import models as planningModels
@@ -756,11 +757,22 @@ def GetCapacities(request: HttpRequest):
     fields = ['id', 'Source','Capacity']
     capacities = planningModels.Capacity.objects.filter(filters).values(*fields)
     dfCapacities = pd.DataFrame(capacities) if capacities else pd.DataFrame(columns=fields)
-    del capacities, fields
+    del capacities
+
+    fields = ['Name','FullName']
+    subDepartments = planningModels.SubDepartment.objects.filter(Name__in=dfCapacities['Source'].to_list()).values(*fields)
+    dfSubDepartments = pd.DataFrame(subDepartments) if subDepartments else pd.DataFrame(columns=fields)
+    del subDepartments, fields
+    
+    
+    dfCapacities = pd.merge(left=dfCapacities, right=dfSubDepartments, left_on='Source', right_on='Name', how='left')
+    del dfSubDepartments
+    
+    dfCapacities['Source'] = where(dfCapacities['FullName'].isna(), dfCapacities['Source'], dfCapacities['FullName'])
     
     dfCapacities['text'] = dfCapacities['Source'].astype(str)+' - '+dfCapacities['Capacity'].astype(int).astype(str)+'pcs'
     dfCapacities.rename(inplace=True, columns={'id':'value'})
-    dfCapacities.drop(inplace=True, columns=['Source', 'Capacity'])
+    dfCapacities.drop(inplace=True, columns=['Source', 'Capacity','Name','FullName'])
 
     emptyRow = {'value': None, 'text': '-------------'}
     dfCapacities = pd.concat([pd.DataFrame([emptyRow]), dfCapacities]).reset_index(drop=True)

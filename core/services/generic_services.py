@@ -151,6 +151,19 @@ def convertTexttoObject (model: Model, column: pd.Series, fieldName: str) -> pd.
     Converts a pandas Series of values to a Series of corresponding Django model objects.
     Ignores missing values. Preserves original series order.
     '''
+    #Get the field from the model.
+    modelDataType = model._meta.get_field(fieldName).get_internal_type()
+    
+    #Convert the column to the same data type as the model field
+    if modelDataType == 'IntegerField' or modelDataType == 'AutoField':
+        column = pd.to_numeric(column, errors='coerce').astype('Int64')
+    elif modelDataType == 'FloatField':
+        column = pd.to_numeric(column, errors='coerce').astype('Float64')
+    elif modelDataType in ['CharField', 'TextField']:
+        column = column.astype(str)
+    elif modelDataType == 'BooleanField':
+        column = column.astype(bool)
+
     #remove any NA, NaN, NAT, Blank values from the column and remove duplicates
     validValues = column.dropna().unique()
 
@@ -235,6 +248,28 @@ def truncateTime (time: datetime.time):
     return time.replace(microsecond=0)
 
 def convertStrToDateTime(date: str, format: str):
+    """
+    Converts a date string to a date object. If the format doesn't contain a year
+    and the current month is Jan/Feb while the date string is Nov/Dec, it sets the year
+    to the previous year. Otherwise, it uses the current year.
+    """
+    if not date:
+        return None
+
+    #If the date format doesn't contain year, set it to current year
+    hasYear = any(char in format for char in ('%Y', '%y'))
+    if not hasYear:
+        currentDate = datetime.now()
+        currentYear = currentDate.year
+        
+        #Set year to previous year if added date is Nov/Dec and we're currently in Jan/Feb
+        tempDate = datetime.strptime(f"{date} {currentYear}", f"{format} %Y")
+        if currentDate.month in [1, 2] and tempDate.month in [11, 12]:
+                currentYear -= 1
+
+        date = f"{date} {currentYear}"
+        format = f"{format} %Y"
+   
     return datetime.strptime(date, format)
 
 def askAI(prompt: str, outputSchema: Union[Dict[str, Any], None] = None):
@@ -330,3 +365,31 @@ def convertCountryCodeToName(code):
         return dict(countries)[code]
     except:
         return None
+
+def roundFloatCols(df: pd.DataFrame):
+    """
+    Rounds all float columns in a pandas DataFrame to a specified number of
+    decimal places based on the value's magnitude.
+
+    - Values below 1 are rounded to 3 decimal places.
+    - Values between 1 and 10 are rounded to 2 decimal places.
+    - Values between 10 and 100 are rounded to 1 decimal place.
+    - Values above 100 are rounded to the nearest integer.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+
+    Returns:
+        pd.DataFrame: A new DataFrame with the float columns rounded.
+    """
+    floatCols = df.select_dtypes(include=['float64']).columns
+
+    for col in floatCols:
+        df[col] = df[col].apply(
+            lambda x: round(x, 3) if abs(x) < 1 else
+                      round(x, 2) if 1 <= abs(x) < 10 else
+                      round(x, 1) if 10 <= abs(x) < 100 else
+                      round(x, 0)
+        )
+    
+    return df

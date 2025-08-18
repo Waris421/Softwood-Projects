@@ -579,27 +579,28 @@ def PrintWorkOrder(request: HttpRequest, pk: str):
         requiredFormat = data['format']
         
         try:
-            order, cutting, material, status = work_order_service.PrintWO(orderObject)
+            order, cutting, cuttingSummary, material, status = work_order_service.PrintWO(orderObject)
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
-
-        context = {'order':order, 'cut':cutting, 'material': material, 'status': status, 'theme': theme}
-
         try:
             match requiredFormat:
                 case 'CUT':
+                    context = {'order':order, 'cut':cutting, 'summary': cuttingSummary, 'theme': theme}
                     return render(request, 'work_order/print_cut.html', context)
                 case 'F&T':
-                    print('Need to make farbic and trims status format')
-                    return HttpResponse('This page is under construction')
+                    context = {'order':order, 'cut':cuttingSummary,'material':material, 'theme': theme}
+                    return render(request, 'work_order/print_ft.html', context)
                 case 'PST':
                     print('Need to make production status format')
+                    return HttpResponse('This page is under construction')
+                case 'T&A':
+                    print('Need to make planning format')
                     return HttpResponse('This page is under construction')
                 case _:
                     return HttpResponse('Incorrect format', status=400)
         except Exception as e:
-            return HttpResponse(e, status=405)
+            return HttpResponse(e, status=400)
     else:
         return HttpResponse('Not Allowed', status=403)
 

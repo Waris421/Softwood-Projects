@@ -1,5 +1,5 @@
 from django.db import models
-from apparelManagement.models import Department
+from apparelManagement.models import Department, StyleCard, StyleRoute, WorkOrder
 
 class SubDepartment (models.Model):
     id=models.AutoField(primary_key=True)
@@ -20,4 +20,20 @@ class Capacity (models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['Source',]),
+        ]
+
+class ProductionPlan(models.Model):
+    id = models.AutoField(primary_key=True)
+    WorkOrder = models.ForeignKey(WorkOrder, on_delete=models.PROTECT)
+    StyleRoute = models.ForeignKey(StyleRoute, on_delete=models.CASCADE)
+    Source = models.ForeignKey(Capacity, on_delete=models.SET_NULL, null=True)
+    MDate = models.DateField(blank=True, null=True)
+    ActualDate = models.DateField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['WorkOrder',]),
+            models.Index(fields=['StyleRoute',]),
+            models.Index(fields=['Source',]),
+            models.Index(fields=['ActualDate',]),
         ]

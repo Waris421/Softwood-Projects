@@ -5,6 +5,7 @@
 {% endblock %}
 
 {% block content %}
+  {% csrf_token %}                        <!--This is to protect against CSRF attacks-->    
   <div class="{{theme.border}} {{theme.formHeading}}">
     <form action="{% url 'apparelManagement:WOs' %}" method="get" autocomplete="off">
       <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
@@ -30,7 +31,7 @@
         <div class="flex col-[1/13] btn-group {{theme.align}} justify-end ml-1 mt-2">
           <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:addWO' %}" role="button">Add Order</a>
           <a id="copyOrderButton" class="{{theme.buttonBasic}}" role="button">Copy Order</a>
-          <a id="editOrderButton" class="{{theme.buttonBasic}}" role="button">Edit Order</a>
+          <a id="editOrderButton" class="{{theme.buttonBasic}}" role="button">View/Edit Order</a>
           <a id="deleteOrderButton" class="{{theme.buttonBasic}}" role="button">Delete Order</a>
         </div>
       </div>
@@ -52,7 +53,7 @@
               {% for data in order %}
               <tr class="{{theme.tableBodyRow}}">
                   <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
-                  <td class="order">{{ data.OrderNumber }}</td>
+                  <td class="order {{theme.hyperLink}}" onclick="showViewBox(`{{ data.OrderNumber }}`)">{{ data.OrderNumber }}</td>
                   <td>{{ data.StyleCode_id }}</td>
                   <td>{{ data.Customer_id }}</td>
                   <td>{{ data.Quantity }}</td>
@@ -101,14 +102,66 @@
     });       
   </script>
 
-    <script>//To run when the page loads
-        window.addEventListener('load', async () => {
-            //Customer dropdown
-            let response = await fetch('/options/customers?search={{selectedCustomer}}');
-            const customers = await response.json();
-            const newRow = { "value": '', "text": "-----------" };
-            customers.unshift(newRow);
-            await appendOptions('customerFilter', customers, '{{selectedCustomer}}');
+  <script> //To view work order
+    async function showViewBox(workOrderNumber) {
+      const options = [
+        {'value':'CUT', 'text':'Cut Plan'},
+        {'value':'F&T', 'text':'Trims Status'},
+        {'value':'T&A', 'text': 'T&A Plan'},
+        {'value':'PST', 'text': 'Production Status'},
+      ];
+      const selectedOption = 'F&T';
+
+      showDropDown(options, viewWO, selectedOption, false);
+
+      async function viewWO(selectedFormat) {
+        showLoadingIcon();
+
+        const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        const obj = {'format':selectedFormat};
+        const data = JSON.stringify(obj);
+
+        const response = await fetch('/workorder/'+workOrderNumber+'/print', {
+            method: 'POST',
+            body: data,
+            headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
         });
-    </script>
+
+        if (response.ok) {
+          const pdfBlob = await response.blob();
+
+          const pdfURL = URL.createObjectURL(pdfBlob);
+
+          const win = window.open(pdfURL, '_blank');
+
+          if (win) {
+              win.onafterprint = function() {
+                  URL.revokeObjectURL(pdfURL);
+              };
+              win.focus();
+          } else {
+              showMessage('Please allow pop-up access from browser');
+              URL.revokeObjectURL(pdfURL);
+          }
+        } else {
+          errorMessage = await response.text();
+          showMessage(errorMessage);
+        }
+        hideLoadingIcon();
+      }
+
+    }
+  </script>
+
+  <script>//To run when the page loads
+      window.addEventListener('load', async () => {
+          //Customer dropdown
+          let response = await fetch('/options/customers?search={{selectedCustomer}}');
+          const customers = await response.json();
+          const newRow = { "value": '', "text": "-----------" };
+          customers.unshift(newRow);
+          await appendOptions('customerFilter', customers, '{{selectedCustomer}}');
+      });
+  </script>
 {% endblock %}

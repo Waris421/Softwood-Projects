@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime, dfToListOfDicts
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime, dfToListOfDicts, roundFloatCols
 from core.constants.theme import theme
 
 def applyColors(dfRequirement: pd.DataFrame):
@@ -619,48 +619,65 @@ def PrintWO (order: models.WorkOrder):
     Get the data to print the WO.
     '''
 
-    variants = models.OrderVariant.objects.filter(OrderNumber=order).values('Name','Quantity')
-    if variants:
-        dfVariants = pd.DataFrame(variants)
-    else:
-        dfVariants = pd.DataFrame(columns=['Name','Quantity'])
+    fields = ['Name','Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber=order).values(*fields)
+    dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)
     del variants
 
-    allocation = models.POAllocation.objects.filter(WorkOrder=order).values('POInvId','Quantity')
-    if allocation:
-        dfPOAllocation = pd.DataFrame(allocation)
-    else:
-        dfPOAllocation = pd.DataFrame(columns=['POInvId', 'Quantity'])
+    fields = ['POInvId','Quantity']
+    allocation = models.POAllocation.objects.filter(WorkOrder=order).values(*fields)
+    dfPOAllocation = pd.DataFrame(allocation) if allocation else pd.DataFrame(columns=fields)
+
+    fields = ['RecInvId','Quantity']
+    allocation = models.RecAllocation.objects.filter(WorkOrder=order).values(*fields)
+    dfRecAllocation = pd.DataFrame(allocation) if allocation else pd.DataFrame(columns=fields)
+
+    fields = ['IssueInventory','Quantity']
+    allocation = models.IssueAllocation.objects.filter(WorkOrder=order).values(*fields)
+    dfIssueAllocation = pd.DataFrame(allocation) if allocation else pd.DataFrame(columns=fields)
     del allocation
 
-    poInventory = models.POInventory.objects.filter(id__in=dfPOAllocation['POInvId'].to_list()).values('id','Inventory','Variant')
-    if poInventory:
-        dfPOInventory = pd.DataFrame(poInventory)
-    else:
-        dfPOInventory = pd.DataFrame(columns=['id','Inventory','Variant'])
+    fields = ['id','Inventory','Variant']
+    poInventory = models.POInventory.objects.filter(id__in=dfPOAllocation['POInvId'].to_list()).values(*fields)
+    dfPOInventory = pd.DataFrame(poInventory) if poInventory else pd.DataFrame(columns=fields)
     del poInventory
 
-    requirement = models.InvRequirement.objects.filter(OrderNumber=order).values('InventoryCode','Variant','Quantity')
-    if requirement:
-        dfRequirement = pd.DataFrame(requirement)
-    else:
-        dfRequirement = pd.DataFrame(columns=['InventoryCode','Variant','Quantity'])
+    fields = ['id','InventoryCode', 'Variant']
+    recInventory = models.RecInventory.objects.filter(id__in=dfRecAllocation['RecInvId'].to_list()).values(*fields)
+    dfRecInventory = pd.DataFrame(recInventory) if recInventory else pd.DataFrame(columns=fields)
+    del recInventory
+    
+    fields = ['id', 'Inventory','Variant']
+    issueInventory = models.IssueInventory.objects.filter(id__in=dfIssueAllocation['IssueInventory'].to_list()).values(*fields)
+    dfIssueInventory = pd.DataFrame(issueInventory) if issueInventory else pd.DataFrame(columns=fields)
+    del issueInventory
+
+    fields = ['InventoryCode','Variant','Quantity']
+    requirement = models.InvRequirement.objects.filter(OrderNumber=order).values(*fields)
+    dfRequirement = pd.DataFrame(requirement) if requirement else pd.DataFrame(columns=fields)
     del requirement
 
-    consumption = models.StyleConsumption.objects.filter(Style=order.StyleCode).values('InventoryCode','FinalCons','HasVariant','SizeDetails','Type')
-    if consumption:
-        dfConsumption = pd.DataFrame(consumption)
-    else:
-        dfConsumption = pd.DataFrame(columns=['InventoryCode','FinalCons','HasVariant','SizeDetails','Type'])
-    
-    #TODO: Also get the inventory receipt, issuance and production status
+    fields = ['Code','Name']
+    reqInventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values(*fields)
+    dfReqinventories = pd.DataFrame(reqInventories) if reqInventories else pd.DataFrame(columns=fields)
+    del reqInventories
+
+    fields = ['InventoryCode','FinalCons','HasVariant','SizeDetails','Type']
+    consumption = models.StyleConsumption.objects.filter(Style=order.StyleCode).values(*fields)
+    dfConsumption = pd.DataFrame(consumption) if consumption else pd.DataFrame(columns=fields)
+    del consumption, fields
 
     dfVariants = dfVariants[dfVariants['Quantity']>0]
     
     dfVariants.rename(inplace=True, columns={'Quantity':'POQuantity'})
+    cuttingSummary = {}
+    cuttingSummary['poQty'] = dfVariants['POQuantity'].sum()
+
     dfVariants['CutQuantity'] = dfVariants['POQuantity'] * (1+(order.ExcessCut/100))
     dfVariants['CutQuantity'] = np.ceil(dfVariants['CutQuantity']).astype(int)
+    cuttingSummary['willCutQty'] = dfVariants['CutQuantity'].sum()
     #TODO: Get the actual cut qty form core sheet.
+    cuttingSummary['actualCut'] = '-'
     dfVariants['ActualCut'] = '-'
 
     dfVariants[['Variant1', 'Variant2']] = dfVariants['Name'].str.split('-', n=1, expand=True)
@@ -668,9 +685,35 @@ def PrintWO (order: models.WorkOrder):
 
     dfVariants = dfVariants.groupby(by='Variant1')
 
+    dfConsumption = dfConsumption.groupby('InventoryCode').agg(
+        FinalCons = ('FinalCons', 'sum'),
+        HasVariant = ('HasVariant','first'),
+        SizeDetails = ('SizeDetails','first'),
+        Type = ('Type','first'),
+    )
+    
+    dfRecInventory = pd.merge(left=dfRecInventory, right=dfRecAllocation, left_on='id', right_on='RecInvId', how='left')
+    del dfRecAllocation
+    dfRecInventory.drop(inplace=True, columns=['id','RecInvId'])    
+    #sum up qties for one inv and variant.
+    dfRecInventory = dfRecInventory.groupby(by=['InventoryCode','Variant']).sum().reset_index()
+
+    dfIssueInventory = pd.merge(left=dfIssueInventory, right=dfIssueAllocation, left_on='id', right_on='IssueInventory', how='left')
+    del dfIssueAllocation
+    dfIssueInventory.drop(inplace=True, columns=['id', 'IssueInventory'])
+    #sum up qties for one inv and variant.
+    dfIssueInventory = dfIssueInventory.groupby(by=['Inventory','Variant']).sum().reset_index()
+
     dfRequirement = pd.merge(left=dfConsumption, right=dfRequirement, on='InventoryCode', how='outer')
     dfRequirement.rename(inplace=True, columns={'FinalCons':'Consumption','Quantity':'Required'})
     del dfConsumption
+
+    usageMap = {
+        'BW': 'Before Wash',
+        'AW': 'After Wash',
+        'Fab': 'Fabric'
+    }
+    dfRequirement['Type'] = dfRequirement['Type'].map(usageMap)
 
     dfRequirement = pd.merge(left=dfRequirement, right=dfPOInventory, left_on=['InventoryCode','Variant'],
                              right_on=['Inventory','Variant'], how='left')
@@ -681,10 +724,40 @@ def PrintWO (order: models.WorkOrder):
     del dfPOAllocation
     dfRequirement.drop(inplace=True, columns=['id','POInvId'])
     dfRequirement.rename(inplace=True, columns={'Quantity':'Ordered'})
+    dfRequirement['Ordered'] = dfRequirement['Ordered'].fillna(0).infer_objects(copy=False)
+    
+    dfRequirement = dfRequirement.groupby(['InventoryCode', 'Variant']).agg(
+        Required=('Required', 'first'),
+        Ordered=('Ordered', 'sum'),
+        Type=('Type', 'first'),
+        Consumption=('Consumption', 'first'),
+        SizeDetails = ('SizeDetails', 'first'),
+    ).reset_index()
+
+    dfRequirement = pd.merge(left=dfRequirement, right = dfRecInventory, on=['InventoryCode','Variant'], how='left')
+    del dfRecInventory
+    dfRequirement.rename(inplace=True, columns={'Quantity':'Received'})
+    dfRequirement['Received'] = dfRequirement['Received'].fillna(0).infer_objects(copy=False)
+    
+    dfRequirement = pd.merge(left=dfRequirement, right=dfIssueInventory, left_on=['InventoryCode', 'Variant'],
+                             right_on=['Inventory', 'Variant'], how='left')
+    del dfIssueInventory
+    dfRequirement.drop(inplace=True, columns=['Inventory'])
+    dfRequirement.rename(inplace=True, columns={'Quantity':'Issued'})
+    dfRequirement['Issued'] = dfRequirement['Issued'].fillna(0).infer_objects(copy=False)
+
+    dfRequirement = pd.merge(left=dfRequirement, right=dfReqinventories, left_on='InventoryCode', right_on='Code', how='left')
+    del dfReqinventories
+    dfRequirement.drop(inplace=True, columns=['Code','InventoryCode'])
+
+    customOrder = ['Fabric', 'Before Wash', 'After Wash']
+    dfRequirement['Type'] = pd.Categorical(dfRequirement['Type'], categories=customOrder, ordered=True)
+    dfRequirement = dfRequirement.sort_values(by=['Type', 'Name'])
+
+    dfRequirement = roundFloatCols(dfRequirement)
 
     cutting = {}
     for name, group in dfVariants:
         cutting[name] = group.to_dict(orient='records')
-    requirement = dfRequirement.to_dict(orient='records')
 
-    return order, cutting, requirement, None
+    return order, cutting, cuttingSummary, dfToListOfDicts(dfRequirement), None

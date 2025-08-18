@@ -59,8 +59,9 @@ def SetSource(request: HttpRequest):
         
         try:
             planning_service.UpdateOrdersPlanning(dfPlanning)
-            return HttpResponse('In Process', status=501)
+            return HttpResponse('Success', status=200)
         except Exception as e:
+            print(e)
             return HttpResponse(e, status=400)
     else:
         startingDD = request.GET.get('startingDD', '')

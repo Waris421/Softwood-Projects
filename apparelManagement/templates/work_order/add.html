@@ -15,9 +15,9 @@
                     <label class="mx-2 whitespace-nowrap">Order#:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" name="OrderNumber" required>
                 </div>
-                <div class="flex col-[4/7] items-center">
+                <div class="flex col-[4/7] items-center relative">
                     <label class="mx-2 whitespace-nowrap">Style:&nbsp; </label>
-                    <select id="id_Style" class="{{theme.dropdown}}" name="Style" onchange="getCustomerForStyle(this.value)"> </select>
+                    <select id="id_Style" class="{{theme.dropdown}}" name="Style" onclick="showSearchBox(this, '/options/styles', getCustomerForStyle)"> </select>
                 </div>
                 <div class="flex col-[7/9] items-center relative">
                     <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
@@ -148,12 +148,14 @@
             //Styles Dropdown
             let response = await fetch('/options/styles');
             const styles = await response.json();
+            const newRow = { "value": '', "text": "-----------" };
+            styles.unshift(newRow);
             await appendOptions('id_Style', styles);
             
             //Customer dropdown
             response = await fetch('/options/customers');
             const customers = await response.json();
-            const newRow = { "value": '', "text": "-----------" };
+            
             customers.unshift(newRow);
             await appendOptions('id_Customer', customers);
 
@@ -174,7 +176,8 @@
     </script>
 
     <script> //To set customer based on the customer in style.
-        async function getCustomerForStyle(style) {
+        async function getCustomerForStyle(source) {
+            const style = source.value;
             const styleSelect = document.getElementById('id_Style');
             
             const customer = Array.from(styleSelect.options).find(option => option.value === style).text.split(' -')[0].trim();

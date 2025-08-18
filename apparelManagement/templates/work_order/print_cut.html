@@ -49,16 +49,30 @@
         </div>
         <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
             <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <h3 class="{{theme.headingBold}}">Excess Cut:</h3>
+                <h3 class="{{theme.headingBold}}">PO Quantity:</h3>
             </div>
             <div class="flex col-[2/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{order.ExcessCut|floatformat:0}}%</div>
+                <div class="{{theme.headingNormal}}">{{summary.poQty|floatformat:0}}</div>
             </div>
             <div class="flex col-[5/6] {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <h3 class="{{theme.headingBold}}">Customer:</h3>
             </div>
             <div class="flex col-[6/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <div class="{{theme.headingNormal}}">{{order.Customer.Name}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Will Cut Quantity:</h3>
+            </div>
+            <div class="flex col-[2/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{summary.willCutQty|floatformat:0}}</div>
+            </div>
+            <div class="flex col-[5/6] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Excess Cut:</h3>
+            </div>
+            <div class="flex col-[6/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.ExcessCut|floatformat:0}}%</div>
             </div>
         </div>
     </div>

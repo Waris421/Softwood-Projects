@@ -10,10 +10,10 @@
     <!-- The main filter form-->
     <div class="{{theme.border}} {{theme.formHeading}}">
         <form action="{% url 'planning:setSource' %}" method="get">
-            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/2] items-center">
                     <span class="text-sm text-gray-500 mb-1">Plan By:</span>
-                    <select id="sortingMethod" name="sortingMethod" class="{{theme.dropdown}}">
+                    <select id="sortingMethod" name="sortingMethod" class="{{theme.dropdown}}" onchange="this.form.submit()">
                         <option value="orderWise" 
                             {% if sortingMethod == 'orderWise' %}
                                 selected
@@ -26,14 +26,28 @@
                             >Process Wise</option>
                     </select>
                 </div>
-                <div class="flex flex-col col-[2/3] items-center">
+                
+                <div class="flex flex-col col-[2/3] items-center relative">
+                    {% if sortingMethod == 'orderWise' %}
+                        <span class="text-sm text-gray-500 mb-1">Work Order:</span>
+                        <select id="orderFilter" name="orderFilter" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/workorders')">
+
+                        </select>
+                    {% else %}
+                        <span class="text-sm text-gray-500 mb-1">Process:</span>
+                        <select id="stageFilter" name="stageFilter" class="{{theme.dropdown}}">
+
+                        </select>
+                    {% endif %}
+                </div>    
+                <div class="flex flex-col col-[3/4] items-center">
                     <span class="text-sm text-gray-500 mb-1">Delivery Date:</span>
                     <div class="flex items-center" id="date-range-picker" date-rangepicker datepicker-format="yyyy-mm-dd">
                         <input id="startingDD" name="startingDD" type="text" class="{{theme.textInput}}" value="{{ startingDD|date:"Y-m-d" }}">
                         <input id="endingDD" name="endingDD" type="text" class="{{theme.textInput}}" value="{{ endingDD|date:"Y-m-d" }}">
                     </div>
                 </div>
-                <div class="flex col-[3/4] btn-group {{theme.align}} justify-end ml-1">
+                <div class="flex col-[4/5] btn-group {{theme.align}} justify-end ml-1">
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
                     <button type="button" class="{{theme.buttonSecondary}}" onclick="submitForms()">Save</button>
                 </div>
@@ -98,6 +112,9 @@
             </div>
             {% for data in ordersPlanning %}
                 <div class="grid grid-cols-13 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                    </div>
                     <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
                         <input type="number" class="{{theme.textInput}}" value="{{data.OrderNumber}}" name="OrderNumber" readonly>
                     </div>
@@ -146,7 +163,16 @@
             const planningData = {{planningJSON | safe}};
 
             for (const [index, data] of planningData.entries()) {
-                await appendOptions(`id_Source_${index+1}`, capacities, data.Source);
+                appendOptions(`id_Source_${index+1}`, capacities, data.Source);
+            }
+
+            const orderFilter = document.getElementById('orderFilter');
+            if (orderFilter) {
+                console.log(orderFilter)
+            } else  {
+                response = await fetch('/options/prodstages');
+                const routeTypes = await response.json();
+                console.log(document.getElementById('stageFilter'));
             }
 
             hideLoadingIcon();
@@ -167,7 +193,7 @@
             const response = await submitData(data);
             
             if (response.ok) {
-                showMessage('Saved Successfully', 3, `{{theme.successBox}}`);
+                window.location.reload();
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage, 5, `{{theme.errorBox}}`);
