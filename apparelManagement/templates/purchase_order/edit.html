@@ -251,8 +251,8 @@
 
             //Styles Dropdown
             let response = await fetch('/options/suppliers?search={{order.Supplier}}');
-            const styles = await response.json();
-            await appendOptions('id_Supplier', styles, "{{order.Supplier}}");
+            const suppliers = await response.json();
+            await appendOptions('id_Supplier', suppliers, "{{order.Supplier}}");
 
             response = await fetch('/options/workorders');
             const workOrders = await response.json();
@@ -625,10 +625,12 @@
     <script> //To print the PO
         function showSelectionBox() {
             const options = [
-                {'value':'SUP', 'text':'For Supplier'},
+                {'value':'SUP', 'text':'For Supplier - All Variants'},
+                {'value':'SUPV1', 'text':'For Supplier - Variant 1'},
+                {'value':'SUPV2', 'text':'For Supplier - Variant 2'},
                 {'value':'ACC', 'text':'For Accounts'},
             ];
-            const selectedOption = 'SUP';
+            const selectedOption = 'SUPV2';
 
             showDropDown(options, printPO, selectedOption, false);
         }

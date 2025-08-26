@@ -86,7 +86,7 @@ theme = {
     #Text Colors
     'redText': 'text-red-600',
     'blueText': 'text-blue-600',
-    'grayText': 'text-gray-200 dark:text-gray-700',
+    'grayText': 'text-gray-400 dark:text-gray-600',
 
     #Chart Colors
     'red': '#DC143C',

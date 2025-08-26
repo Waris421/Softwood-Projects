@@ -35,6 +35,40 @@ def getLeadTime (Inventories: pd.Series):
             leadTime = invLeadTime
     return leadTime
 
+def summarizeVariants(dfInventory: pd.DataFrame, varFilter: str):
+    dfInventory['Variant'] = dfInventory['Variant'].astype(str)
+
+    condition = dfInventory['Variant'].str.contains('-', na=False)
+    dfWithVariants = dfInventory[condition]
+    dfWithoutVariants = dfInventory[~condition]
+    del dfInventory
+
+    if dfWithVariants.empty:
+        dfWithVariants[['Variant1', 'Variant2']] = ''
+    else:
+        dfWithVariants[['Variant1', 'Variant2']] = dfWithVariants['Variant'].str.split('-', n=1, expand=True)
+    dfWithVariants.drop(inplace=True, columns=['Variant'])
+
+    aggDict = {
+        'id': 'first',
+        'Quantity': 'sum',
+        'Price': 'mean',
+        'Currency': 'first',
+        'Unit': 'first',
+        'Value': 'mean'
+    }
+
+    if varFilter == 'V1':
+        dfWithVariants = dfWithVariants.groupby(['Name', 'Variant1']).agg(aggDict).reset_index()
+        dfWithVariants = dfWithVariants.rename(columns={'Variant1': 'Variant'})
+    else:
+        dfWithVariants = dfWithVariants.groupby(['Name', 'Variant2']).agg(aggDict).reset_index()
+        dfWithVariants = dfWithVariants.rename(columns={'Variant2': 'Variant'})
+    
+    dfInventory = pd.concat([dfWithVariants, dfWithoutVariants])
+    
+    return dfInventory
+
 def GeneratePOfromWO(dfData: pd.DataFrame, workOrder: models.WorkOrder):
     '''
     Make a PO for the data from Work Order Table
@@ -43,7 +77,7 @@ def GeneratePOfromWO(dfData: pd.DataFrame, workOrder: models.WorkOrder):
     dfData[['ReqQuantity','OrderQuantity']] = dfData[['ReqQuantity','OrderQuantity']].astype(float)
     dfData['Quantity'] = dfData['ReqQuantity'] - dfData['OrderQuantity']
     dfData.drop(inplace=True, columns=['ReqQuantity','OrderQuantity'])
-    dfData['Quantity'] = dfData['Quantity'].apply(lambda x: round(x, 0))
+    dfData['Quantity'] = dfData['Quantity'].apply(lambda x: np.ceil(x))
 
     dfData = dfData[dfData['Quantity']>0]
     if dfData.empty:
@@ -167,7 +201,7 @@ def GeneratePOfromAutoReq(dfData: pd.DataFrame, supplierName:str):
     dfInventory['Forex'] = 1.0
 
     dfInventory.rename(inplace=True, columns={'InventoryCode':'Inventory','OrderQuantity':'Quantity'})
-    dfInventory['Quantity'] = dfInventory['Quantity'].apply(lambda x: round(x, 0))
+    dfInventory['Quantity'] = dfInventory['Quantity'].apply(lambda x: np.ceil(x))
     for _, row in dfInventory.iterrows():
         newEntry = models.POInventory(**row.to_dict())
         newEntry.save()
@@ -372,7 +406,6 @@ def AddPurchaseOrder(dfOrder: pd.DataFrame, dfInventory: pd.DataFrame):
     orderCard = models.PurchaseOrder(**orderCard)
     orderCard.save() 
 
-    print(dfInventory)
     #Remove rows without inventory code
     dfInventory = dfInventory[dfInventory['InventoryCode'].str.len()>0]
 
@@ -598,7 +631,7 @@ def GetWorkOrderDefaultQty (
 
     return pendingQty
 
-def PrintPO(orderObject: models.PurchaseOrder):
+def PrintPO(orderObject: models.PurchaseOrder, varFilter: str|None = None):
     '''
     Get the data to print the PO.
     '''
@@ -632,6 +665,9 @@ def PrintPO(orderObject: models.PurchaseOrder):
 
     #Calculate value of each entry
     dfPOInventory['Value'] = dfPOInventory['Quantity'] * dfPOInventory['Price']
+
+    if varFilter:
+        dfPOInventory = summarizeVariants(dfPOInventory, varFilter)
 
     #merge allocation with work orders to get their style etc
     dfAllocation = pd.merge(left=dfAllocation, right=dfWorkOrders, left_on='WorkOrder', right_on='OrderNumber', how='left')

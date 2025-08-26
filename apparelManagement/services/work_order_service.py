@@ -614,6 +614,84 @@ def GetRequirementHistory (invRequirement: models.InvRequirement, workOrder: mod
 
     return dfToListOfDicts(dfResults)
 
+def GetInitialPlanning(
+        typeFilter: str,
+        customerFilter: str|None,
+        startDateStr: str|None,
+        endDateStr: str|None,
+):
+    filters = Q()
+    if typeFilter == 'unplanned':
+        filters &= Q(workorderinitialplan__isnull=True)
+    if customerFilter:
+        filters &= Q(Customer=customerFilter)
+    if startDateStr:
+        startDate = convertStrToDateTime(startDateStr, '%Y-%m-%d').date()
+        filters &= Q(DeliveryDate__gte=startDate)
+    if endDateStr:
+        endDate = convertStrToDateTime(endDateStr, '%Y-%m-%d').date()
+        filters &= Q(DeliveryDate__lte=endDate)
+    
+    fields = ['OrderNumber','StyleCode','Customer','DeliveryDate']
+    workOrders = models.WorkOrder.objects.filter(filters).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders
+
+    fields = ['OrderNumber','Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber__in=dfWorkOrders['OrderNumber'].to_list()).values(*fields)
+    dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)
+    del variants
+
+    fields = ['id','WorkOrder','FabricETA','BWTrimETA','AWTrimETA', 'PullBack']
+    addedPlans = models.WorkOrderInitialPlan.objects.filter(WorkOrder__in=dfWorkOrders['OrderNumber'].to_list()).values(*fields)
+    dfAddedPlans = pd.DataFrame(addedPlans) if addedPlans else pd.DataFrame(columns=fields)
+    del addedPlans
+
+    dfVariants = dfVariants.groupby('OrderNumber')['Quantity'].sum().reset_index()
+    
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfVariants, on='OrderNumber', how='left')
+    del dfVariants
+    dfWorkOrders.rename(inplace=True, columns={'OrderNumber':'WorkOrder'})
+    
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfAddedPlans, on='WorkOrder', how='left')
+
+    return dfToListOfDicts(dfWorkOrders)
+
+def UpdateInitialPlanning(dfInitialPlan: pd.DataFrame):
+    #Remove unwanted columns
+    dfInitialPlan.drop(inplace=True, columns=['StyleCode','Customer','DeliveryDate','Quantity'])
+    
+    #Remvoe rows with empty dates
+    condition = dfInitialPlan['FabricETA'].str.len()>0
+    condition |= dfInitialPlan['BWTrim'].str.len()>0
+    condition |= dfInitialPlan['AWTrim'].str.len()>0
+    dfInitialPlan = dfInitialPlan[condition]
+
+    #Raise erros if any of the required fields are empty
+    if (dfInitialPlan[['FabricETA','BWTrim','AWTrim']]=='').any().any():
+        raise ValueError('Required Data is missing')
+    
+    fields = ['id']
+    idsToSearch = dfInitialPlan[dfInitialPlan['id'].str.len()>0]['id'].to_list()
+    previousPlans = models.WorkOrderInitialPlan.objects.filter(id__in=idsToSearch)
+    dfPreviousPlans = pd.DataFrame(previousPlans.values(*fields)) if previousPlans else pd.DataFrame(columns=fields)
+    del previousPlans, fields
+
+    cols = ['FabricETA', 'BWTrim', 'AWTrim']
+    for col in cols:
+        dfInitialPlan[col] = pd.to_datetime(dfInitialPlan[col], errors='coerce')
+
+    dfInitialPlan.rename(inplace=True, columns={'OrderNumber':'WorkOrder', 'BWTrim': 'BWTrimETA', 'AWTrim': 'AWTrimETA'})
+
+    dfInitialPlan['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfInitialPlan['WorkOrder'], 'OrderNumber')
+    
+    dfInitialPlan['PullBack'] = pd.to_numeric(dfInitialPlan['PullBack'], errors='coerce').fillna(0).astype(int)
+    
+    try:
+        updateModelWithDF(models.WorkOrderInitialPlan, dfInitialPlan, dfPreviousPlans)
+    except Exception as e:
+        raise ValueError(e)
+
 def PrintWO (order: models.WorkOrder):
     '''
     Get the data to print the WO.

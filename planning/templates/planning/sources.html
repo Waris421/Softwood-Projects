@@ -160,6 +160,8 @@
             let response = await fetch('/options/capacities');
             const capacities = await response.json();
 
+            const emptyRow = {"value": "","text": "-----------"}
+
             const planningData = {{planningJSON | safe}};
 
             for (const [index, data] of planningData.entries()) {
@@ -168,11 +170,15 @@
 
             const orderFilter = document.getElementById('orderFilter');
             if (orderFilter) {
-                console.log(orderFilter)
+                response = await fetch('/options/workorders?search={{orderFilter}}');
+                const workOrders = await response.json();
+                workOrders.unshift(emptyRow);
+                appendOptions('orderFilter', workOrders, '{{orderFilter}}');
             } else  {
                 response = await fetch('/options/prodstages');
                 const routeTypes = await response.json();
-                console.log(document.getElementById('stageFilter'));
+                routeTypes.unshift(emptyRow);
+                await appendOptions('stageFilter', routeTypes, '{{stageFilter}}');
             }
 
             hideLoadingIcon();

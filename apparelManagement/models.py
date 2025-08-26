@@ -285,6 +285,22 @@ class WorkOrder (models.Model):
             models.Index(fields=['Merchandiser']),
         ]
 
+class WorkOrderInitialPlan (models.Model):
+    """Data model for a Work Order's initial plan."""
+
+    id = models.AutoField(primary_key=True)
+    WorkOrder = models.ForeignKey(WorkOrder, on_delete=models.CASCADE)
+    FabricETA = models.DateField()
+    BWTrimETA = models.DateField()
+    AWTrimETA = models.DateField()
+    PullBack = models.IntegerField(default=0, null=True, blank=True)
+
+    class Meta:
+        #This reduces the loading time when reading the database, but increases writing time.
+        indexes = [
+            models.Index(fields=['WorkOrder']),
+        ]
+
 class OrderVariant (models.Model):
     """Data model for a Work Order's variants."""
 

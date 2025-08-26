@@ -513,7 +513,37 @@ def GetRequirementHistory (request: HttpRequest):
     except Exception as e:
         print(e)
         return HttpResponse(e, status=400)
-    
+
+@login_required(login_url='/login')
+def WorkOrderInitialPlan(request: HttpRequest):
+    if request.method == 'POST':
+        #Convert the json to a dict
+        jsonData = json.loads(request.body.decode('utf-8'))
+
+        dfInitialPlan = generic_services.refineJson(jsonData)
+
+        try:
+            work_order_service.UpdateInitialPlanning(dfInitialPlan)
+            return HttpResponse('OK', status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        typeFilter = request.GET.get('typeFilter','unplanned')
+        customerFilter = request.GET.get('customerFilter', None)
+        startDate = request.GET.get('startDate', None)
+        endDate = request.GET.get('endDate', None)
+
+        initialPlans = work_order_service.GetInitialPlanning(typeFilter, customerFilter, startDate, endDate)
+
+        context = {
+            'plan': initialPlans,
+            'typeFilter': typeFilter, 'customerFilter': customerFilter,
+            'startDate': startDate, 'endDate': endDate,
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'work_order/initial_plan.html', context)
+
 @login_required(login_url='/login')
 def GeneratePOFromWO (request: HttpRequest, pk):
     if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', 'delete'):
@@ -750,15 +780,14 @@ def AddPurchaseOrder(request: HttpRequest):
 
 @login_required(login_url='/login')
 def EditPurchaseOrder(request: HttpRequest, pk):
-    if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='change'):
-        return HttpResponse('Access Denied', status=403)
-
     try:
         orderObject = models.PurchaseOrder.objects.get(id=pk)
     except:
         return HttpResponse('Order not found', status=404)
     
     if request.method == 'POST':
+        if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='change'):
+            return generic_services.showMessageResponse(request,'Access Denied', 403)
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
 
@@ -770,6 +799,8 @@ def EditPurchaseOrder(request: HttpRequest, pk):
             print(e)         
             return HttpResponse(e, status=400)
     else:
+        if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='view'):
+            return generic_services.showMessageResponse(request,'Access Denied', 403)
         order, inventory=purchase_order_service.ProcessOrderData(orderObject)
         context = {
             'order':order,
@@ -850,14 +881,22 @@ def PrintPurchaseOrder(request: HttpRequest, pk: str):
     if request.method == 'POST':
         data = json.loads(request.body.decode('utf-8'))
         requiredFormat = data['format']
-
-        order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject)
-        
-        context = {'order':order, 'inv':inventory, 'alloc': allocation, 'summary': summary, 'theme': theme} 
         
         if requiredFormat == 'SUP':
+            order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject)
+            context = {'order':order, 'inv':inventory, 'summary': summary, 'theme': theme} 
+            return render(request, 'purchase_order/print_supplier.html', context)
+        elif requiredFormat == 'SUPV1':
+            order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject, 'V1')
+            context = {'order':order, 'inv':inventory, 'summary': summary, 'theme': theme}
+            return render(request, 'purchase_order/print_supplier.html', context)
+        elif requiredFormat == 'SUPV2':
+            order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject, 'V2')
+            context = {'order':order, 'inv':inventory, 'summary': summary, 'theme': theme}
             return render(request, 'purchase_order/print_supplier.html', context)
         elif requiredFormat=='ACC':
+            order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject)
+            context = {'order':order, 'inv':inventory, 'alloc': allocation, 'summary': summary, 'theme': theme}
             return render(request, 'purchase_order/print_accounts.html', context)
         else:
             return HttpResponse('Invalid print format.', status=400)

@@ -19,6 +19,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
             {'displayName': 'View All', 'viewName': 'apparelManagement:WOs'},
             {'displayName': 'Add New', 'viewName': 'apparelManagement:addWO'},
             {'displayName': 'Auto Requirement', 'viewName': 'apparelManagement:autoReq'},
+            {'displayName': 'Initial Plan', 'viewName': 'apparelManagement:initialPlan'},
         ]},
         {'groupName': 'Purchase Demand', 'appName': 'apparelManagement', 'modelName': 'PurchaseDemand', 'views': [
             {'displayName': 'View All', 'viewName': 'apparelManagement:purchaseDemand'},

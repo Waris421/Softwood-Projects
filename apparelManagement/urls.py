@@ -33,6 +33,7 @@ urlpatterns = [
     path('workorder/variants/calculate', views.CalculateVariants, name='calculateVariants'),
     path('workorder/requirement/calculate', views.CalculateRequirement, name='calculateRequirement'),
     path('workorder/requirement/get', views.GetRequirementHistory, name='getRequirementHistory'),
+    path('workorder/initial-plan', views.WorkOrderInitialPlan, name='initialPlan'),
     path('purchaseorder/add/fromworkorder/<int:pk>', views.GeneratePOFromWO, name='poFromWO'),
 
     path('purchaseorder/autogen', views.AutoInventoryRequirement, name='autoReq'),

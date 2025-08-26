@@ -67,6 +67,8 @@ def SetSource(request: HttpRequest):
         startingDD = request.GET.get('startingDD', '')
         endingDD = request.GET.get('endingDD', '')
         sortingMethod = request.GET.get('sortingMethod','orderWise')
+        orderFilter = request.GET.get('orderFilter',None)
+        stageFilter = request.GET.get('stageFilter', None)
 
         if startingDD:
             startingDD = generic_services.convertStrToDateTime(startingDD, '%Y-%m-%d').date()
@@ -77,8 +79,13 @@ def SetSource(request: HttpRequest):
             endingDD = generic_services.convertStrToDateTime(endingDD, '%Y-%m-%d').date()
         else:
             endingDD = startingDD + timedelta(days=14)
+        
+        if orderFilter == 'null':
+            orderFilter = None
+        elif orderFilter:
+            orderFilter = int(orderFilter)
 
-        ordersPlanning = planning_service.GetOrdersPlanning(startingDD, endingDD, sortingMethod)
+        ordersPlanning = planning_service.GetOrdersPlanning(startingDD, endingDD, sortingMethod, orderFilter, stageFilter)
 
         planningJSON = [
             {key: value for key, value in item.items() if key == 'Source'}
@@ -87,6 +94,7 @@ def SetSource(request: HttpRequest):
         context = {
             'ordersPlanning': ordersPlanning, 'planningJSON': json.dumps(list(planningJSON)),
             'startingDD': startingDD, 'endingDD': endingDD, 'sortingMethod': sortingMethod,
+            'orderFilter': orderFilter, 'stageFilter': stageFilter,
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'planning/sources.html', context)
