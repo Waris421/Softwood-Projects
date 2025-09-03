@@ -52,20 +52,43 @@ def ExportData (request: HttpRequest):
     
     startDate = request.GET.get('startDate')
     endDate = request.GET.get('endDate')
-    search = request.GET.get('search', '')
-    country = request.GET.get('country', '')
-    page = request.GET.get('page', 1)
-
-    exportData = export_data_serivce.GetExportDataTable(startDate, endDate, country)
-    exportData = applySearch(exportData, search)
-    exportData = paginate(exportData, page, 50)
+    
+    countries = request.GET.getlist('countries[]', [])
+    importers = request.GET.getlist('importers[]', [])
 
     context = {
-        'exportData': exportData.object_list, 'page_obj': exportData,
-        'search': search, 'country': country, 'startDate': startDate, 'endDate': endDate,
+        'countries': countries, 'countriesJson': json.dumps(countries),
+        'importers': importers, 'importersJson': json.dumps(importers),
+        'startDate': startDate, 'endDate': endDate,
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'export_data/home.html', context)
+
+@login_required(login_url='/login')
+def ExportDataCountries(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    startDate = request.GET.get('startDate')
+    endDate = request.GET.get('endDate')
+    customers = request.GET.getlist('customers[]', [])
+
+    countrySummary = export_data_serivce.GetCountrySummary(startDate, endDate)
+    
+    return JsonResponse(countrySummary, safe=False)
+
+@login_required(login_url='/login')
+def ExportDataImporters(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    startDate = request.GET.get('startDate')
+    endDate = request.GET.get('endDate')
+    countries = request.GET.getlist('countries[]', [])
+
+    importerSummary = export_data_serivce.GetImporterSummary(startDate, endDate)
+
+    return JsonResponse(importerSummary, safe=False)
 
 @login_required(login_url='/login')
 def UploadExportReport(request:HttpRequest):

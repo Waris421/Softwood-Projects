@@ -5,6 +5,8 @@
 {% endblock %}
 
 {% block content %}
+    {% csrf_token %}                        <!--This is to protect against CSRF attacks-->
+    
     <div class="{{theme.border}} {{theme.formHeading}}">
         <form action="{% url 'apparelManagement:POs' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
@@ -49,7 +51,14 @@
                 {% for data in order %}
                     <tr class="{{theme.tableBodyRow}}">
                         <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
-                        <td class="order">{{ data.PONumber }}</td>
+                        <td>
+                            <span>
+                                {{ data.PONumber }}
+                            </span>
+                            <span class="material-symbols-outlined" onclick="showPOPrintOptions('{{ data.PONumber }}')">
+                                print
+                            </span>
+                        </td>
                         <td>{{ data.DeliveryDate }}</td>
                         <td>{{ data.Supplier }}</td>
                         <td>{{ data.Name }}</td>
@@ -84,7 +93,7 @@
         const dataTable = document.getElementById('tableData');
         dataTable.addEventListener('click', (event) => {
             const radio = event.target;
-            const selectedOrder = radio.closest('tr').querySelector('td.order').textContent.trim();
+            const selectedOrder = radio.closest('tr').children[1].children[0].textContent.trim();
 
             var button = document.getElementById("copyOrderButton");
             button.href = '/purchaseorder/'+ selectedOrder + '/copy';
@@ -97,12 +106,66 @@
         }); 
     </script>
 
+    <script>    //To Print a PO
+        function showPOPrintOptions(poNumber) {
+            const options = [
+                {'value':`SUP_${poNumber}`, 'text':'For Supplier - All Variants'},
+                {'value':`SUPV1_${poNumber}`, 'text':'For Supplier - Variant 1'},
+                {'value':`SUPV2_${poNumber}`, 'text':'For Supplier - Variant 2'},
+                {'value':`ACC_${poNumber}`, 'text':'For Accounts'},
+            ];
+            const selectedOption = `SUPV2_${poNumber}`;
+
+            showDropDown(options, printPO, selectedOption, false);
+        }
+
+        async function printPO(selectedOption) {
+            showLoadingIcon();
+
+            const result = String(selectedOption).split('_');
+
+            const selectedFormat = result[0]
+            const poNumber = parseInt(result[1]);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const obj = {'format':selectedFormat};
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('/purchaseorder/'+poNumber+'/print', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
+            });
+
+            if (!response.ok) {
+                errorMessage = await response.text();
+                showMessage(errorMessage);
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            const pdfBlob = await response.blob();
+            const pdfURL = URL.createObjectURL(pdfBlob);
+
+            const win = window.open(pdfURL, '_blank');
+            win.onafterprint = function() {
+                URL.revokeObjectURL(pdfURL);
+            };
+
+            hideLoadingIcon();
+        }
+    </script>
+
     <script>//To run when the page loads
         window.addEventListener('load', async () => {
             //Supplier dropdown
             let response = await fetch(`/options/suppliers?search={{selectedSupplier}}`);
-            const customers = await response.json();
-            await appendOptions('supplierFilter', customers, '{{selectedSupplier}}');
+            const suppliers = await response.json();
+            const emptyRow = {"value": "","text": "-----------"};
+            suppliers.unshift(emptyRow);
+            await appendOptions('supplierFilter', suppliers, '{{selectedSupplier}}');
         });
     </script>
 {% endblock %}

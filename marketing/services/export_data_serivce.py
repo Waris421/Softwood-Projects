@@ -2,15 +2,17 @@ import pandas as pd
 
 from datetime import date, timedelta
 from collections import Counter
+from typing import List
 
 from django.db import transaction
-from django.db.models import DateTimeField, Q
+from django.db.models import DateTimeField, Q, Sum
 from django.db.models.functions import TruncDate, Cast
 
 from django_countries import countries
 
 from .. import models
 from core.services.generic_services import dfToListOfDicts, convertCountryNameToCode, convertCountryCodeToName
+from core.services.generic_services import formatNumbers
 
 def getExportData(startDateStr: str, endDateStr: str, country: str):
     today = date.today()
@@ -140,5 +142,62 @@ def GetExportDataTable(startDate, endDate, country):
     dfExportData = getExportData(startDate, endDate, country)
 
     dfExportData['Value'] = dfExportData['Quantity'] * dfExportData['Price']
+
+    return dfToListOfDicts(dfExportData)
+
+def GetCountrySummary(startDateStr: str, endDateStr: str):
+    today = date.today()
+    firstDayOfCurrentMonth = date(today.year, today.month, 1)
+    if startDateStr:
+        startDate = date.fromisoformat(startDateStr)
+    else:
+        lastDayOfPreviousMonth = firstDayOfCurrentMonth - timedelta(days=1)
+        startDate = date(lastDayOfPreviousMonth.year, lastDayOfPreviousMonth.month, 1)
+    
+    if endDateStr:
+        endDate = date.fromisoformat(endDateStr)
+    else:
+        endDate = firstDayOfCurrentMonth - timedelta(days=1)
+    
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+    
+    fields = ['Country','Quantity']
+    exportData = models.ExportData.objects.filter(filters).values('Country').annotate(Quantity=Sum('Quantity'))
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData, fields
+
+    dfExportData['CountryName'] = dfExportData['Country'].apply(convertCountryCodeToName)
+    dfExportData.rename(inplace=True, columns={'Country':'CountryCode'})
+
+    dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
+
+    dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers)    
+
+    return dfToListOfDicts(dfExportData)
+
+def GetImporterSummary(startDateStr: str, endDateStr: str):
+    today = date.today()
+    firstDayOfCurrentMonth = date(today.year, today.month, 1)
+    if startDateStr:
+        startDate = date.fromisoformat(startDateStr)
+    else:
+        lastDayOfPreviousMonth = firstDayOfCurrentMonth - timedelta(days=1)
+        startDate = date(lastDayOfPreviousMonth.year, lastDayOfPreviousMonth.month, 1)
+    
+    if endDateStr:
+        endDate = date.fromisoformat(endDateStr)
+    else:
+        endDate = firstDayOfCurrentMonth - timedelta(days=1)
+    
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    fields = ['Importer','Quantity']
+    exportData = models.ExportData.objects.filter(filters).values('Importer').annotate(Quantity=Sum('Quantity'))
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData,fields
+
+    dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
+
+    dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
 
     return dfToListOfDicts(dfExportData)

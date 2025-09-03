@@ -1,5 +1,5 @@
 from django.db import models
-from apparelManagement.models import Department, StyleCard, StyleRoute, WorkOrder
+from apparelManagement.models import Department, StyleCard, StyleRoute, WorkOrder, WorkOrderInitialPlan
 from apparelManagement.models import InvRequirement, POAllocation, POInventory, PurchaseOrder, Inventory
 from apparelManagement.models import RecAllocation, RecInventory, InventoryReciept
 from apparelManagement.models import StyleConsumption

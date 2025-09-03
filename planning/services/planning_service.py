@@ -11,6 +11,11 @@ from core.constants.generic import TODAY
 def getInventoryPlan(workOrders: List[int]):
     TOLERANCE = 0.97
 
+    fields = ['WorkOrder','FabricETA','BWTrimETA','AWTrimETA']
+    initialPlans = models.WorkOrderInitialPlan.objects.filter(WorkOrder__in=workOrders).values(*fields)
+    dfInitialPlans = pd.DataFrame(initialPlans) if initialPlans else pd.DataFrame(columns=fields)
+    del initialPlans
+
     fields = ['OrderNumber','InventoryCode','Quantity']
     inventoryRequirements = models.InvRequirement.objects.filter(OrderNumber__in=workOrders).values(*fields)
     dfInventoryRequirements = pd.DataFrame(inventoryRequirements) if inventoryRequirements else pd.DataFrame(columns=fields)
@@ -25,11 +30,6 @@ def getInventoryPlan(workOrders: List[int]):
     consumptions = models.StyleConsumption.objects.filter(Style__in=dfStyles['StyleCode'].to_list()).values(*fields)
     dfConsumptions = pd.DataFrame(consumptions) if consumptions else pd.DataFrame(columns=fields)
     del consumptions
-
-    fields = ['Code','LeadTime']
-    inventories = models.Inventory.objects.filter(Code__in=dfInventoryRequirements['InventoryCode'].to_list()).values(*fields)
-    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
-    del inventories
 
     fields = ['POInvId','WorkOrder','Quantity']
     poAllocations = models.POAllocation.objects.filter(WorkOrder__in=workOrders).values(*fields)
@@ -124,24 +124,29 @@ def getInventoryPlan(workOrders: List[int]):
     del condition1, condition2
     dfResults.drop(inplace=True, columns=['PODate', 'OrderedQty','RecDate','ReceivedQty','RequiredQty'])
 
-    dfInventories['LeadTime'] = pd.to_timedelta(dfInventories['LeadTime'], unit='D')
-    dfResults = pd.merge(left=dfResults, right=dfInventories, left_on='InventoryCode', right_on='Code', how='left')
-    dfResults.drop(inplace=True, columns=['Code'])
+    dfInitialPlans.rename(inplace=True, columns={'FabricETA':'Fab','BWTrimETA':'BW','AWTrimETA':'AW'})
 
-    today = pd.to_datetime(TODAY)
-    condition = pd.isna(dfResults['DeliveryDate'])
-    print(dfResults)
+    dfResults = pd.merge(left=dfResults, right=dfInitialPlans, left_on=['OrderNumber'], right_on=['WorkOrder'], how='left')
+    del dfInitialPlans
+    dfResults.drop(inplace=True, columns=['WorkOrder'])
 
-    dfResults['DeliveryDate'] = np.where(condition, (today + dfResults['LeadTime']).dt.strftime('%Y-%m-%d'), dfResults['DeliveryDate'])
-    dfResults['DeliveryDate'] = pd.to_datetime(dfResults['DeliveryDate'])
+    dfResults['DeliveryDate'] = dfResults.apply(applyInitialPlan, axis=1)
+    dfResults.drop(inplace=True, columns=['Fab', 'BW', 'AW'])
 
-    dfResults.drop(inplace=True, columns=['LeadTime', 'InventoryCode'])
+    dfResults = dfResults[~dfResults['DeliveryDate'].isna()]
 
     dfResults = dfResults.groupby(['OrderNumber', 'Type'])['DeliveryDate'].max().reset_index()
 
     dfResults.rename(inplace=True, columns={'DeliveryDate':'IHDate'})
 
     return dfResults
+
+def applyInitialPlan(row: pd.Series):
+    if pd.isna(row['DeliveryDate']):
+        lookupColumn = row['Type']
+        return row[lookupColumn]
+    else:
+        return row['DeliveryDate']
 
 def applyInvPlan(dfWorkOrders: pd.DataFrame, dfInventoryPlan: pd.DataFrame):
     stageInvPreReqs = {
@@ -205,7 +210,8 @@ def GetOrdersPlanning(startingDD, endingDD, sortingMethod:str, orderFilter:int|N
     if stageFilter:
         dfWorkOrders = dfWorkOrders[dfWorkOrders['Stage'] == stageFilter]
 
-    #dfWorkOrders = applyInvPlan(dfWorkOrders, dfInventoryPlan)
+    dfWorkOrders = applyInvPlan(dfWorkOrders, dfInventoryPlan)
+    del dfInventoryPlan
 
     dfWorkOrders.sort_values(by='DeliveryDate', inplace=True, ascending=True)
     

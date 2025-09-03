@@ -19,5 +19,8 @@ urlpatterns = [
     path("marketing/export-data/upload", views.UploadExportReport, name="exportDataUpload"),
     path("marketing/export-data/confirm-upload", views.UploadExportReportConfirmation, name="confirmExportDataUpload"),
 
+    path('marketing/export-data/countries', views.ExportDataCountries, name='exportDataCountries'),
+    path('marketing/export-data/importers', views.ExportDataImporters, name='exportDataImporters'),
+
     path('options/countries', options_service.GetCountries, name='countries'),
 ]

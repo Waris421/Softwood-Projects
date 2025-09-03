@@ -366,6 +366,19 @@ def convertCountryCodeToName(code):
     except:
         return None
 
+def formatNumbers(n: int|float):
+    """
+    Converts a number to k,m,B notation
+    """
+    
+    if abs(n) >= 1_000_000_000:
+        return f'{n/1_000_000_000:.1f}B'
+    if abs(n) >= 1_000_000:
+        return f'{n/1_000_000:.1f}m'
+    if abs(n) >= 1_000:
+        return f'{n/1_000:.1f}k'
+    return str(n)
+
 def roundFloatCols(df: pd.DataFrame):
     """
     Rounds all float columns in a pandas DataFrame to a specified number of

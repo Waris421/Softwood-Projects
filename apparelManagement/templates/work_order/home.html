@@ -53,7 +53,14 @@
               {% for data in order %}
               <tr class="{{theme.tableBodyRow}}">
                   <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
-                  <td class="order {{theme.hyperLink}}" onclick="showViewBox(`{{ data.OrderNumber }}`)">{{ data.OrderNumber }}</td>
+                  <td>
+                    <span>
+                      {{ data.OrderNumber }}
+                    </span>
+                    <span class="material-symbols-outlined" onclick="showViewBox('{{ data.OrderNumber }}')">
+                        visibility
+                    </span>
+                  </td>
                   <td>{{ data.StyleCode_id }}</td>
                   <td>{{ data.Customer_id }}</td>
                   <td>{{ data.Quantity }}</td>

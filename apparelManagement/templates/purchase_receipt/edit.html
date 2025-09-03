@@ -18,7 +18,7 @@
                 </div>
                 <div class="flex col-[2/3] items-center">
                     <label class="mx-2 whitespace-nowrap">GRN:&nbsp; </label>
-                    <input type="number" class="{{theme.textInput}}" value="{{receipt.id}}" name="GRNNumber" readonly>
+                    <input type="number" class="{{theme.textInput}}" value="{{receipt.id}}" name="GRNNumber" id="GRNNumber" readonly>
                     <input type="text" id="recId" name="recId" value="" class="" hidden>
                 </div>
                 <div class="flex col-[3/5] items-center">
@@ -49,7 +49,7 @@
                     <button class="{{theme.buttonBasic}}" onclick="submitForms()" type="button">
                         Save
                     </button>
-                    <button class="{{theme.buttonSecondary}}" type="button">
+                    <button class="{{theme.buttonSecondary}}" onclick="showSelectionBox()" type="button">
                         Print
                     </button>
                 </div>
@@ -429,51 +429,48 @@
         }
     </script>
 
-    <script> //To print the PO
+    <script> //To print the receipt
         function showSelectionBox() {
             const options = [
-                {'value':'SUP', 'text':'For Supplier'},
+                {'value':'QC', 'text':'For Quality'},
                 {'value':'ACC', 'text':'For Accounts'},
             ];
-            const selectedOption = 'SUP';
+            const selectedOption = 'ACC';
 
-            showDropDown(options, printPO, selectedOption);
+            showDropDown(options, printRec, selectedOption, false);
         }
-        async function printPO() {            
-            showLoadingIcon();
+        async function printRec(selectedFormat) {            
+            showLoadingIcon();     
 
-            //Get the foramt selected by user
-            const dialogBox = document.getElementById('dropdown');
-            const selectedFormat = dialogBox.children[0].children[0].children[1].children[0].children[0].value;
+            const recBox = document.getElementById('GRNNumber');
+            const recNumber = parseInt(recBox.value);
 
-            const poBox = document.getElementById('orderNumber');
-            const poNumber = parseInt(poBox.value);
-            
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
             const obj = {'format':selectedFormat};
             const data = JSON.stringify(obj);
 
-            const response = await fetch('/purchaseorder/'+poNumber+'/print', {
+            const response = await fetch('/purchasereceipt/'+recNumber+'/print', {
                 method: 'POST',
                 body: data,
                 headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
             });
-            
-            if (response.ok) {
-                const pdfBlob = await response.blob();
 
-                const pdfURL = URL.createObjectURL(pdfBlob);
-
-                const win = window.open(pdfURL, '_blank');
-
-                win.onafterprint = function() {
-                    URL.revokeObjectURL(pdfURL);
-                };
-            } else {
+            if (!response.ok) {
                 errorMessage = await response.text();
                 showMessage(errorMessage);
-            }            
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            const pdfBlob = await response.blob();
+            const pdfURL = URL.createObjectURL(pdfBlob);
+
+            const win = window.open(pdfURL, '_blank');
+            win.onafterprint = function() {
+                URL.revokeObjectURL(pdfURL);
+            };
 
             hideLoadingIcon();
         }

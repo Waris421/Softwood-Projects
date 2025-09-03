@@ -1038,7 +1038,7 @@ def AddPurchaseReceipt(request: HttpRequest):
 @login_required(login_url='/login')
 def EditPurchaseReceipt(request: HttpRequest, pk:str):
     if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='change'):
-        return HttpResponse('Access Denied', status=403)
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
     try:
         receiptObject = models.InventoryReciept.objects.get(id=pk)
@@ -1046,6 +1046,8 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
         return HttpResponse('Resource not found', status=404)
     
     if request.method == 'POST':
+        
+    
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
 
@@ -1057,7 +1059,7 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
         except Exception as e: 
             print(e)           
             return HttpResponse(e, status=400)
-    else:
+    else:        
         receipt, inventory = purchase_receipt_service.ProcessReceiptData(receiptObject)
 
         context = {'receipt':receipt,
@@ -1105,6 +1107,31 @@ def GetReceiptAllocation(request: HttpRequest):
     allocation = purchase_receipt_service.GetReceiptAllocation(recInventory)
     
     return JsonResponse(allocation, safe=False)
+
+@login_required(login_url='/login')
+def PrintPurchaseReceipt(request: HttpRequest, pk: str):
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseReceipt', type='view'):
+        return HttpResponse('Access Denied', status=403)
+    
+    try:
+        inventoryReciept = models.InventoryReciept.objects.get(id=pk)
+    except:
+        return HttpResponse('Order not found', status=404)
+    
+    if request.method != 'POST':
+        return HttpResponse('Not Allowed', status=405)
+
+    data = json.loads(request.body.decode('utf-8'))
+    requiredFormat = data['format']
+
+    if requiredFormat == 'QC':
+        return HttpResponse('This feature is under construction', status=503)
+    elif requiredFormat == 'ACC':
+        receipt, inventory, allocation = purchase_receipt_service.PrintRec(inventoryReciept)
+        context = {'receipt':receipt, 'inv':inventory, 'allocation': allocation, 'theme': theme}
+        return render(request, 'purchase_receipt/print_accounts.html', context)
+    else:
+        return HttpResponse('Invalid print format.', status=400)        
 
 @login_required(login_url='/login')
 def PurchaseDemand (request: HttpRequest):

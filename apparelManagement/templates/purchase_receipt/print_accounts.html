@@ -1,7 +1,7 @@
 {% extends 'base_print.html' %}
 
 {% block title %}
-    {{order.id}}
+    {{receipt.id}}
 {% endblock %}
 
 {% block content %}
@@ -24,7 +24,7 @@
     <div class="{{theme.border}}">
         <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
             <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <h3 class="{{theme.headingBold}}">Purchase Order</h3>
+                <h3 class="{{theme.headingBold}}">Purchase Receipt</h3>
             </div>
         </div>
     </div>
@@ -33,38 +33,66 @@
     <div class="{{theme.border}}">
         <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
             <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <h3 class="{{theme.headingBold}}">Order Date:</h3>
+                <h3 class="{{theme.headingBold}}">Receipt Date:</h3>
             </div>
             <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{order.OrderDate|date:'d-m-Y'}}</div>
+                <div class="{{theme.headingNormal}}">{{receipt.ReceiptDate|date:'d-m-Y'}}</div>
             </div>
             <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <h3 class="{{theme.headingBold}}">Delivery Date:</h3>
-            </div>
-            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{order.DeliveryDate|date:'d-m-Y'}}</div>
-            </div>
-        </div>
-        <div class="grid grid-cols-9 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <h3 class="{{theme.headingBold}}">Supplier:</h3>
             </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Supplier.Name}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Receipt Number:</h3>
+            </div>
             <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{order.Supplier.Name}}</div>
+                <div class="{{theme.headingNormal}}">{{receipt.id}}</div>
             </div>
             <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <h3 class="{{theme.headingBold}}">PO Number:</h3>
             </div>
             <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{order.id}}</div>
+                <div class="{{theme.headingNormal}}">{{receipt.PONumber.id}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Invoice Number:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Invoice}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Vehicle Number:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Vehicle}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Bilty Number:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Bilty}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Bilty Value:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.BiltyValue}}</div>
             </div>
         </div>
     </div>
-    
+
     <!--Document details-->
     <div id="invtable" class="w-full">
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-11 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+            <div class="grid grid-cols-8 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
                 <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.headingBold}} {{theme.textJustify}}">
                         Inventory
@@ -85,19 +113,9 @@
                         Quantity
                     </div>
                 </div>
-                <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
-                        Price
-                    </div>
-                </div>
-                <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
-                        Amount
-                    </div>
-                </div>
             </div>
             {% for data in inv %}
-                <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="grid grid-cols-8 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
                     <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                         <h5 class="{{theme.content}}">{{data.Name}}</h5>
                     </div>
@@ -109,12 +127,6 @@
                     </div>
                     <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
                         <h5 class="{{theme.content}}">{{data.Quantity}}</h5>
-                    </div>
-                    <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
-                        <h5 class="{{theme.content}}">{{data.Currency}} {{data.Price}}</h5>
-                    </div>
-                    <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
-                        <h5 class="{{theme.content}}">{{data.Value}}</h5>
                     </div>
                 </div>
                 <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
@@ -130,17 +142,12 @@
                     </div>
                     <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
                         <div class="{{theme.headingBold}} {{theme.textJustify}}">
-                            Delivery Date
-                        </div>
-                    </div>
-                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
-                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
                             Quantity
                         </div>
                     </div>
                 </div>
-                {% for allocOption in alloc %}
-                    {% if allocOption.POInvId == data.id %}
+                {% for allocOption in allocation %}
+                    {% if allocOption.RecInvId == data.id %}
                         <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
                             <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                                 <h5 class="{{theme.content}}">{{allocOption.WorkOrder}}</h5>
@@ -149,39 +156,12 @@
                                 <h5 class="{{theme.content}}">{{allocOption.StyleCode}}</h5>
                             </div>
                             <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
-                                <h5 class="{{theme.content}}">{{allocOption.DeliveryDate|date:'d-m-Y'}}</h5>
-                            </div>
-                            <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
                                 <h5 class="{{theme.content}}">{{allocOption.Quantity}}</h5>
                             </div>
                         </div>
-                    {% endif %}                   
-                {% endfor %}   
-            {% endfor %}                
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
         </div>
     </div>
-
-    <!--Document Summary-->
-    <div class="{{theme.border}}">
-        <div class="grid grid-cols-8 mt-2 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[5/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <h3 class="{{theme.headingBold}}">Net Amount:</h3>
-            </div>
-            <div class="flex col-[7/9] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.beforeTaxAmount}}/-</div>
-            </div>
-            <div class="flex col-[5/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <h3 class="{{theme.headingBold}}">Tax Amount:</h3>
-            </div>
-            <div class="flex col-[7/9] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.tax}}/-</div>
-            </div>
-            <div class="flex col-[5/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <h3 class="{{theme.headingBold}}">Grand Total:</h3>
-            </div>
-            <div class="flex col-[7/9] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.afterTaxAmount}}/-</div>
-            </div>
-        </div>
-    </div>
-{% endblock %}
+{% endblock content %}

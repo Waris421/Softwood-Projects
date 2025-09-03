@@ -5,12 +5,14 @@
 {% endblock %}
 
 {% block content %}
+    {% csrf_token %}                        <!--This is to protect against CSRF attacks-->
+    
     <div class="{{theme.border}} {{theme.formHeading}}">
         <form action="{% url 'apparelManagement:purchaseRec' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-8 {{theme.justify}} {{theme.align}}">
-                <div class="flex flex-col col-[1/3] items-center">
+                <div class="flex flex-col col-[1/3] items-center relative">
                     <span class="text-sm text-gray-500 mb-1">Supplier:</span>
-                    <select id="supplierFilter" name="supplierFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                    <select id="supplierFilter" name="supplierFilter" onclick="showSearchBox(this, '/options/suppliers')" class="{{theme.dropdown}}">
                         <option value="">  ---------  </option>
                     </select>
                 </div>
@@ -30,7 +32,7 @@
         </form>
     </div>
 
-    <div id ="purchaseOrderTable" class="mt-6">
+    <div id ="purchaseReceiptTable" class="mt-6">
         <table class="{{theme.table}}">
             <tr class = "{{theme.tableHead}}">
                 <th scope="col">Receipt Number</th>
@@ -43,8 +45,22 @@
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in receipt %}
                     <tr class="{{theme.tableBodyRow}}">
-                        <td class="{{theme.hyperLink}}"><a href="{% url 'apparelManagement:editRec' pk=data.ReceiptNumber %}">{{ data.ReceiptNumber }}</a></td>
-                        <td>{{ data.PONumber }}</td>
+                        <td>
+                            <a class="{{theme.hyperLink}}" href="{% url 'apparelManagement:editRec' pk=data.ReceiptNumber %}">
+                                {{ data.ReceiptNumber }}
+                            </a>
+                            <span class="material-symbols-outlined" onclick="showRecPrintOptions('{{ data.ReceiptNumber }}')">
+                                print
+                            </span>
+                        </td>
+                        <td>
+                            <a class="{{theme.hyperLink}}" href="{% url 'apparelManagement:editPO' pk=data.PONumber %}">
+                                {{ data.PONumber }}
+                            </a>
+                            <span class="material-symbols-outlined" onclick="showPOPrintOptions('{{ data.PONumber }}')">
+                                print
+                            </span>
+                        </td>
                         <td>{{ data.ReceiptDate }}</td>
                         <td>{{ data.Supplier }}</td>
                         <td>{{ data.Name }}</td>
@@ -55,12 +71,116 @@
         </table>
     </div>
 
+    <script>    //To show on click options for receipt print
+        function showRecPrintOptions(receiptNumber) {
+            const options = [
+                {'value':`QC_${receiptNumber}`, 'text':'For Quality'},
+                {'value':`ACC_${receiptNumber}`, 'text':'For Accounts'},
+            ];
+            const selectedOption = `ACC_${receiptNumber}`;
+
+            showDropDown(options, printRec, selectedOption, false);
+        }
+        async function printRec(selectedOption) {
+            showLoadingIcon();
+
+            const result = String(selectedOption).split('_');
+
+            const selectedFormat = result[0]
+            const recNumber = parseInt(result[1]);
+            
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const obj = {'format':selectedFormat};
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('/purchasereceipt/'+recNumber+'/print', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
+            });
+
+            if (!response.ok) {
+                errorMessage = await response.text();
+                showMessage(errorMessage);
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            const pdfBlob = await response.blob();
+            const pdfURL = URL.createObjectURL(pdfBlob);
+
+            const win = window.open(pdfURL, '_blank');
+            win.onafterprint = function() {
+                URL.revokeObjectURL(pdfURL);
+            };
+
+            hideLoadingIcon();
+        }
+    </script>    
+
+    <script>    //To Print the PO
+        function showPOPrintOptions(poNumber) {
+            const options = [
+                {'value':`SUP_${poNumber}`, 'text':'For Supplier - All Variants'},
+                {'value':`SUPV1_${poNumber}`, 'text':'For Supplier - Variant 1'},
+                {'value':`SUPV2_${poNumber}`, 'text':'For Supplier - Variant 2'},
+                {'value':`ACC_${poNumber}`, 'text':'For Accounts'},
+            ];
+            const selectedOption = `ACC_${poNumber}`;
+
+            showDropDown(options, printPO, selectedOption, false);
+        }
+
+        async function printPO(selectedOption) {
+            showLoadingIcon();
+
+            const result = String(selectedOption).split('_');
+
+            const selectedFormat = result[0]
+            const poNumber = parseInt(result[1]);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const obj = {'format':selectedFormat};
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('/purchaseorder/'+poNumber+'/print', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
+            });
+
+            if (!response.ok) {
+                errorMessage = await response.text();
+                showMessage(errorMessage);
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            const pdfBlob = await response.blob();
+            const pdfURL = URL.createObjectURL(pdfBlob);
+
+            const win = window.open(pdfURL, '_blank');
+            win.onafterprint = function() {
+                URL.revokeObjectURL(pdfURL);
+            };
+
+            hideLoadingIcon();
+        }
+    </script>
+
     <script>//To run when the page loads
         window.addEventListener('load', async () => {
             //Supplier dropdown
             let response = await fetch('/options/suppliers');
-            const customers = await response.json();
-            await appendOptions('supplierFilter', customers, '{{selectedSupplier}}');
+            const suppliers = await response.json();
+            const emptyRow = {"value": "","text": "-----------"};
+            suppliers.unshift(emptyRow);
+
+            await appendOptions('supplierFilter', suppliers, '{{selectedSupplier}}');
         });
     </script>
 {% endblock %}

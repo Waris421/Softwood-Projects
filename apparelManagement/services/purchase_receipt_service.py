@@ -386,3 +386,41 @@ def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: s
         dfAllocations['Quantity'] = np.floor(dfAllocations['Quantity'] * 100) / 100
 
     return dfToListOfDicts(dfAllocations)
+
+def PrintRec(inventoryReceipt: models.InventoryReciept):
+    fields = ['id', 'InventoryCode','Variant','Quantity','Approval']
+    recInventory = models.RecInventory.objects.filter(ReceiptNumber=inventoryReceipt).values(*fields)
+    dfRecInventory = pd.DataFrame(recInventory) if recInventory else pd.DataFrame(columns=fields)
+    del recInventory
+
+    fields = ['Code','Name','Unit']
+    invCards = models.Inventory.objects.filter(Code__in=dfRecInventory['InventoryCode'].to_list()).values(*fields)
+    dfInventoryCards = pd.DataFrame(invCards) if invCards else pd.DataFrame(columns=fields)
+    del invCards
+
+    fields = ['RecInvId','WorkOrder','Quantity']
+    allocation = models.RecAllocation.objects.filter(RecInvId__in=dfRecInventory['id'].to_list()).values(*fields)
+    dfAllocation = pd.DataFrame(allocation) if allocation else pd.DataFrame(columns=fields)
+    del allocation
+
+    fields = ['OrderNumber','StyleCode']
+    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocation['WorkOrder'].to_list()).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders, fields
+
+    dfRecInventory = pd.merge(left=dfRecInventory, right=dfInventoryCards, left_on='InventoryCode', right_on='Code', how='left')
+    del dfInventoryCards
+    dfRecInventory.drop(inplace=True, columns=['Code','InventoryCode'])
+
+    dfAllocation = pd.merge(left=dfAllocation, right=dfWorkOrders, left_on='WorkOrder', right_on='OrderNumber', how='left')
+    del dfWorkOrders
+    dfAllocation.drop(inplace=True, columns=['OrderNumber'])
+
+    dfAllocation.sort_values(inplace=True, by='WorkOrder', ascending=True)
+
+    dfRecInventory['Quantity'] = dfRecInventory['Quantity'].apply(lambda x: "{:,.2f}".format(x))
+    
+    recInv = dfToListOfDicts(dfRecInventory)
+    alloc = dfToListOfDicts(dfAllocation)
+
+    return inventoryReceipt, recInv, alloc
