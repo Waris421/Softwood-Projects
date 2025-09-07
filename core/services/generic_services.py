@@ -7,6 +7,7 @@ import numpy as np
 import json
 
 from datetime import datetime
+import calendar
 from collections import defaultdict
 from typing import Dict, Any, List, Union
 
@@ -406,3 +407,16 @@ def roundFloatCols(df: pd.DataFrame):
         )
     
     return df
+
+def convertMonthstoStrtEndDates(months: List[str], format='%b-%Y'):
+    dates = [datetime.strptime(m, format) for m in months]
+
+    earliestMonth = min(dates)
+    latestMonth = max(dates)
+
+    startingDate = earliestMonth.date()
+
+    lastDayOfLatestMonth = calendar.monthrange(latestMonth.year, latestMonth.month)[1]
+    endingDate = latestMonth.replace(day=lastDayOfLatestMonth).date()
+
+    return startingDate, endingDate

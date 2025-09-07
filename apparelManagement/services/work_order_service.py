@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+from typing import List
+
 from django.contrib.auth.models import User
 from django.db.models import Sum, Q
 from django.forms import model_to_dict
@@ -40,6 +42,18 @@ def getWorkOrders(startDate, endDate):
     del dfVariants
     
     return dfWorkOrders
+
+def sortRequirementdf(
+        dfRequirement: pd.DataFrame,
+        customOrder: List[str] = ['Fab', 'BW', 'AW'],
+        cols: List[str] = ['Type', 'InventoryName']
+):
+    '''Sort the requirement dataframe w.r.t the custom defined order'''
+
+    dfRequirement['Type'] = pd.Categorical(dfRequirement['Type'], categories=customOrder, ordered=True)
+    dfRequirement = dfRequirement.sort_values(by=cols)
+
+    return dfRequirement
 
 #Get the List of Orders.
 def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
@@ -268,6 +282,11 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     else:
         dfRequirement = pd.DataFrame(columns=fields)
     del requirement
+
+    fields = ['InventoryCode', 'Type']
+    consumptions = models.StyleConsumption.objects.filter(Style=workOrder.StyleCode).values(*fields)
+    dfConsumptions = pd.DataFrame(consumptions) if consumptions else pd.DataFrame(columns=fields)
+    del consumptions
     
     fields = ['POInvId','Quantity']
     orderedQty = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
@@ -331,8 +350,11 @@ def ProcessOrderData(workOrder: models.WorkOrder):
         Ordered=('Ordered', 'mean'),
         Received=('Received', 'sum'),
     ).reset_index()
+
+    dfRequirement = pd.merge(left=dfRequirement, right=dfConsumptions, on='InventoryCode', how='left')
+    del dfConsumptions
     
-    #Convert Inventory names to inventory code and names
+    #Convert Inventory codes to inventory and names
     fields = ['Code','Name']
     inventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values(*fields)
     if inventories:
@@ -353,7 +375,8 @@ def ProcessOrderData(workOrder: models.WorkOrder):
         dfRequirement = pd.concat([dfRequirement, blankRow], ignore_index=True)
         del blankRow
     
-    dfRequirement.sort_values(inplace=True, by='InventoryName')
+    dfRequirement = sortRequirementdf(dfRequirement)
+    
     return order, variants, dfToListOfDicts(dfRequirement)
 
 #To calculate requirement from stylecard
@@ -363,7 +386,7 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     dfCurrentRequirement = pd.DataFrame(currentRequirement) if currentRequirement else pd.DataFrame(columns=fields)
     del currentRequirement
 
-    fields = ['InventoryCode','FinalCons','HasVariant','SizeDetails']
+    fields = ['InventoryCode','FinalCons','HasVariant','SizeDetails','Type']
     consumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
     dfConsumption = pd.DataFrame(consumption) if consumption else pd.DataFrame(columns=fields)
     dfConsumption.rename(columns={'FinalCons':'Consumption'}, inplace=True)
@@ -395,57 +418,97 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     dfReceivedInvs = pd.DataFrame(receivedInv) if receivedInv else pd.DataFrame(columns=fields)
     del receivedInv
 
-    dfSimpleConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
-    dfVariantConsumption = dfConsumption[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption']]
-    dfSizeOnlyConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails']]
-    dfSizeAndVariantConsumption = dfConsumption[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails']]
+    """ print(f'\nThese are the two dataframes that we need to calculate the requirement.\n')
+    print(f'\nConsumption: \n{dfConsumption.dtypes}')
+    print(f'\nVariants: \n{dfVariants.dtypes}')
+
+    print(f"\nThese are the dataframes that don't serve any purpose in calculations of req, but improve user experies\n")
+    print(f'\nCurrent Requirement: \n{dfCurrentRequirement.dtypes}')
+    print(f'\nOrdered: \n{dfOrdered.dtypes}')
+    print(f'\nReceipt Allocations: \n{dfReceived.dtypes}')
+    print(f'\nReceipts Details: \n{dfReceivedInvs.dtypes}') """
+
+    #The format is dataframe[Condition(s)][[columns that we need]]
+    dfSimpleConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption','Type']]
+    dfVariantConsumption = dfConsumption[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] == '')][['InventoryCode', 'Consumption','Type']]
+    dfSizeOnlyConsumption = dfConsumption[(dfConsumption['HasVariant'] == False) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails','Type']]
+    dfSizeAndVariantConsumption = dfConsumption[(dfConsumption['HasVariant'] == True) & (dfConsumption['SizeDetails'] != '')][['InventoryCode', 'Consumption', 'SizeDetails','Type']]
     del dfConsumption
 
+    """ print(f"\nSimple Consumption: \n{dfSimpleConsumption.dtypes}")
+    print(f"\nWith Variants: \n{dfVariantConsumption.dtypes}")
+    print(f"\nFor specifice sizes: \n{dfSizeOnlyConsumption.dtypes}")
+    print(f"\nFor specifice sizes but with variants: \n{dfSizeAndVariantConsumption.dtypes}") """
+
     if not dfSimpleConsumption.empty:
-        quantity = dfVariants['Quantity'].sum()
-        dfSimpleRequirement = pd.DataFrame(dfSimpleConsumption['InventoryCode'])
-        dfSimpleRequirement['Required'] = dfSimpleConsumption['Consumption']*quantity
+        #Sum up the qty of all variants
+        totalOrderQuantity = dfVariants['Quantity'].sum()
+        
+        #initialise a dataframe contating col inv code
+        dfSimpleRequirement = pd.DataFrame(dfSimpleConsumption[['InventoryCode','Type']])
+        #Req qty = order qty * consumption
+        dfSimpleRequirement['Required'] = dfSimpleConsumption['Consumption']*totalOrderQuantity
+        #Set var to blank, we don't need var wise consumption
         dfSimpleRequirement['Variant'] = ''
-        del dfSimpleConsumption, quantity
+        #Set this df as the main df and remove all else.
         dfRequirement = dfSimpleRequirement
-        del dfSimpleRequirement
+        del dfSimpleRequirement, dfSimpleConsumption, totalOrderQuantity
     else:
-        dfRequirement = pd.DataFrame(columns=['InventoryCode','Required','Variant'])
+        #THis is to avoid a bug in case if there is no simple consumption
+        dfRequirement = pd.DataFrame(columns=['InventoryCode','Required','Variant','Type'])
     
     if not dfVariantConsumption.empty:
+        #Make all possible combination of variants with inventories
         dfVariantRequirement = pd.merge(left=dfVariantConsumption, right=dfVariants, how='cross')
+        #Req qty = order qty fo each variant * coonsumption
         dfVariantRequirement['Required'] = dfVariantRequirement['Consumption'] * dfVariantRequirement['Quantity']
+        #By default the variant column in dfVariant is named Name. Change it to Variant to match main df format
         dfVariantRequirement.rename(columns={'Name':'Variant'}, inplace=True)
+        #remove any extra columns and variables
         dfVariantRequirement.drop(columns=['Consumption','Quantity'], inplace=True)
         del dfVariantConsumption
         
+        #Combine the var wise req to the main df and remove the rest.
         dfRequirement = pd.concat([dfRequirement, dfVariantRequirement])
         del dfVariantRequirement 
 
     if not dfSizeOnlyConsumption.empty:
+        #By default we get order's var1 and var2 concated from the db. So need to split them first.
         dfModifiedVariants = pd.DataFrame(dfVariants)
+        #They are concated by dash, so we split them by dash and make it to separate rows.
         dfModifiedVariants['VariantName'] = dfModifiedVariants['Name'].str.split('-')
         dfModifiedVariants = dfModifiedVariants.explode('VariantName')
         dfModifiedVariants.drop(columns=['Name'], inplace=True)
+        #Make the df as a pivot with each variant in a row and aggregated in column
         dfModifiedVariants = dfModifiedVariants.pivot_table(index='VariantName', values='Quantity', aggfunc='sum').reset_index()
+        #Convert variant name to str, in case if user had stored all vars in numbers
         dfModifiedVariants['VariantName'] = dfModifiedVariants['VariantName'].astype(str)
 
+        #Do the same as above for the size details, but they're separated by commas
         dfSizeOnlyConsumption['SizeDetails'] = dfSizeOnlyConsumption['SizeDetails'].str.split(',')
         dfSizeOnlyConsumption = dfSizeOnlyConsumption.explode('SizeDetails')
+        #Remove any extra spaces taht user may have provided.
         dfSizeOnlyConsumption['SizeDetails'] = dfSizeOnlyConsumption['SizeDetails'].str.strip()
 
+        #For requirment only get those order variants that are in the consumption. Discard ther rest.
         dfSizeOnlyRequirement=pd.merge(left=dfSizeOnlyConsumption, right=dfModifiedVariants, left_on='SizeDetails', right_on='VariantName', how='left') 
         del dfSizeOnlyConsumption, dfModifiedVariants
 
+        #Requirement = consumption * quantity of remaining variants.
         dfSizeOnlyRequirement['Required'] = dfSizeOnlyRequirement['Consumption'] * dfSizeOnlyRequirement['Quantity']
         
+        #Remove any extra columns
         dfSizeOnlyRequirement.drop(columns=['SizeDetails','Consumption','Quantity','VariantName'], inplace=True)
-        dfSizeOnlyRequirement = dfSizeOnlyRequirement.pivot_table(index='InventoryCode', values='Required', aggfunc='sum').reset_index()
+        #Sum up required qty for each inv code using pivot table
+        dfSizeOnlyRequirement = dfSizeOnlyRequirement.pivot_table(index='InventoryCode', values=['Required', 'Type'], aggfunc={'Required': 'sum', 'Type': 'first'}).reset_index()
+        #Set the variant as blank, same as we did in simple requirement
         dfSizeOnlyRequirement['Variant'] = ''
 
+        #Combine it with the main requirement df.
         dfRequirement = pd.concat([dfRequirement, dfSizeOnlyRequirement])
     
     if not dfSizeAndVariantConsumption.empty:
+        #Here we do first do the process of size only req, but with variants.
         dfSizeAndVariantConsumption['SizeDetails'] = dfSizeAndVariantConsumption['SizeDetails'].str.split(',')
         dfSizeAndVariantConsumption = dfSizeAndVariantConsumption.explode('SizeDetails')
         dfSizeAndVariantConsumption['SizeDetails'] = dfSizeAndVariantConsumption['SizeDetails'].str.strip()
@@ -455,19 +518,41 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
 
         def partialMatch(value1, value2):
             return value1.lower() in value2.lower()
+        #Only get those order vars which are provided in the consumptions
         dfSizeAndVariantRequirement = dfSizeAndVariantRequirement[dfSizeAndVariantRequirement.apply(lambda row: partialMatch(row['SizeDetails'], row['Name']), axis=1)]
         
+        #Requirement = Consumption * variant quantity
         dfSizeAndVariantRequirement['Required'] = dfSizeAndVariantRequirement['Consumption'] * dfSizeAndVariantRequirement['Quantity']
         
+        #Rename the Name column from dfVariant to Variant so as to match the rest of the data.
         dfSizeAndVariantRequirement.rename(columns={'Name':'Variant'}, inplace=True)
+        #Drop any unncessary cols
         dfSizeAndVariantRequirement.drop(columns=['SizeDetails','Consumption','Quantity'], inplace=True)
 
+        #Combine with the main requirement df
         dfRequirement = pd.concat([dfRequirement, dfSizeAndVariantRequirement])
 
+    #Get the excess cut stored in the work order
     excessCut = workOrder.ExcessCut
-    dfRequirement['Required'] = dfRequirement['Required'] * (1+(excessCut/100)) * 1.02
+
+    #Increase requirement for the excess cut qty
+    dfRequirement['Required'] = dfRequirement['Required'] * (1+(excessCut/100))
+    
+    #The excess requirement from cut qty, based on the inventory type
+    extraReq = {
+        'Fab': 1.01,
+        'BW': 1.02,
+        'AW': 1.01
+    }
+
+    #Increase requirement based on the type of inventory as per the above factors
+    dfRequirement['Required'] = dfRequirement['Required'] * dfRequirement['Type'].map(extraReq)
+    del excessCut, extraReq
+    
+    #Round off up to two signficant points
     dfRequirement['Required'] = dfRequirement['Required'].apply(lambda x: round(x, 2))
 
+    #Add the ordered qty column
     if dfOrdered.empty:
         dfRequirement['Ordered'] = 0.0
     else:
@@ -482,9 +567,11 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
         dfRequirement = dfRequirement.groupby(['InventoryCode', 'Variant']).agg(
             Required=('Required', 'mean'),
             Ordered=('Ordered', 'sum'),
+            Type = ('Type', 'first'),
         ).reset_index()
     del dfOrdered, dfOrderedInvs
 
+    #Add the received qty column
     if dfReceived.empty:
         dfRequirement['Received'] = 0.0  
     else:
@@ -499,10 +586,12 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
             Required=('Required', 'mean'),
             Ordered=('Ordered', 'mean'),
             Received=('Received', 'sum'),
+            Type = ('Type','first'),
         ).reset_index()
     
     del dfReceived, dfReceivedInvs
 
+    #Get the names of inventories in the requirement and merge into the main table
     fields = ['Code','Name']
     inventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values(*fields)
     if inventories:
@@ -516,17 +605,24 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     dfRequirement.drop(inplace=True, columns=['Code'])
     dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
     
+    #Set the values of the three values cols to 0, for any invs which they are not found.
     for col in ['Required','Ordered','Received']:
         dfRequirement[col] = np.where(dfRequirement[col].isna(), 0, dfRequirement[col])
     
+    #Combine the final requirement with already added requirement for each of saving later on.
     dfRequirement = pd.merge(left=dfRequirement, right=dfCurrentRequirement, left_on=['InventoryCode','Variant'], right_on=['InventoryCode','Variant'], how='left')
     del dfCurrentRequirement
+    #Set the id to none, where the requirement isn't already saved.
     dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id'])
 
+    #Apply the colors on each row.
     dfRequirement['Color'] = applyColors(dfRequirement[['Required','Ordered','Received']])
     
-    dfRequirement.sort_values(inplace=True, by='InventoryName')
+    dfRequirement = sortRequirementdf(dfRequirement)
+    
+    #dfRequirement.sort_values(inplace=True, by='InventoryName')
 
+    #Convert the df to a list of dicts and return to the view.
     return dfToListOfDicts(dfRequirement)
 
 def GetRequirementHistory (invRequirement: models.InvRequirement, workOrder: models.WorkOrder):
@@ -828,9 +924,7 @@ def PrintWO (order: models.WorkOrder):
     del dfReqinventories
     dfRequirement.drop(inplace=True, columns=['Code','InventoryCode'])
 
-    customOrder = ['Fabric', 'Before Wash', 'After Wash']
-    dfRequirement['Type'] = pd.Categorical(dfRequirement['Type'], categories=customOrder, ordered=True)
-    dfRequirement = dfRequirement.sort_values(by=['Type', 'Name'])
+    dfRequirement = sortRequirementdf(dfRequirement, ['Fabric', 'Before Wash', 'After Wash'], ['Type', 'Name'])
 
     dfRequirement = roundFloatCols(dfRequirement)
 

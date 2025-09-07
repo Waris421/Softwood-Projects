@@ -50,16 +50,24 @@ def ExportData (request: HttpRequest):
     if request.method != 'GET':
         return showMessageResponse(request, 'Not Allowed', 403)
     
-    startDate = request.GET.get('startDate')
-    endDate = request.GET.get('endDate')
-    
     countries = request.GET.getlist('countries[]', [])
     importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
+
+    try:
+        months = export_data_serivce.GetMonthWiseQty()
+    except Exception as e:
+        print(f'Main Page: {e}')
+        return showMessageResponse(request, 'An Error Occured', 400)
 
     context = {
+        'settingsIconViewName': 'marketing:exportDataSettings',
         'countries': countries, 'countriesJson': json.dumps(countries),
         'importers': importers, 'importersJson': json.dumps(importers),
-        'startDate': startDate, 'endDate': endDate,
+        'exporters': exporters, 'exportersJson': json.dumps(exporters),
+        'categories': categories, 'categoriesJson': json.dumps(categories),
+        'months': months, 'monthsJson': json.dumps(months),
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'export_data/home.html', context)
@@ -69,26 +77,101 @@ def ExportDataCountries(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
     
-    startDate = request.GET.get('startDate')
-    endDate = request.GET.get('endDate')
-    customers = request.GET.getlist('customers[]', [])
+    months = request.GET.getlist('months[]', [])
+    importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
 
-    countrySummary = export_data_serivce.GetCountrySummary(startDate, endDate)
+    try:
+        countrySummary = export_data_serivce.GetCountrySummary(months, importers, exporters, categories)
+        return JsonResponse(countrySummary, safe=False)
+    except Exception as e:
+        print(f'Countries: {e}')
+        return HttpResponse('An occured. Check with your administrator', status=400)
+
+@login_required(login_url='/login')
+def ExportDataCategories(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
     
-    return JsonResponse(countrySummary, safe=False)
+    months = request.GET.getlist('months[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    importers = request.GET.getlist('importers[]', [])
+
+    try:
+        categorySummary = export_data_serivce.GetCategorySummary(months)
+        return JsonResponse(categorySummary, safe=False)
+    except Exception as e:
+        print(f'Categories: {e}')
+        return HttpResponse('An occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
 def ExportDataImporters(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
     
-    startDate = request.GET.get('startDate')
-    endDate = request.GET.get('endDate')
+    months = request.GET.getlist('months[]', [])
     countries = request.GET.getlist('countries[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
 
-    importerSummary = export_data_serivce.GetImporterSummary(startDate, endDate)
+    try:
+        importerSummary = export_data_serivce.GetImporterSummary(months, countries, exporters, categories)
+        return JsonResponse(importerSummary, safe=False)
+    except Exception as e:
+        print(f'Importers: {e}')
+        return HttpResponse('An occured. Check with your administrator', status=400)
 
-    return JsonResponse(importerSummary, safe=False)
+@login_required(login_url='/login')
+def ExportDataExporters(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    months = request.GET.getlist('months[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    importers = request.GET.getlist('importers[]', [])
+    categories = request.GET.getlist('categories[]', [])
+
+    try:
+        exporterSummary = export_data_serivce.GetExporterSummary(months, countries, importers, categories)
+        return JsonResponse(exporterSummary, safe=False)
+    except Exception as e:
+        print(f'Exporters: {e}')
+        return HttpResponse('An error occured. Check with your administrator', status=400)
+
+@login_required(login_url='/login')
+def ExportDataTable(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    months = request.GET.getlist('months[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
+    page = request.GET.get('page', '1')
+
+    try:
+        dataTable, numberOfPages = export_data_serivce.GetDetailsTable(months, countries, exporters, importers, categories, page)
+        print(numberOfPages)
+        data = {
+            'data': dataTable, 'numberOfPages': numberOfPages,
+        }
+        return JsonResponse(data, safe=False)    
+    except Exception as e:
+        print(f'Data Table: {e}')
+        return HttpResponse('An error occured. Check with your administrator', status=400)
+
+@login_required(login_url='/login')
+def ExportDataSettings(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    context = {
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+    }
+    return render(request, 'export_data/settings.html', context)
 
 @login_required(login_url='/login')
 def UploadExportReport(request:HttpRequest):

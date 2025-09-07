@@ -71,6 +71,10 @@
             <a href="/logout">Logout</a>
           </li>
           <li><a href="/">Go to Main</a></li>
+          <li><span id="settingsIcon" class="material-symbols-outlined" custom-url="{% if settingsIconViewName %}{% url settingsIconViewName %}{% endif %}">
+              settings
+            </span>
+          </li>
         </ul>
       </div>
     </div>
@@ -552,6 +556,32 @@
                 }
             }
         });
+    </script>
+
+    <script>  //To setup the settings icon
+      document.addEventListener('DOMContentLoaded', () => {
+        const settingsIcon = document.getElementById('settingsIcon');
+
+        const customUrl = settingsIcon.getAttribute('custom-url')
+
+        let url = '';
+        if (customUrl) {
+          url = customUrl;
+        } else {
+          const adminStatus = '{{user.is_staff}}';
+          
+          console.log(adminStatus);
+          if (adminStatus == 'True') {
+            url = "{% url 'admin:index' %}";
+          } else {
+            url = '/access/denied';
+          } 
+        }
+        
+        settingsIcon.onclick = () => {
+          window.location.href = url;
+        };
+      });
     </script>
   </body>
 </html>

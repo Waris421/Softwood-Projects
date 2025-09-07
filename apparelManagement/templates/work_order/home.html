@@ -96,7 +96,7 @@
     const dataTable = document.getElementById('tableData');
     dataTable.addEventListener('click', (event) => {
       const radio = event.target;
-      const selectedOrder = radio.closest('tr').querySelector('td.order').textContent.trim();
+      const selectedOrder = radio.closest('tr').children[1].children[0].textContent.trim();
 
       var button = document.getElementById("copyOrderButton");
       button.href = '/workorder/'+ selectedOrder + '/copy';

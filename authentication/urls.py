@@ -1,5 +1,5 @@
 from django.urls import path
-from django.contrib.auth import views as auth_views
+from core.services.generic_services import showMessageResponse
 from . import views
 
 urlpatterns = [
@@ -9,4 +9,6 @@ urlpatterns = [
     path('reset/<uidb64>/<token>/', views.PasswordResetConfirm, name='passwordResetConfirm'),
 
     path ('api/login', views.APILogin.as_view(), name='apiLogin'),
+
+    path('access/denied', showMessageResponse, {'message': "You don't have the privileges to access this page."}, name='accessDenied'),
 ]

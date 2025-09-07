@@ -1,46 +1,41 @@
 import pandas as pd
+import numpy as np
 
-from datetime import date, timedelta
+from datetime import timedelta
 from collections import Counter
 from typing import List
+from math import ceil
+import os
 
 from django.db import transaction
 from django.db.models import DateTimeField, Q, Sum
-from django.db.models.functions import TruncDate, Cast
-
-from django_countries import countries
+from django.db.models.functions import TruncDate, Cast, TruncMonth
+from django.conf import settings
 
 from .. import models
 from core.services.generic_services import dfToListOfDicts, convertCountryNameToCode, convertCountryCodeToName
-from core.services.generic_services import formatNumbers
+from core.services.generic_services import formatNumbers, convertMonthstoStrtEndDates
+from core.constants.generic import TODAY
 
-def getExportData(startDateStr: str, endDateStr: str, country: str):
-    today = date.today()
-    firstDayOfCurrentMonth = date(today.year, today.month, 1)
-    if startDateStr:
-        startDate = date.fromisoformat(startDateStr)
-    else:
-        lastDayOfPreviousMonth = firstDayOfCurrentMonth - timedelta(days=1)
-        startDate = date(lastDayOfPreviousMonth.year, lastDayOfPreviousMonth.month, 1)
-    
-    if endDateStr:
-        endDate = date.fromisoformat(endDateStr)
-    else:
-        endDate = firstDayOfCurrentMonth - timedelta(days=1)
-    
-    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
-    if country:
-        filters &= Q(Country=country)
+def convertHSCodeToCategory(HSCode: str):
+    categoryMap = {
+        '62': 'Woven',
+        '61': 'Knit',
+    }
+    return categoryMap.get(HSCode[:2], 'Other')
 
-    fields = ['Country','Exporter','Importer','ShipDate','Quantity','Price','Currency','HSCode','Description']
-    exportData = models.ExportData.objects.filter(filters).values(*fields)
-    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+def convertCategoryToHSCodeStart(categories: List[str]) -> List[str]:
+    categoryMap = {
+        'Woven': '62',
+        'Knit': '61',
+    }
 
-    dfExportData['Price'] = dfExportData['Price'].astype(float)
+    hsCodes = []
+    for category in categories:
+        if category in categoryMap:
+            hsCodes.append(categoryMap[category])
 
-    dfExportData['Country'] = dfExportData['Country'].apply(convertCountryCodeToName)
-
-    return dfExportData
+    return list(set(hsCodes))
 
 def ExtractUploadedData(dataFile):
     if str(dataFile.name).endswith(('.xls', '.xlsx')):
@@ -138,36 +133,52 @@ def ConfirmPendingUploads(approval: str):
                 models.ExportData.objects.bulk_create(dataToAdd)
         pendingUploads.delete()
 
-def GetExportDataTable(startDate, endDate, country):
-    dfExportData = getExportData(startDate, endDate, country)
+def GetMonthWiseQty():
+    fields = ['Month', 'Quantity', 'Checked']
+    exportData = models.ExportData.objects.annotate(Month=TruncMonth('ShipDate')
+                                                    ).values('Month').annotate(
+                                                        Quantity=Sum('Quantity',
+                                                        )).order_by('Month')
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData, fields
 
-    dfExportData['Value'] = dfExportData['Quantity'] * dfExportData['Price']
+    last12Months = TODAY - timedelta(days=365)
+    dfExportData['Checked'] = dfExportData['Month'] >= last12Months.date()
+
+    dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers)
+    dfExportData['Month'] = pd.to_datetime(dfExportData['Month']).dt.strftime('%b-%Y')
 
     return dfToListOfDicts(dfExportData)
 
-def GetCountrySummary(startDateStr: str, endDateStr: str):
-    today = date.today()
-    firstDayOfCurrentMonth = date(today.year, today.month, 1)
-    if startDateStr:
-        startDate = date.fromisoformat(startDateStr)
-    else:
-        lastDayOfPreviousMonth = firstDayOfCurrentMonth - timedelta(days=1)
-        startDate = date(lastDayOfPreviousMonth.year, lastDayOfPreviousMonth.month, 1)
-    
-    if endDateStr:
-        endDate = date.fromisoformat(endDateStr)
-    else:
-        endDate = firstDayOfCurrentMonth - timedelta(days=1)
-    
+def GetCountrySummary(months: List[str], importers: List[str], exporters: List[str], categories: List[str]):
+    startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    if importers:
+        filters &= Q(Importer__in=importers)
+    
+    if exporters:
+        filters &= Q(Exporter__in=exporters)
+    
+    if categories:
+        HSCodes = convertCategoryToHSCodeStart(categories)
+        for HSCode in HSCodes:
+            filters &= Q(HSCode__startswith=HSCode)
+    
     
     fields = ['Country','Quantity']
     exportData = models.ExportData.objects.filter(filters).values('Country').annotate(Quantity=Sum('Quantity'))
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData, fields
 
-    dfExportData['CountryName'] = dfExportData['Country'].apply(convertCountryCodeToName)
-    dfExportData.rename(inplace=True, columns={'Country':'CountryCode'})
+    filePath = os.path.join(settings.BASE_DIR, 'static/Country-Codes-Location.json')
+    dfCoordinates = pd.read_json(filePath)
+
+    dfExportData = pd.merge(left=dfExportData, right=dfCoordinates, left_on='Country', right_on='alpha2', how='left')
+    del dfCoordinates
+
+    dfExportData.drop(inplace=True, columns=['alpha2', 'alpha3', 'numeric'])
+    dfExportData.rename(inplace=True, columns={'Country':'CountryCode','country': 'CountryName'}) 
 
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
 
@@ -175,24 +186,66 @@ def GetCountrySummary(startDateStr: str, endDateStr: str):
 
     return dfToListOfDicts(dfExportData)
 
-def GetImporterSummary(startDateStr: str, endDateStr: str):
-    today = date.today()
-    firstDayOfCurrentMonth = date(today.year, today.month, 1)
-    if startDateStr:
-        startDate = date.fromisoformat(startDateStr)
-    else:
-        lastDayOfPreviousMonth = firstDayOfCurrentMonth - timedelta(days=1)
-        startDate = date(lastDayOfPreviousMonth.year, lastDayOfPreviousMonth.month, 1)
-    
-    if endDateStr:
-        endDate = date.fromisoformat(endDateStr)
-    else:
-        endDate = firstDayOfCurrentMonth - timedelta(days=1)
-    
+def GetCategorySummary(months: List[str]):
+    startDate, endDate = convertMonthstoStrtEndDates(months)  
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    fields = ['HSCode','Quantity']
+    exportData = models.ExportData.objects.filter(filters).values('HSCode').annotate(Quantity=Sum('Quantity'))
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData
+
+    dfExportData['Category'] = dfExportData['HSCode'].apply(convertHSCodeToCategory)
+    dfExportData.drop(columns=['HSCode'], inplace=True)
+
+    dfExportData = dfExportData.groupby('Category').agg({'Quantity': 'sum'}).reset_index()
+    dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
+    dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
+
+    return dfToListOfDicts(dfExportData)
+
+def GetImporterSummary(months: List[str], countries: List[str], exporters: List[str], categories: List[str]):
+    startDate, endDate = convertMonthstoStrtEndDates(months)    
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    if countries:
+        filters &= Q(Country__in=countries)
+    
+    if exporters:
+        filters &= Q(Exporter__in=exporters)
+    
+    if categories:
+        HSCodes = convertCategoryToHSCodeStart(categories)
+        for HSCode in HSCodes:
+            filters &= Q(HSCode__startswith=HSCode)
 
     fields = ['Importer','Quantity']
     exportData = models.ExportData.objects.filter(filters).values('Importer').annotate(Quantity=Sum('Quantity'))
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData,fields
+
+    dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
+    dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
+
+    return dfToListOfDicts(dfExportData)
+
+def GetExporterSummary(months: List[str], countries: List[str], importers: List[str], categories: List[str]):
+    startDate, endDate = convertMonthstoStrtEndDates(months)
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    if countries:
+        filters &= Q(Country__in=countries)
+    
+    if importers:
+        filters &= Q(Importer__in=importers)
+    
+    if categories:
+        HSCodes = convertCategoryToHSCodeStart(categories)
+        for HSCode in HSCodes:
+            filters &= Q(HSCode__startswith=HSCode)
+
+    fields = ['Exporter','Quantity']
+    exportData = models.ExportData.objects.filter(filters).values('Exporter').annotate(Quantity=Sum('Quantity'))
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData,fields
 
@@ -201,3 +254,39 @@ def GetImporterSummary(startDateStr: str, endDateStr: str):
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
 
     return dfToListOfDicts(dfExportData)
+
+def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str], importers: List[str], categories: List[str], page: str):
+    startDate, endDate = convertMonthstoStrtEndDates(months)
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    if countries:
+        filters &= Q(Country__in=countries)
+    
+    if importers:
+        filters &= Q(Importer__in=importers)
+    
+    if exporters:
+        filters &= Q(Exporter__in=exporters)
+    
+    itemsPerPage = 10
+    pageNum = int(page)
+    offset = (pageNum - 1) * itemsPerPage
+    limit = offset + itemsPerPage
+    
+    fields = ['ShipDate', 'Importer', 'Exporter', 'Description', 'Quantity', 'Price']
+    exportData = models.ExportData.objects.filter(filters).order_by('-ShipDate', '-Quantity')
+
+    numberOfPages = ceil(exportData.count() / itemsPerPage)
+    
+    exportData = exportData.values(*fields)[offset:limit]
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData, fields
+
+    dfExportData.sort_values(by=['ShipDate', 'Quantity'], ascending=[False, False], inplace=True)
+
+    dfExportData['Month'] = pd.to_datetime(dfExportData['ShipDate']).dt.strftime('%b-%Y')
+    dfExportData.drop(inplace=True, columns=['ShipDate'])
+
+    dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers)
+    
+    return dfToListOfDicts(dfExportData), numberOfPages

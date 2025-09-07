@@ -19,7 +19,7 @@ theme = {
 
     #Pagination
     'pagination': 'flex justify-center mt-4',
-    'dropdownPagination': 'text-xs py-1 px-2 border rounded',
+    'dropdownPagination': 'select select-bordered select-xs border rounded',
     'linkPaginaton': 'join-item btn',
     
     #Buttons

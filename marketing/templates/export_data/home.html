@@ -5,31 +5,18 @@
 {% endblock title %}
 
 {% block content %}
+    <!--Filters on the charts. This is hidden from user-->
     <div class="{{theme.border}}">
-        <form action="{% url 'marketing:exportData' %}" method="get" autocomplete="off">
-            <div class="grid grid-cols-8 {{theme.justify}} {{theme.align}}">
-                <div class="flex flex-col col-[1/3] items-center">
-                    <span class="text-sm text-gray-500 mb-1">Search:</span>
-                    <input type="text" class="{{theme.textInput}}" name="search" value="{{search}}">
-                </div>
-                <div class="flex flex-col col-[3/6] items-center">
-                    <span class="text-sm text-gray-500 mb-1">Shipment Date:</span>
-                    <div class="flex items-center" id="date-range-picker" date-rangepicker datepicker-format="yyyy-mm-dd">
-                        <input id="startDate" name="startDate" type="text" class="{{theme.textInput}}" value="{{startDate}}">
-                        <input id="endDate" name="endDate" type="text" class="{{theme.textInput}}" value="{{endDate}}">
-                    </div>
-                </div>
-                <div class="flex col-[6/9] btn-group {{theme.align}} justify-end">
-                    <a class="{{theme.buttonSecondary}}" role="button" onclick="resetFilters()">Reset</a>
-                    <button type="submit" class="{{theme.buttonBasic}}">Filter</button>
-                </div>
+        <form action="{% url 'marketing:exportData' %}" id="filtersForm" method="get" autocomplete="off">
+            <div id="monthsFilterDiv" hidden>
+                {% for month in months %}
+                    <input name="months[]" type="text" data-month-name="{{month.Month}}" value="{{month.Month}}">
+                {% endfor %}
             </div>
-            <div class="grid grid-cols-2 {{theme.justify}} {{theme.align}} mt-6">
-                <div class="flex col-[1/3] btn-group {{theme.align}} justify-end">
-                    <a class="{{theme.buttonBasic}}" href="{% url 'marketing:exportDataUpload' %}" role="button">Upload</a>
-                    <a class="{{theme.buttonSecondary}}" href="{% url 'marketing:confirmExportDataUpload' %}" role="button">Confirm Upload</a>
-                    <a class="{{theme.buttonSecondary}}" href="{% url 'marketing:confirmExportDataUpload' %}" role="button">Refine Alias</a>
-                </div>
+            <div id="cateforiesFilterDiv" hidden>
+                {% for category in categories %}
+                    <input name="categories[]" type="text" data-category-name="{{category}}" value="{{category}}">
+                {% endfor %}
             </div>
             <div id="countriesFilterDiv" hidden>
                 {% for country in countries %}
@@ -39,6 +26,11 @@
             <div id="importersFilterDiv" hidden>
                 {% for importer in importers %}
                     <input name="importers[]" type="text" data-importer-name="{{importer}}" value="{{importer}}">
+                {% endfor %}
+            </div>
+            <div id="exportersFilterDiv" hidden>
+                {% for exporter in exporters %}
+                    <input name="exporters[]" type="text" data-exporter-name="{{exporter}}" value="{{exporter}}">
                 {% endfor %}
             </div>
         </form>
@@ -53,6 +45,7 @@
                     <input id="countrySearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
                     <ul id="countrySelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
+                
             </div>
             <div class="flex flex-col col-[2/3] items-center">
                 <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
@@ -61,6 +54,84 @@
                     <ul id="importerSelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
             </div>
+            <div class="flex flex-col col-[3/4] items-center">
+                <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
+                    <h2 class="card-title text-xl font-bold mb-4">Exporter</h2>
+                    <input id="exporterSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
+                    <ul id="exporterSelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
+                </div>
+            </div>
+            <div class="flex flex-col col-[4/5] items-center">
+                <div class="grid grid-cols-1 {{theme.justify}} {{theme.align}} w-4/5">
+                    <div class="flex flex-col col-[1/2] items-center">
+                        <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
+                            <div class="dropdown w-full">
+                                <div id="monthDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
+                                    Month
+                                </div>
+                                <ul tabindex="0" id="monthSelector" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
+                                    {% for data in months %}
+                                        <li>
+                                            <label class="label cursor-pointer p-2">
+                                                <span class="label-text">
+                                                    <span class="font-semibold" data-month-name="{{data.Month}}">{{data.Month}}</span>
+                                                    <span class="text-xs text-gray-500 ml-2">{{data.Quantity}}</span>
+                                                </span>
+                                                <input type="checkbox" class="checkbox" value="{{data.Month}}"
+                                                {% if data.Checked %}
+                                                    checked
+                                                {% endif %}
+                                                    >
+                                            </label>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col col-[1/2] items-center">
+                        <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
+                            <div class="dropdown w-full">
+                                <div id="monthDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
+                                    Category
+                                </div>
+                                <ul tabindex="0" id="categorySelector" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex col-[1/2] btn-group {{theme.align}} justify-end">
+                        <a class="{{theme.buttonBasic}}" role="button" onclick="applyFilters()">Filter</a>
+                        <a class="{{theme.buttonSecondary}}" role="button" onclick="resetFilters()">Reset</a>
+                    </div>
+                </div>
+            </div>  
+            <div class="flex flex-col col-[2/5] items-center">
+                <div id ="detailsTable" class="mt-6 w-full">
+                    <table class="{{theme.table}} table-fixed">
+                        <tr class = "{{theme.tableHead}}">
+                            <th scope="col">Month</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Exporter</th>
+                            <th scope="col" class="w-1/2">Description</th>
+                            <th scope="col" class="w-20">Qty</th>
+                            <th scope="col" class="w-20">Rate</th>
+                        </tr>
+                        <tbody id="tableData" class = "{{theme.tableBody}}">
+
+                        </tbody>
+                    </table>
+                    <div class="grid grid-cols-4 {{theme.justify}} {{theme.align}}">
+                        <div class="flex flex-col col-[4/5] items-center">
+                            <div class="flex justify-center mt-4">
+                                <label class="mx-2 whitespace-nowrap">Page:&nbsp; </label>
+                                <select id="paginationContainer" class="{{theme.dropdownPagination}}">
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>          
         </div>
     </div>
 
@@ -80,7 +151,114 @@
         }
     </script>
 
-    <script>    //To populate the countries selector
+    <script>    //To handle the months selector
+        const monthSelector = document.getElementById('monthSelector');
+        const monthsFilterDiv = document.getElementById('monthsFilterDiv');
+        
+        monthSelector.addEventListener('change', (event) => {
+            if (event.target.type === 'checkbox') {
+                const selectedMonthName = event.target.value;
+                const isChecked = event.target.checked;
+                changeMonthFilter(selectedMonthName, isChecked);
+            }
+        });
+
+        function changeMonthFilter(monthName, checkStatus) {
+            if (checkStatus) {
+                const inputElement = document.createElement('input');
+                inputElement.name = 'months[]';
+                inputElement.type = 'text';
+
+                inputElement.value = monthName; 
+
+                inputElement.dataset.monthName = monthName;
+
+                monthsFilterDiv.appendChild(inputElement);
+            } else {
+                const inputToRemove = monthsFilterDiv.querySelector(`input[data-month-name="${monthName}"]`);
+                monthsFilterDiv.removeChild(inputToRemove);
+            }
+        }
+
+    </script>
+    
+    <script>    //To handle the category selector
+        const categorySelector = document.getElementById('categorySelector');
+        const categoryFilterDiv = document.getElementById('cateforiesFilterDiv');
+
+        let allCategoriesData = [];
+
+        async function populateCategories(params, selectedCategories) {
+            const url = "{% url 'marketing:exportDataCategories' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                showMessage(error);
+                return ;
+            }
+
+            allCategoriesData = await response.json();
+
+            renderCategories(allCategoriesData, selectedCategories);
+
+            categorySelector.addEventListener('change', (event) => {
+                if (event.target.type === 'checkbox') {
+                    const selectedCategory = event.target.value;
+                    const isChecked = event.target.checked;
+
+                    changeCategoryFilter(selectedCategory, isChecked);
+                }
+            });
+        }
+
+        function renderCategories(categories, selectedCategories) {
+            categorySelector.innerHTML = '';
+
+            if (!categories.length) {
+                categorySelector.innerHTML = 'No Data Found';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+
+            categories.forEach(category => {
+                const li = document.createElement('li');
+                const isSelected = selectedCategories.includes(category.Category);
+
+                li.innerHTML = `
+                    <label class="label cursor-pointer p-2">
+                        <span class="label-text">
+                            <span class="font-semibold" data-category-name="${category.Category}">${category.Category}</span>
+                            <span class="text-xs text-gray-500 ml-2">${category.Quantity}</span>
+                        </span>
+                        <input type="checkbox" class="checkbox" value="${category.Category}" ${isSelected ? 'checked' : ''}>
+                    </label>
+                `;
+                fragment.appendChild(li);
+            });
+            categorySelector.appendChild(fragment);
+        }
+
+        function changeCategoryFilter(categoryName, checkStatus) {
+            if (checkStatus) {
+                const inputElement = document.createElement('input');
+                inputElement.name = 'categories[]';
+                inputElement.type = 'text';
+
+                inputElement.value = categoryName; 
+
+                inputElement.dataset.categoryName = categoryName;
+
+                categoryFilterDiv.appendChild(inputElement);
+            } else {
+                const inputToRemove = categoryFilterDiv.querySelector(`input[data-category-name="${categoryName}"]`);
+                categoryFilterDiv.removeChild(inputToRemove);
+            }
+        }
+    </script>
+
+    <script>    //To handle the countries selector
         const countrySelector = document.getElementById('countrySelector');
         const countrySearch = document.getElementById('countrySearch');
         const countriesFilterDiv = document.getElementById('countriesFilterDiv');
@@ -171,7 +349,7 @@
     <script>    //To populate the importer selector
         const importerSelector = document.getElementById('importerSelector');
         const importerSearch = document.getElementById('importerSearch');
-        const importersFilterDiv = document.getElementById('importersFilterDiv')
+        const importersFilterDiv = document.getElementById('importersFilterDiv');
 
         let allImportersData = [];
 
@@ -252,16 +430,177 @@
                 importersFilterDiv.removeChild(inputToRemove);
             }
         }
+    </script>
 
+    <script>    //To populate the exporter selector
+        const exporterSelector = document.getElementById('exporterSelector');
+        const exporterSearch = document.getElementById('exporterSearch');
+        const exportersFilterDiv = document.getElementById('exportersFilterDiv');
+
+        let allExportersData = [];
+
+        async function populateExporters(params, selectedExporters) {
+            const url = "{% url 'marketing:exportDataExporters' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                showMessage(error);
+                return ;
+            }
+
+            allExportersData = await response.json();
+
+            renderExporters(allExportersData, selectedExporters);
+
+            exporterSelector.addEventListener('change', (event) => {
+                if (event.target.type === 'checkbox') {
+                    const selectedImporterName = event.target.value;
+                    const isChecked = event.target.checked;
+                    changeExporterFilter(selectedImporterName, isChecked);
+                }
+            });
+
+            exporterSearch.addEventListener('input', (event) => {
+                clearTimeout(searchTimer);
+                const searchTerm = event.target.value.toLowerCase();
+                
+                searchTimer = setTimeout(() => {
+                    applySearch(searchTerm, exporterSelector);
+                }, 500);
+            });
+        }
+
+        function renderExporters(exporters, selectedExporters) {
+            exporterSelector.innerHTML = '';
+
+            if (!exporters.length) {
+                exporterSelector.innerHTML = 'No Data Found';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+
+            exporters.forEach(exporter => {
+                const li = document.createElement('li');
+                const isSelected = selectedExporters.includes(exporter.Exporter); 
+
+                li.innerHTML = `
+                    <label class="label cursor-pointer p-2">
+                        <span class="label-text">
+                            <span class="font-semibold" data-exporter-name="${exporter.Exporter}">${exporter.Exporter}</span>
+                            <span class="text-xs text-gray-500 ml-2">${exporter.Quantity}</span>
+                        </span>
+                        <input type="checkbox" class="checkbox" value="${exporter.Exporter}" ${isSelected ? 'checked' : ''}>
+                    </label>
+                `;
+                fragment.appendChild(li);
+            });
+            exporterSelector.appendChild(fragment);
+        }
+
+        function changeExporterFilter(exporterName, checkStatus) {
+            if (checkStatus) {
+                const inputElement = document.createElement('input');
+                inputElement.name = 'exporters[]';
+                inputElement.type = 'text';
+
+                inputElement.value = exporterName; 
+                
+                inputElement.dataset.exporterName = exporterName;
+                
+                exportersFilterDiv.appendChild(inputElement);
+            } else {
+                const inputToRemove = exportersFilterDiv.querySelector(`input[data-exporter-name="${exporterName}"]`);
+
+                exportersFilterDiv.removeChild(inputToRemove);
+            }
+        }
+    </script>
+
+    <script>    //To pupluate the details table
+        const detailsTable = document.getElementById('detailsTable');
+
+        let allDetailsData = []
+
+        async function populateDetailsTable(params, pageNumber) {
+            const url = "{% url 'marketing:exportDataDetails' %}";
+            const response = await fetch(`${url}?${params}&page=${pageNumber}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                showMessage(error);
+                return ;
+            }
+
+            const responseData = await response.json();
+            allDetailsData = responseData['data'];
+            const numberOfPages = responseData['numberOfPages'];
+            console.log(numberOfPages);
+
+            const tableBody = detailsTable.children[0].children[1];
+
+            renderDetailsTable(tableBody, allDetailsData);
+        }
+
+        function renderDetailsTable(tableBody, details) {
+            tableBody.innerHTML = '';
+
+            const fragment = document.createDocumentFragment();
+
+            details.forEach(detail => {
+                const row = document.createElement('tr');
+                row.className = '{{theme.tableBodyRow}}';
+                row.innerHTML = `
+                    <td class="whitespace-nowrap overflow-hidden text-ellipsis">${detail.Month}</td>
+                    <td class="whitespace-nowrap">
+                        <div class="tooltip w-full" data-tip="${detail.Importer}">
+                            <span class="block overflow-hidden text-ellipsis">
+                                ${detail.Importer}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="whitespace-nowrap">
+                        <div class="tooltip w-full" data-tip="${detail.Exporter}">
+                            <span class="block overflow-hidden text-ellipsis">
+                                ${detail.Exporter}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="whitespace-nowrap">
+                        <div class="tooltip w-full" data-tip="${detail.Description}">
+                            <span class="block overflow-hidden text-ellipsis">
+                                ${detail.Description}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="whitespace-nowrap overflow-hidden text-ellipsis">${detail.Quantity}</td>
+                    <td class="whitespace-nowrap overflow-hidden text-ellipsis">${detail.Price}</td>
+                `
+                fragment.appendChild(row);
+            });
+            tableBody.appendChild(fragment);
+        }
     </script>
 
     <script>    //To rest filters
         function resetFilters() {
-            const countriesFilterDiv = document.getElementById('countriesFilterDiv');
-            countriesFilterDiv.innerHTML = '';
+            const filtersForm = document.getElementById('filtersForm');
 
-            const form = countriesFilterDiv.closest('form');
-            form.submit();
+            const filterDivs = filtersForm.children;
+
+            for (const div of filterDivs) {
+                div.innerHTML = '';
+            }
+
+            filtersForm.submit();
+        }
+    </script>
+
+    <script>    //To apply filter
+        function applyFilters() {
+            const filtersForm = document.getElementById('filtersForm');
+            filtersForm.submit();
         }
     </script>
 
@@ -269,26 +608,48 @@
         window.addEventListener('load', async () => {
             showLoadingIcon();
 
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const filterDiv = document.getElementById('countriesFilterDiv');
-            const countryInputs = countriesFilterDiv.querySelectorAll('input[name="countries[]"]');
+            const monthInputs = monthsFilterDiv.querySelectorAll('input[name="months[]"]');
 
-            const params = new URLSearchParams({
-                'startDate': startDate,
-                'endDate': endDate,
-            })
+            const countryInputs = countriesFilterDiv.querySelectorAll('input[name="countries[]"]');
+            const importerInputs = importersFilterDiv.querySelectorAll('input[name="importers[]"]');
+            const exporterInputs = exportersFilterDiv.querySelectorAll('input[name="exporters[]"]');
+            const categoryInputs = categoryFilterDiv.querySelectorAll('input[name="categories[]"]');
+
+            const params = new URLSearchParams();
+
+            monthInputs.forEach(input => {
+                params.append('months[]', input.value);
+            });
 
             countryInputs.forEach(input => {
                 params.append('countries[]', input.value);
             });
 
+            importerInputs.forEach(input => {
+                params.append('importers[]', input.value);
+            });
+            exporterInputs.forEach(input => {
+                params.append('exporters[]', input.value);
+            });
+
+            categoryInputs.forEach(input => {
+                params.append('categories[]', input.value);
+            });
+
             const selectedCountries = {{ countriesJson|safe }};
             const selectedImporters = {{ importersJson|safe}};
+            const selectedExporters = {{ exportersJson|safe }};
+            const selectedCategories = {{ categoriesJson|safe}};
+
+            populateCategories(params.toString(), selectedCategories);
 
             populateCountries(params.toString(), selectedCountries);
 
             populateImporters(params.toString(), selectedImporters);
+
+            populateExporters(params.toString(), selectedExporters);
+
+            populateDetailsTable(params.toString(), 1);
 
             hideLoadingIcon();
         });
