@@ -19,3 +19,11 @@ class CorrespondanceAdmin(admin.ModelAdmin):
     list_display = ('User','Customer')
     list_filter = ('Type',)
     ordering = ('User',)
+
+@admin.register(models.ImporterAlias)
+class ImporterAliasAdmin(admin.ModelAdmin):
+    '''Admin View for ImporterAlias'''
+
+    list_display = ('Name', 'Alias')
+    list_filter = ('Alias',)
+    ordering = ('Name',)

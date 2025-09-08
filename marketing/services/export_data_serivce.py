@@ -8,13 +8,13 @@ from math import ceil
 import os
 
 from django.db import transaction
-from django.db.models import DateTimeField, Q, Sum
+from django.db.models import DateTimeField, Q, Sum, Subquery
 from django.db.models.functions import TruncDate, Cast, TruncMonth
 from django.conf import settings
 
 from .. import models
-from core.services.generic_services import dfToListOfDicts, convertCountryNameToCode, convertCountryCodeToName
-from core.services.generic_services import formatNumbers, convertMonthstoStrtEndDates
+from core.services.generic_services import dfToListOfDicts, convertCountryNameToCode, updateModelWithDF
+from core.services.generic_services import formatNumbers, convertMonthstoStrtEndDates, askAI
 from core.constants.generic import TODAY
 
 def convertHSCodeToCategory(HSCode: str):
@@ -57,6 +57,9 @@ def ExtractUploadedData(dataFile):
     dfUploadedData['Country'] = dfUploadedData['Country'].str.strip()
     countryCodes = convertCountryNameToCode(dfUploadedData['Country'])
     dfUploadedData['Country'] = dfUploadedData['Country'].map(countryCodes)
+
+    dfUploadedData['Importer'] = dfUploadedData['Importer'].str.replace('_x000D_', '', regex=False)
+    dfUploadedData['Exporter'] = dfUploadedData['Exporter'].str.replace('_x000D_', '', regex=False)
 
     dfUploadedData['ShipDate'] = dfUploadedData['ShipDate'].dt.strftime('%Y-%m-%d')
 
@@ -222,7 +225,21 @@ def GetImporterSummary(months: List[str], countries: List[str], exporters: List[
     fields = ['Importer','Quantity']
     exportData = models.ExportData.objects.filter(filters).values('Importer').annotate(Quantity=Sum('Quantity'))
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
-    del exportData,fields
+    del exportData
+
+    fields = ['Name', 'Alias']
+    importerAliases = models.ImporterAlias.objects.filter(Name__in=dfExportData['Importer'].to_list()).values(*fields)
+    dfImporterAliases = pd.DataFrame(importerAliases) if importerAliases else pd.DataFrame(columns=fields)
+    del importerAliases, fields
+    
+    dfExportData = pd.merge(left=dfExportData, right=dfImporterAliases, left_on='Importer', right_on='Name', how='left')
+    del dfImporterAliases
+    dfExportData.drop(inplace=True, columns='Name')
+
+    dfExportData['Importer'] = np.where(dfExportData['Alias'].isna(), dfExportData['Importer'], dfExportData['Alias'])
+    dfExportData.drop(inplace=True, columns=['Alias'])
+
+    dfExportData = dfExportData.groupby('Importer').agg({'Quantity': 'sum'}).reset_index()
 
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
@@ -290,3 +307,112 @@ def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers)
     
     return dfToListOfDicts(dfExportData), numberOfPages
+
+def GetImportersForRefinement(filterMethod: str|None, search: str|None):
+    QUERY_LIMIT = 20
+    
+    hasFilters = False
+    filters = Q()
+
+    aliases = models.ImporterAlias.objects.values_list('Name', flat=True)
+    if filterMethod == 'pending':
+        filters &= ~Q(Importer__in=Subquery((aliases)))
+        hasFilters = True
+    elif filterMethod == 'previous':
+        filters &= Q(Importer__in=Subquery((aliases)))
+        hasFilters = True
+    
+    if search:
+        filters &= Q(Importer__icontains=search)
+        hasFilters = True
+
+    if not hasFilters:
+        return [], None, None
+    del hasFilters
+
+    fields = ['Importer']
+    importerNames = models.ExportData.objects.filter(filters).values(*fields).distinct()
+    dfImporterNames = pd.DataFrame(importerNames) if importerNames else pd.DataFrame(columns=fields)
+    del importerNames, filters
+
+    fields = ['Name','Alias']
+    aliases = models.ImporterAlias.objects.all().values(*fields)
+    dfImporterAliases = pd.DataFrame(aliases) if aliases else pd.DataFrame(columns=fields)
+    del aliases, fields
+   
+    addedAliases = dfImporterAliases['Alias'].to_list()
+
+    dfImporterNames = pd.merge(left=dfImporterNames, right=dfImporterAliases, left_on='Importer', right_on='Name', how='left')
+    del dfImporterAliases
+    dfImporterNames.drop(inplace=True, columns=['Name'])
+
+    totalDataLength = len(dfImporterNames)
+    
+    numberOfSamples = min(QUERY_LIMIT, totalDataLength)
+    dfImporterNames = dfImporterNames.sample(n=numberOfSamples).reset_index(drop=True)
+
+    unAliasedImporters = dfImporterNames[dfImporterNames['Alias'].isna()]['Importer'].to_list()
+    
+    if unAliasedImporters:
+        prompt = f"""
+                Given the following company names, provide a single, standardized name.
+
+                **Existing Aliases to Use:**
+                {addedAliases}
+
+                **Instructions:**
+                1. Check if any of the provided company names are a direct match or a clear alias of a name in the "Existing Aliases to Use" list.
+                2. If a match is found, use the corresponding alias from the list as the "SimplifiedName."
+                3. If no match is found, create a new "SimplifiedName." For this new name, ensure only the first letter of each word is capitalized,
+                and remove common legal suffixes like Ltd, LLC, Inc, GmbH, Co., corp etc.
+                4. If the "Existing Aliases to Use" list is empty, always follow Instruction #3.
+                5. Be concise and respond only with the name.
+
+                **Company Names to Standardize:**
+                {unAliasedImporters}
+                """
+
+        del unAliasedImporters, addedAliases
+        
+        responseSchema = {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "Importer": {"type": "STRING"},
+                    "SimplifiedName": {"type": "STRING"}
+                },
+                "required": ["Importer", "SimplifiedName"]
+            }
+        }
+        try:
+            suggestions = askAI(prompt, responseSchema)
+        except Exception as e:
+            raise ValueError(e)
+        del prompt, responseSchema
+
+        dfSuggestions = pd.DataFrame(suggestions) if suggestions else pd.DataFrame(columns=['Importer', 'SimplifiedName'])
+        del suggestions
+        
+        dfImporterNames = pd.merge(left=dfImporterNames, right=dfSuggestions, on='Importer', how='left')
+        del dfSuggestions
+        
+        dfImporterNames['Alias'] = np.where(dfImporterNames['Alias'].isna(), dfImporterNames['SimplifiedName'], dfImporterNames['Alias'])
+        dfImporterNames.drop(inplace=True, columns=['SimplifiedName'])
+
+    return dfToListOfDicts(dfImporterNames), numberOfSamples, totalDataLength
+
+def SaveImportersAlias(dfAliases: pd.DataFrame):
+    fields = ['id', 'Name']
+    previousData = models.ImporterAlias.objects.filter(Name__in=dfAliases['Importer'].to_list()).values(*fields)
+    dfPreviousData = pd.DataFrame(previousData) if previousData else pd.DataFrame(columns=fields)
+    del previousData, fields
+
+    dfAliases.rename(inplace=True, columns={'Importer':'Name'})
+    
+    dfAliases = pd.merge(left=dfAliases, right=dfPreviousData, on='Name', how='left')
+    
+    try:
+        updateModelWithDF(models.ImporterAlias, dfAliases, dfPreviousData)
+    except Exception as e:
+        raise ValueError(e)

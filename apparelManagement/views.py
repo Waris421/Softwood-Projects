@@ -1110,7 +1110,7 @@ def GetReceiptAllocation(request: HttpRequest):
 
 @login_required(login_url='/login')
 def PrintPurchaseReceipt(request: HttpRequest, pk: str):
-    if not hasPermission(request.user, 'apparelManagement', 'PurchaseReceipt', type='view'):
+    if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='view'):
         return HttpResponse('Access Denied', status=403)
     
     try:

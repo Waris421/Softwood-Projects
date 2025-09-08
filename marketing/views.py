@@ -174,6 +174,32 @@ def ExportDataSettings(request: HttpRequest):
     return render(request, 'export_data/settings.html', context)
 
 @login_required(login_url='/login')
+def RefineImporters(request: HttpRequest):
+    if request.method == 'POST':
+        jsonData = json.loads(request.body.decode('utf-8'))
+
+        dfAliases = refineJson(jsonData)
+        
+        try:
+            export_data_serivce.SaveImportersAlias(dfAliases)
+            return HttpResponse('OK', status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        filterMethod = request.GET.get('filterMethod', None)
+        search = request.GET.get('search', '')
+        
+        importersData, currentCount, totalCount = export_data_serivce.GetImportersForRefinement(filterMethod, search)
+        context = {
+            'importersData': importersData,
+            'currentCount': currentCount, 'totalCount': totalCount,
+            'filterMethod': filterMethod, 'search': search,
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render (request, 'export_data/importer_alias.html', context)
+
+@login_required(login_url='/login')
 def UploadExportReport(request:HttpRequest):
     if request.method == 'POST':
         dataFile = request.FILES['exportDataFile']        

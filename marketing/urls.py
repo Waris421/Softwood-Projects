@@ -17,6 +17,7 @@ urlpatterns = [
 
     path("marketing/export-data/", views.ExportData, name="exportData"),
     path("marketing/export-data/settings", views.ExportDataSettings, name="exportDataSettings"),
+    path("marketing/export-data/refine/importers", views.RefineImporters, name="refineImporters"),
     path("marketing/export-data/upload", views.UploadExportReport, name="exportDataUpload"),
     path("marketing/export-data/confirm-upload", views.UploadExportReportConfirmation, name="confirmExportDataUpload"),
 

@@ -71,9 +71,10 @@
             <a href="/logout">Logout</a>
           </li>
           <li><a href="/">Go to Main</a></li>
-          <li><span id="settingsIcon" class="material-symbols-outlined" custom-url="{% if settingsIconViewName %}{% url settingsIconViewName %}{% endif %}">
+          <li>
+            <a id="settingsIcon" class="material-symbols-outlined" custom-url="{% if settingsIconViewName %}{% url settingsIconViewName %}{% endif %}">
               settings
-            </span>
+            </a>
           </li>
         </ul>
       </div>
@@ -570,17 +571,13 @@
         } else {
           const adminStatus = '{{user.is_staff}}';
           
-          console.log(adminStatus);
           if (adminStatus == 'True') {
             url = "{% url 'admin:index' %}";
           } else {
             url = '/access/denied';
           } 
         }
-        
-        settingsIcon.onclick = () => {
-          window.location.href = url;
-        };
+        settingsIcon.href = url;
       });
     </script>
   </body>

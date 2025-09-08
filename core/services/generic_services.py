@@ -279,25 +279,24 @@ def askAI(prompt: str, outputSchema: Union[Dict[str, Any], None] = None):
     '''
     genai.configure(api_key=API_KEY_FOR_AI)
 
-    model = genai.GenerativeModel(model_name='gemini-2.0-flash')
-
     if outputSchema:
-        schemaDescription = ", ".join([f"{k}: {v.__name__}" for k, v in outputSchema.items()])
-        prompt = (
-            f"{prompt}\n\n"
-            f"Please provide the response in a JSON array format, where each object "
-            f"in the array has the following keys and types: {schemaDescription}. "
-            f"Ensure the output is a valid JSON array."
+        model = genai.GenerativeModel(
+            model_name='gemini-2.0-flash',
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": outputSchema
+            }
         )
-        response = model.generate_content(prompt)
-        responseText = response.text
-        parsedData = json.loads(responseText)
 
-        if isinstance(parsedData, list):
-            return parsedData
+        response = model.generate_content(prompt)
+
+        if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:        
+            jsonData = json.loads(response.candidates[0].content.parts[0].text)
+            return list(jsonData)
         else:
-            raise ValueError('Could not get the response in the required format.')
+            raise LookupError('An error occured with the AI model')
     else:
+        model = genai.GenerativeModel(model_name='gemini-2.0-flash')
         response = model.generate_content(prompt)
         return response.text
 

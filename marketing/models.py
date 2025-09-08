@@ -49,6 +49,29 @@ class ExportData(models.Model):
             models.Index(fields=['Country',]),
         ]
 
+class ImporterAlias(models.Model):
+    '''Model definition for Importer Aliasing.'''
+    id = models.AutoField(primary_key=True)
+    Name = models.CharField(max_length=255, unique=True)
+    Alias = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Name',]),
+        ]
+
+class ExporterAlias(models.Model):
+    '''Model definition for Exporter Aliasing.'''
+    id = models.AutoField(primary_key=True)
+    Name = models.CharField(max_length=255, unique=True)
+    Alias = models.CharField(max_length=255, unique=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Name',]),
+        ]
+
+
 class CustomerContact(models.Model):
     id = models.AutoField(primary_key=True)
     Customer = models.ForeignKey(Customer, on_delete=models.CASCADE)

@@ -208,7 +208,7 @@
             hideLoadingIcon();
         }
 
-         async function submitData(obj) {
+        async function submitData(obj) {
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
             const data = JSON.stringify(obj);
@@ -220,6 +220,6 @@
             });
 
             return response;
-         }
+        }
     </script>
 {% endblock content %}

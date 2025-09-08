@@ -520,6 +520,7 @@
 
     <script>    //To pupluate the details table
         const detailsTable = document.getElementById('detailsTable');
+        const paginationContainer = document.getElementById('paginationContainer');
 
         let allDetailsData = []
 
@@ -536,11 +537,11 @@
             const responseData = await response.json();
             allDetailsData = responseData['data'];
             const numberOfPages = responseData['numberOfPages'];
-            console.log(numberOfPages);
 
             const tableBody = detailsTable.children[0].children[1];
 
             renderDetailsTable(tableBody, allDetailsData);
+            renderDetailsPagination(params, numberOfPages, pageNumber);
         }
 
         function renderDetailsTable(tableBody, details) {
@@ -580,6 +581,31 @@
                 fragment.appendChild(row);
             });
             tableBody.appendChild(fragment);
+        }
+
+        async function renderDetailsPagination(params, numberOfPages, selectedPage) {            
+            function handlePageChange(params, event) {
+                const selectedPageNumber = parseInt(event.target.value);
+                populateDetailsTable(params, selectedPageNumber);
+            }
+
+            paginationContainer.innerHTML = '';
+            paginationContainer.removeEventListener('change', handlePageChange);
+            
+            const fragment = document.createDocumentFragment();
+
+            for (let i=1; i<=numberOfPages; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${i}`;
+                if (i === selectedPage) {
+                    option.selected = true;
+                }
+                fragment.appendChild(option);
+            }
+            paginationContainer.appendChild(fragment);
+
+            paginationContainer.addEventListener('change', (event) => handlePageChange(params, event));
         }
     </script>
 
