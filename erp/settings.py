@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'marketing',
     'planning',
     'authentication',
+    'integration',
     'rest_framework',
     'rest_framework.authtoken',
     'import_export',

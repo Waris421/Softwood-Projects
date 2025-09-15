@@ -87,7 +87,7 @@ def ExportDataCountries(request: HttpRequest):
         return JsonResponse(countrySummary, safe=False)
     except Exception as e:
         print(f'Countries: {e}')
-        return HttpResponse('An occured. Check with your administrator', status=400)
+        return HttpResponse('An error occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
 def ExportDataCategories(request: HttpRequest):
@@ -104,7 +104,7 @@ def ExportDataCategories(request: HttpRequest):
         return JsonResponse(categorySummary, safe=False)
     except Exception as e:
         print(f'Categories: {e}')
-        return HttpResponse('An occured. Check with your administrator', status=400)
+        return HttpResponse('An error occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
 def ExportDataImporters(request: HttpRequest):
@@ -121,7 +121,7 @@ def ExportDataImporters(request: HttpRequest):
         return JsonResponse(importerSummary, safe=False)
     except Exception as e:
         print(f'Importers: {e}')
-        return HttpResponse('An occured. Check with your administrator', status=400)
+        return HttpResponse('An error occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
 def ExportDataExporters(request: HttpRequest):
@@ -162,6 +162,17 @@ def ExportDataTable(request: HttpRequest):
     except Exception as e:
         print(f'Data Table: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
+
+@login_required(login_url='/login')
+def ExportDataStats(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    months = request.GET.getlist('months[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
 
 @login_required(login_url='/login')
 def ExportDataSettings(request: HttpRequest):

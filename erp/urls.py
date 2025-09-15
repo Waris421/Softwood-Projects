@@ -24,4 +24,5 @@ urlpatterns = [
     path ('', include ('prodManagement.urls')),
     path ('', include ('planning.urls')),
     path ('', include ('authentication.urls')),
+    path ('', include ('integration.urls')),
 ]

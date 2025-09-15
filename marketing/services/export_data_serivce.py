@@ -308,6 +308,21 @@ def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str
     
     return dfToListOfDicts(dfExportData), numberOfPages
 
+def GetStats(months: List[str], countries: List[str], exporters: List[str], importers: List[str], categories: List[str], page: str):
+    startDate, endDate = convertMonthstoStrtEndDates(months)
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    if countries:
+        filters &= Q(Country__in=countries)
+    
+    if importers:
+        filters &= Q(Importer__in=importers)
+    
+    if exporters:
+        filters &= Q(Exporter__in=exporters)
+
+    print(filters)
+
 def GetImportersForRefinement(filterMethod: str|None, search: str|None):
     QUERY_LIMIT = 20
     

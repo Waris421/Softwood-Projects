@@ -116,7 +116,7 @@
                 <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                     <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
                         <input type="checkbox" class="{{theme.checkbox}} {{data.Color}}">
-                        <span class="material-symbols-outlined {{data.Color}}" style="font-size: 24px;" onclick="getContextForRequirement(this)">info</span>
+                        <span class="material-symbols-outlined {{data.Color}}" style="font-size: 24px;" onclick="getContextForRequirement(event)">info</span>
                     </div>
                     <div hidden>
                         <input value="{{data.id}}" class="{{theme.textInput}}" name="id">
@@ -193,71 +193,29 @@
         </div>
     </form>
 
-    <!--Requirement context dialog box-->
-    <input type="checkbox" id="historyToggle" class="modal-toggle" />
-    <div class="modal" role="dialog" id="historyTable">
-        <div class="{{theme.dialogBox}}">
-            <div class="modal-content">
-                <div class="{{theme.dialogBoxHeader}}">
-                    <h3 class="{{theme.dialogBoxTitle}}">Requirement History</h3>
-                </div>
-                <div class="{{theme.dialogBoxBody}}">
-                    <div class="grid grid-cols-6 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
-                        <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
-                            <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                                Receipt#
-                            </div>
-                        </div>
-                        <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
-                            <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                                Receipt Date
-                            </div>
-                        </div>
-                        <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
-                            <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                                Receipt Type
-                            </div>
-                        </div>
-                        <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                            <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                                Destination
-                            </div>
-                        </div>
-                        <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
-                            <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                                Receipt Qty
-                            </div>
-                        </div>
-                        <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
-                            <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                                Allocated Qty
-                            </div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-6 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
-                        <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}} cursor-pointer" value="" readonly>
-                        </div>
-                        <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="" readonly>
-                        </div>
-                        <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="" readonly>
-                        </div>
-                        <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="" readonly>
-                        </div>
-                        <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="" readonly>
-                        </div>
-                        <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="" readonly>
-                        </div>
-                    </div>
-                </div>
+    <!--Requirement history box-->
+    <div id="historyContainer" class="card bg-base-200 shadow-xl absolute hidden">
+        <div class="card-body p-4 pt-10 pr-10 relative">
+            <button id="historyCloseButton" class="btn btn-sm btn-circle absolute right-2 top-2">✕</button>
+
+            <h2  class="card-title text-sm">Requirement History</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th class="text-center">Receipt Number</th>
+                            <th class="text-center">Date</th>
+                            <th class="text-center">Type</th>
+                            <th class="text-center">Source</th>
+                            <th class="text-center">Total Qty</th>
+                            <th class="text-center">Allocated Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historytData" >
+                    </tbody>
+                </table>
             </div>
         </div>
-        <label class="modal-backdrop" for="historyToggle"></label>
     </div>
 
     <script> //To change view based on selected button
@@ -397,9 +355,10 @@
     </script>
 
     <script> //To get context for requirement
-        async function getContextForRequirement(source) {
+        async function getContextForRequirement(event) {
             showLoadingIcon();
 
+            const source = event.target;
             const requirementId = source.parentElement.parentElement.children[1].children[0].value;
             const workOrder = document.getElementById('id_Order').value;
 
@@ -408,65 +367,77 @@
             if (!response.ok) {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);
+
+                hideLoadingIcon();
                 return;
             }
 
             const history = await response.json();
 
-            //Get the format of the history table
-            const historyTable = document.getElementById('historyTable');
+            renderHistoryBox(event, history);
 
-            const historyArea = historyTable.querySelector('.modal-body');
+            hideLoadingIcon()
+        }
+
+        function renderHistoryBox(event, data) {
+            const container = document.getElementById('historyContainer');
+            const dataList = document.getElementById('historytData');
+            const historyCloseButton = document.getElementById('historyCloseButton');
             
-            const previousRows = historyArea.children;
-            for (let i=previousRows.length - 1; i>1; i--) {
-                previousRows[i].remove();
-            }
+            dataList.innerHTML = '';
 
-            const rows = historyArea.children;
-            const firstRow = rows[1];
+            const tableCellHelper = (content, isLink=false, url = '') => {
+                const td = document.createElement('td');
 
-            for (let i=1; i<history.length; i++) {
-                addRow(firstRow.children[0].children[0]);
-            }
+                td.classList.add('text-center');
 
-            for (let i=1; i<rows.length; i++) {
-                const recieptNumberBox = rows[i].children[0].children[0];
-                const urlBox = rows[i].children[0];
-                const recieptDateBox = rows[i].children[1].children[0];
-                const recieptTypeBox = rows[i].children[2].children[0];
-                const destinationBox = rows[i].children[3].children[0];
-                const totalQtyBox = rows[i].children[4].children[0];
-                const allocatedQtyBox = rows[i].children[5].children[0];
-                
-                if (history.length) {
-                    recieptNumberBox.value = (history[i-1].ReceiptNo);
-                    recieptDateBox.value = (history[i-1].ReceiptDate);
-                    recieptTypeBox.value = (history[i-1].Type);
-                    destinationBox.value = (history[i-1].Supplier);
-                    totalQtyBox.value = (history[i-1].TotalQuantity);
-                    allocatedQtyBox.value = (history[i-1].AllocatedQuantity);
-
-                    urlBox.addEventListener('click', () => {
-                        window.open(history[i-1].url, '_blank');
-                    });
+                if (isLink) {
+                    const link = document.createElement('a');
+                    link.classList.add(...'{{theme.hyperLink}}'.split(' '));
+                    link.href = url;
+                    link.textContent = content;
+                    link.target = '_blank';
+                    td.appendChild(link);
+                } else {
+                    td.textContent = content;
                 }
-            }
-
+                return td;
+            };
             
-            document.getElementById('historyToggle').checked = true;
+            
+            const fragment = document.createDocumentFragment();
+            data.forEach(row => {
+                const tr = document.createElement('tr');
 
-            hideLoadingIcon();
+                const columns = [
+                    { key: 'ReceiptNo', isLink: true, url: row['url'] },
+                    { key: 'ReceiptDate' },
+                    { key: 'Type' },
+                    { key: 'Supplier' },
+                    { key: 'TotalQuantity' },
+                    { key: 'AllocatedQuantity' }
+                ];
 
-            const escapeKeyHandlerForAllocBox = (event) => {
-                if (event.code == 'Escape') {
-                    document.getElementById('historyToggle').checked = false;
+                columns.forEach(column => {
+                    const cell = tableCellHelper(row[column.key], column.isLink, column.url);
+                    tr.appendChild(cell);
+                })
 
-                    document.removeEventListener('keyup', escapeKeyHandlerForAllocBox);
-                }
-            }
+                fragment.appendChild(tr);
+            });
+            dataList.appendChild(fragment);
 
-            document.addEventListener('keyup', escapeKeyHandlerForAllocBox);
+            const left = event.pageX;
+            const top = event.pageY;
+            
+            container.style.left = `${left}px`;
+            container.style.top = `${top}px`;
+            
+            container.classList.remove('hidden');
+
+            historyCloseButton.addEventListener('click', () => {
+                container.classList.add('hidden');
+            });
         }
     </script>
 
@@ -494,16 +465,17 @@
 
     <script> //Update quantity from variants
         function calculateQuantity() {
-            const rows = document.getElementById('variantTable').children[0].children;
+            const rows = Array.from(document.getElementById('variantForm').children[0].children).slice(1);
+            
             const qtyBox = document.getElementById('id_orderQty');
 
             let qty = 0;
 
             for (const row of rows) {
-                let varQty = row.children[1].children[0].value;
-                varQty = +varQty || 0;
-                qty = qty + varQty;
+                const variantQty = parseInt(row.children[1].children[0].value);
+                qty += variantQty;
             }
+            
             qtyBox.value = qty;
         }
     </script>

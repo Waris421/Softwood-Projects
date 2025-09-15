@@ -7,7 +7,7 @@
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
 
-    <!-- The main Order form-->
+    <!-- The main reeipt form-->
     <form method="POST" id="receiptForm" autocomplete="off">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-11 my-2 {{theme.justify}} {{theme.align}}">
@@ -39,54 +39,71 @@
     </form>
     
     <!--Inventory Table-->
-    <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
-        <div class="flex col-[1/3] items-center">
-            <form method="POST" id="inventoryForm" autocomplete="off">
-                <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}" row="0">
-                    <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
-                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                            Inventory
-                        </div>
-                    </div>
-                    <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
-                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                            Variant
-                        </div>
-                    </div>
-                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
-                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                            Quantity
-                        </div>
-                    </div>
-                    <div class="flex col-[8/10] {{theme.align}} {{theme.justify}}">
-                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                            Unit
-                        </div>
-                    </div>
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}" row="0">
+            <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                    Inventory
                 </div>
-                {% for data in inventory %}
-                    <div class="grid grid-cols-9 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
-                        <div hidden>
-                            <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="POInvId">
-                        </div>
-                        <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="Name" readonly>
-                        </div>
-                        <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
-                        </div>
-                        <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
-                            <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
-                        </div>
-                        <div class="flex col-[8/10] {{theme.align}} {{theme.justify}}">
-                            <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly>
-                        </div>
-                    </div>
-                {% endfor %}
-            </form>
+            </div>
+            <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                    Variant
+                </div>
+            </div>
+            <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                    Quantity
+                </div>
+            </div>
+            <div class="flex col-[8/10] {{theme.align}} {{theme.justify}}">
+                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                    Unit
+                </div>
+            </div>
         </div>
-        <div class="flex col-[3/4] items-center">
-            Context Box
+        {% for data in inventory %}
+            <div class="grid grid-cols-9 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                <div hidden>
+                    <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="POInvId">
+                </div>
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="Name" readonly>
+                    <span class="material-symbols-outlined {{data.Color}}" style="font-size: 24px;" onclick="showContextForPO(event)">info</span>
+                </div>
+                <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
+                </div>
+                <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
+                </div>
+                <div class="flex col-[8/10] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly>
+                </div>
+            </div>
+        {% endfor %}
+    </form>
+
+    <div id="invContextContainer" class="card bg-base-200 shadow-xl absolute hidden">
+        <div class="card-body p-4 pt-10 pr-10 relative">
+            <button id="contextCloseButton" class="btn btn-sm btn-circle absolute right-2 top-2">✕</button>
+
+            <h2 id="invContextHeading" class="card-title text-sm"></h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th class="text-center">Work order</th>
+                            <th class="text-center">Style</th>
+                            <th class="text-center">Customer</th>
+                            <th class="text-center">Merchandiser</th>
+                            <th class="text-center">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invContextData" >
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -101,6 +118,72 @@
 
             hideLoadingIcon();
         });
+    </script>
+
+    <script>    //To to an entry's contextual data
+        async function showContextForPO(event) {
+            showLoadingIcon();
+
+            const source = event.target;
+            const row = source.parentElement.parentElement;
+            const poInvId = row.children[0].children[0].value;
+            const invName = row.children[1].children[0].value;
+            const invVariant = row.children[2].children[0].value;
+
+            const response = await fetch(`/purchasereceipt/context?poInvId=${poInvId}`);
+            
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+
+                hideLoadingIcon();
+                return;
+            }
+
+            const allocations = await response.json();
+
+            renderContextBox(event, allocations, `${invName}-${invVariant}`);
+
+            hideLoadingIcon();
+        }
+
+        function renderContextBox(event, data, inventory) {
+            const container = document.getElementById('invContextContainer');
+            const heading = document.getElementById('invContextHeading');
+            const dataList = document.getElementById('invContextData');
+            const contextCloseButton = document.getElementById('contextCloseButton');
+
+            heading.textContent = inventory;
+            
+            dataList.innerHTML = '';
+
+            const fragment = document.createDocumentFragment();
+            data.forEach((row) => {
+                const tr = document.createElement('tr');
+
+                for (const colName in row) {
+                    const td = document.createElement('td');
+                    td.classList.add('text-center');
+                    td.textContent = row[colName];
+                    tr.appendChild(td);
+                }
+                fragment.appendChild(tr);
+            });
+
+            dataList.appendChild(fragment);
+
+            const left = event.pageX;
+            const top = event.pageY;
+            
+            container.style.left = `${left}px`;
+            container.style.top = `${top}px`;
+
+            container.classList.remove('hidden');
+
+            contextCloseButton.addEventListener('click', () => {
+                container.classList.add('hidden');
+            });
+        }
     </script>
 
     <script> //To send data to server

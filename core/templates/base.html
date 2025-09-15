@@ -272,6 +272,10 @@
             sequence.value = previousSequence+1;
             previousSequence = parseInt(sequence.value);
         }
+
+        const firstVisibleInput = copy.querySelector('input:not([hidden]):not([disabled]):not([readonly])');
+        firstVisibleInput.focus();
+
         if (nextFunction) {
           nextFunction(copy);
         }

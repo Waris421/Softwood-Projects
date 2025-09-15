@@ -312,7 +312,7 @@
                 stagesFromPreviousRows.forEach(stage => {
                     const li = document.createElement('li');
                     li.innerHTML = `
-                        <label class="label cursor-pointer">
+                        <label class="label cursor-pointer z-50">
                             <span class="label-text">${stage}</span>
                             <input type="checkbox" name="prereqs" value="${stage}" class="checkbox" ${currentSelectedPrereqs.includes(stage) ? 'checked' : ''}>
                         </label>

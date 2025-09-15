@@ -55,7 +55,7 @@ def summarizeVariants(dfInventory: pd.DataFrame, varFilter: str):
         'Price': 'mean',
         'Currency': 'first',
         'Unit': 'first',
-        'Value': 'mean'
+        'Value': 'sum'
     }
 
     if varFilter == 'V1':
@@ -65,7 +65,7 @@ def summarizeVariants(dfInventory: pd.DataFrame, varFilter: str):
         dfWithVariants = dfWithVariants.groupby(['Name', 'Variant2']).agg(aggDict).reset_index()
         dfWithVariants = dfWithVariants.rename(columns={'Variant2': 'Variant'})
     
-    dfInventory = pd.concat([dfWithVariants, dfWithoutVariants])
+    dfInventory = pd.concat([dfWithVariants, dfWithoutVariants]).reset_index()
     
     return dfInventory
 

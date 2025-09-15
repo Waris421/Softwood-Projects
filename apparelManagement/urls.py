@@ -51,6 +51,7 @@ urlpatterns = [
     path('purchasereceipt/add', views.AddPurchaseReceipt, name='addRec'),
     path('purchasereceipt/<int:pk>/edit', views.EditPurchaseReceipt, name='editRec'),
     path('purchasereceipt/alloc/get', views.GetReceiptAllocation, name='getRecAllocation'),
+    path('purchasereceipt/context', views.GetContextForPurchaseReceipt, name='getRecContext'),
     path('purchasereceipt/<int:pk>/re-allocate', views.ReAllocateReceiptInventory, name='reAllocate'),
     path('purchasereceipt/<int:pk>/print', views.PrintPurchaseReceipt, name='printRec'),
 

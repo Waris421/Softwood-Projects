@@ -1025,15 +1025,34 @@ def AddPurchaseReceipt(request: HttpRequest):
             
         try:
             inventory = purchase_receipt_service.GetPOData(purchaseOrder)
-            background = purchase_receipt_service.GetPOContext(purchaseOrder)
         except:
             inventory = []
 
         context = {
-            'inventory': inventory,'poNumber': poNumber,
+            'inventory': inventory,
+            'poNumber': poNumber,
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'purchase_receipt/add.html', context)
+
+@login_required(login_url='/login')
+def GetContextForPurchaseReceipt(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+    
+    poInvId = request.GET.get('poInvId','')
+
+    try:
+        poInventory = models.POInventory.objects.get(id=poInvId)
+    except:
+        return HttpResponse('Resource not found', status=404)
+
+    try:
+        poData = purchase_receipt_service.GetPOContext(poInventory)
+        return JsonResponse(poData, safe=False)
+    except Exception as e:
+        print(e)
+        return HttpResponse(e, status=400)
 
 @login_required(login_url='/login')
 def EditPurchaseReceipt(request: HttpRequest, pk:str):

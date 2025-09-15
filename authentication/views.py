@@ -18,6 +18,7 @@ from rest_framework.request import Request
 import rest_framework
 
 from core.constants.theme import theme
+from core.services.generic_services import showMessageResponse
 
 def Login(request: HttpRequest):
     if request.method == 'POST':
@@ -132,7 +133,7 @@ def PasswordResetRequest(request: HttpRequest):
                 from_email=None,
                 recipient_list=[user.email]
             )
-            return HttpResponse('We have emailed you the instruction on resetting your password.')
+            return showMessageResponse(request, 'We have emailed you the instruction on resetting your password.', 200)
         except Exception as e:
             print(e)
             context = {

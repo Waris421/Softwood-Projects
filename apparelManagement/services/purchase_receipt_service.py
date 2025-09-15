@@ -88,18 +88,12 @@ def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
 def GetPOData(purchaseOrder: models.PurchaseOrder):
     fields = ['id','Inventory','Variant','Quantity']
     poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder).values(*fields)
-    if poInventories:
-        dfPOInventories = pd.DataFrame(poInventories)
-    else:
-        dfPOInventories = pd.DataFrame(columns=[fields])
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
     del poInventories
 
     fields=['Code','Name', 'Unit']
     inventories = models.Inventory.objects.filter(Code__in=dfPOInventories['Inventory'].to_list()).values(*fields)
-    if inventories:
-        dfInventories = pd.DataFrame(inventories)
-    else:
-        dfInventories = pd.DataFrame(columns=fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(inventories)
     del inventories, fields
 
     dfPOInventories = pd.merge(left=dfPOInventories, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
@@ -108,13 +102,46 @@ def GetPOData(purchaseOrder: models.PurchaseOrder):
     
     return dfToListOfDicts(dfPOInventories)
 
-def GetPOContext(purchaseOrder: models.PurchaseOrder):
-    poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder)
-    fields = ['WorkOrder']
-    poAllocations = models.POAllocation.objects.filter(POInvId__in=poInventories).values(*fields)
-    del poInventories
+def GetPOContext(poInventory):
+    fields = ['WorkOrder', 'Quantity']
+    allocations = models.POAllocation.objects.filter(POInvId=poInventory).values(*fields)
+    dfAllocations = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=fields)
 
-    print(poAllocations)
+    fields = ['OrderNumber', 'StyleCode', 'Customer', 'Merchandiser']
+    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocations['WorkOrder'].to_list()).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders
+
+    fields = ['id', 'first_name', 'last_name']
+    users = models.User.objects.filter(id__in=dfWorkOrders['Merchandiser'].to_list()).values(*fields)
+    dfUsers = pd.DataFrame(users) if users else pd.DataFrame(columns=fields)
+    del users, fields
+
+    dfWorkOrders = pd.merge(left=dfWorkOrders, right=dfUsers, left_on='Merchandiser', right_on='id', how='left')
+    del dfUsers
+    dfWorkOrders.drop(inplace=True, columns=['Merchandiser', 'id'])
+
+    dfWorkOrders['Merchandiser'] = dfWorkOrders['first_name'] + ' ' + dfWorkOrders['last_name']
+    dfWorkOrders.drop(inplace=True, columns=['first_name', 'last_name'])
+
+    dfAllocations = pd.merge(left=dfAllocations, right=dfWorkOrders, left_on='WorkOrder', right_on='OrderNumber', how='left')
+    del dfWorkOrders
+    dfAllocations.drop(inplace=True, columns=['OrderNumber'])
+
+    columsOrder = ['WorkOrder', 'StyleCode', 'Customer', 'Merchandiser', 'Quantity']
+    dfAllocations = dfAllocations[columsOrder]
+
+    totalQuantity = dfAllocations['Quantity'].sum()
+    totalRow = {
+        'WorkOrder': '',
+        'Quantity': totalQuantity,
+        'StyleCode': 'Total',
+        'Customer': '',
+        'Merchandiser': ''
+    }
+    dfAllocations.loc[len(dfAllocations)] = totalRow
+
+    return dfToListOfDicts(dfAllocations)
 
 def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame):
     '''
@@ -220,7 +247,7 @@ def EditPurchaseReceipt (
     receiptObject.save()
 
     #Get the already saved inventories against this PO and their allocation
-    fields = ['id','InventoryCode','Variant']
+    fields = ['id','InventoryCode']
     previousInventories = models.RecInventory.objects.filter(ReceiptNumber=receiptObject).values(*fields)
     if previousInventories:
         dfPreviousInventories = pd.DataFrame(previousInventories)
@@ -241,7 +268,7 @@ def EditPurchaseReceipt (
     if dfRecInventory.empty:
         raise ValueError('No Inventory provided')
     
-    dfRecInventory.drop(inplace=True, columns=['InventoryName','Variant'])
+    dfRecInventory.drop(inplace=True, columns=['InventoryName'])
 
     dfRecInventory['id'] = dfRecInventory['id'].astype(int)
 

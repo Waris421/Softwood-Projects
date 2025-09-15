@@ -93,3 +93,9 @@ def getAPIUser(request:Request) -> User:
         return token.user
     except:
         raise PermissionError('Unauthorised')
+
+def getUserFromEmail(email: str) -> User:
+    try:
+        return User.objects.get(email=email)
+    except Exception as e:
+        raise LookupError(e)

@@ -12,14 +12,15 @@ from core.services.generic_services import convertTexttoObject, updateModelWithD
 from core.constants.theme import theme
 
 def applyColors(dfRequirement: pd.DataFrame):
+    TOLERANCE = 1.02
     if 'Quantity' in dfRequirement.columns:
         dfRequirement.rename(inplace=True, columns={'Quantity':'Required'})
     
     dfRequirement['Color'] = theme['redText']
 
-    dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Ordered'], theme['blueText'], dfRequirement['Color'])
+    dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Ordered'] * TOLERANCE, theme['blueText'], dfRequirement['Color'])
 
-    dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Received'], theme['grayText'], dfRequirement['Color'])
+    dfRequirement['Color'] = np.where(dfRequirement['Required']<=dfRequirement['Received'] * TOLERANCE, theme['grayText'], dfRequirement['Color'])
 
     dfRequirement['Color'] = dfRequirement['Color']+' text-center'
 
@@ -353,6 +354,12 @@ def ProcessOrderData(workOrder: models.WorkOrder):
 
     dfRequirement = pd.merge(left=dfRequirement, right=dfConsumptions, on='InventoryCode', how='left')
     del dfConsumptions
+    dfRequirement = dfRequirement.groupby(['id', 'InventoryCode', 'Variant']).agg(
+        Quantity=('Quantity', 'mean'),
+        Ordered=('Ordered', 'mean'),
+        Received=('Received', 'mean'),
+        Type = ('Type', 'first'),
+    ).reset_index()
     
     #Convert Inventory codes to inventory and names
     fields = ['Code','Name']
@@ -367,6 +374,7 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     del dfInventories
     dfRequirement.drop(inplace=True, columns=['Code'])
     dfRequirement.rename(inplace=True, columns={'Name':'InventoryName'})
+    dfRequirement['id'] = dfRequirement['id'].astype(int)
 
     dfRequirement['Color'] = applyColors(dfRequirement[['Quantity','Ordered','Received']])
     
@@ -540,9 +548,9 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     
     #The excess requirement from cut qty, based on the inventory type
     extraReq = {
-        'Fab': 1.01,
-        'BW': 1.02,
-        'AW': 1.01
+        'Fab': 1.00,
+        'BW': 1.03,
+        'AW': 1.02
     }
 
     #Increase requirement based on the type of inventory as per the above factors
@@ -613,7 +621,7 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     dfRequirement = pd.merge(left=dfRequirement, right=dfCurrentRequirement, left_on=['InventoryCode','Variant'], right_on=['InventoryCode','Variant'], how='left')
     del dfCurrentRequirement
     #Set the id to none, where the requirement isn't already saved.
-    dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id'])
+    dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id'])    
 
     #Apply the colors on each row.
     dfRequirement['Color'] = applyColors(dfRequirement[['Required','Ordered','Received']])
