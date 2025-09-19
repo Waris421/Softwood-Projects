@@ -320,34 +320,22 @@ def GetOrderList(supplier: str, poNumber: int):
     
     fields = ['id','OrderDate','DeliveryDate','Supplier']
     orders = orders.values(*fields)
-    if orders:
-        dfOrders = pd.DataFrame(orders)
-    else:
-        dfOrders = pd.DataFrame(columns=fields)
+    dfOrders = pd.DataFrame(orders) if orders else pd.DataFrame(columns=fields)
     del orders
 
     fields = ['id','PONumber','Inventory']
     inventories = models.POInventory.objects.filter(PONumber__in=dfOrders['id'].to_list()).values(*fields)
-    if inventories:
-        dfInventories = pd.DataFrame(inventories)
-    else:
-        dfInventories = pd.DataFrame(fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
     del inventories
 
     fields = ['POInvId','WorkOrder']
     allocations = models.POAllocation.objects.filter(POInvId__in=dfInventories['id'].to_list()).values(*fields)
-    if allocations:
-        dfAllocations = pd.DataFrame(allocations)
-    else:
-        dfAllocations = pd.DataFrame(columns=fields)
+    dfAllocations = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=fields)
     del allocations
 
     fields = ['Code','Name']
     inventoryCards = models.Inventory.objects.filter(Code__in=dfInventories['Inventory'].to_list()).values(*fields)
-    if inventoryCards:
-        dfInventoryCards = pd.DataFrame(inventoryCards)
-    else:
-        dfInventoryCards = pd.DataFrame(inventoryCards)
+    dfInventoryCards = pd.DataFrame(inventoryCards) if inventoryCards else pd.DataFrame(columns=fields)
     del inventoryCards, fields
     
     #Give verbose names to the id columns
@@ -588,48 +576,23 @@ def ProcessOrderData(orderObject: models.PurchaseOrder):
 
 def GetWorkOrderDefaultQty (
         workOrder: models.WorkOrder,
-        inventory: models.Inventory,
-        variant: str,
-        currentPO: models.PurchaseOrder
+        poInventory: models.POInventory,
         ):
     '''
     Get the default qty to show user for allocation box.
     '''
-    requirement = models.InvRequirement.objects.filter(OrderNumber=workOrder, InventoryCode=inventory, Variant=variant)
+    inventory = poInventory.Inventory
+    variant = poInventory.Variant
+
+    try:
+        requirement = models.InvRequirement.objects.get(OrderNumber=workOrder, InventoryCode=inventory, Variant=variant)
+    except:
+        return 0
     
-    if not requirement:
-        return 0.0
-    
-    requirement = requirement.values('InventoryCode','Variant','Quantity')
-    dfRequirement = pd.DataFrame(requirement)
-    del requirement
-    
-    previouslyOrdered = models.POAllocation.objects.filter(WorkOrder=workOrder).values('POInvId','Quantity')
-    dfPreviouslyOrdered = pd.DataFrame(previouslyOrdered)
-    del previouslyOrdered
-
-    orderedInv = models.POInventory.objects.filter(id__in = dfPreviouslyOrdered['POInvId'].to_list()).exclude(PONumber=currentPO)
-    orderedInv = orderedInv.values('id','Inventory','Variant')
-    dfOrderedInv = pd.DataFrame(orderedInv)
-    del orderedInv
-
-    dfPreviouslyOrdered = pd.merge(left=dfPreviouslyOrdered, right=dfOrderedInv, left_on='POInvId', right_on='id', how='left')
-    del dfOrderedInv
-    dfPreviouslyOrdered.drop(inplace=True, columns=['POInvId','id'])
-
-    dfRequirement.rename(inplace=True, columns={'InventoryCode':'Inventory', 'Quantity':'RequiredQty'})
-    dfPreviouslyOrdered.rename(inplace=True, columns={'Quantity':'OrderedQty'})
-
-    dfRequirement = pd.merge(left=dfRequirement, right=dfPreviouslyOrdered, left_on=['Inventory','Variant'],
-                             right_on=['Inventory','Variant'], how='left')
-    
-    dfRequirement['OrderedQty'] = np.where(dfRequirement['OrderedQty'].isna(), 0.0, dfRequirement['OrderedQty'])
-
-    dfRequirement['PendignQty'] = dfRequirement['RequiredQty'] - dfRequirement['OrderedQty']
-
-    pendingQty = float(dfRequirement['PendignQty'].sum())
-
-    return pendingQty
+    if requirement.Quantity:
+        return requirement.Quantity
+    else:
+        return 0
 
 def PrintPO(orderObject: models.PurchaseOrder, varFilter: str|None = None):
     '''

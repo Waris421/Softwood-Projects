@@ -112,6 +112,9 @@ def AddStyleCard(
     if(styleCode == ''):
         raise ValueError ('No Style Code is Provided')
     
+    if '/' in styleCode:
+        raise ValueError('No Slashes are allowed in Style Code')
+
     dfRoute = dfRoute[dfRoute['type'].str.len() > 0]
 
     #Replace any blank variants with Nan

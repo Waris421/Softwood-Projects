@@ -71,7 +71,6 @@ class ExporterAlias(models.Model):
             models.Index(fields=['Name',]),
         ]
 
-
 class CustomerContact(models.Model):
     id = models.AutoField(primary_key=True)
     Customer = models.ForeignKey(Customer, on_delete=models.CASCADE)

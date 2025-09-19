@@ -54,7 +54,26 @@ def sortRequirementdf(
     dfRequirement['Type'] = pd.Categorical(dfRequirement['Type'], categories=customOrder, ordered=True)
     dfRequirement = dfRequirement.sort_values(by=cols)
 
+    dfRequirement['Type'] = np.where(dfRequirement['Type'].isna(), None, dfRequirement['Type'])
+
     return dfRequirement
+
+def saveRequirementFromCalculate(workOrder: models.WorkOrder, dfRequirement:pd.DataFrame, dfPreviousRequirement: pd.DataFrame):
+    if dfRequirement.empty:
+        return
+
+    dfRequirement.rename(inplace=True, columns={'Required': 'Quantity'})
+
+    dfRequirement['Quantity'] = dfRequirement['Quantity'].astype(float)
+    dfRequirement = dfRequirement[dfRequirement['Quantity']>0]
+
+    dfRequirement['InventoryCode'] = convertTexttoObject(models.Inventory, dfRequirement['InventoryCode'], 'Code')
+    dfRequirement['OrderNumber'] = workOrder
+
+    try:
+        updateModelWithDF(models.InvRequirement, dfRequirement, dfPreviousRequirement)
+    except Exception as e:
+        raise ValueError (e)
 
 #Get the List of Orders.
 def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
@@ -619,19 +638,13 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     
     #Combine the final requirement with already added requirement for each of saving later on.
     dfRequirement = pd.merge(left=dfRequirement, right=dfCurrentRequirement, left_on=['InventoryCode','Variant'], right_on=['InventoryCode','Variant'], how='left')
-    del dfCurrentRequirement
     #Set the id to none, where the requirement isn't already saved.
-    dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id'])    
+    dfRequirement['id'] = np.where(dfRequirement['id'].isna(), None, dfRequirement['id']) 
 
-    #Apply the colors on each row.
-    dfRequirement['Color'] = applyColors(dfRequirement[['Required','Ordered','Received']])
-    
-    dfRequirement = sortRequirementdf(dfRequirement)
-    
-    #dfRequirement.sort_values(inplace=True, by='InventoryName')
-
-    #Convert the df to a list of dicts and return to the view.
-    return dfToListOfDicts(dfRequirement)
+    try:
+        saveRequirementFromCalculate(workOrder, dfRequirement[['id','InventoryCode','Variant','Required']], dfCurrentRequirement[['id']])
+    except Exception as e:
+        raise ValueError(e)
 
 def GetRequirementHistory (invRequirement: models.InvRequirement, workOrder: models.WorkOrder):
     inventoryCode = invRequirement.InventoryCode
@@ -774,9 +787,11 @@ def UpdateInitialPlanning(dfInitialPlan: pd.DataFrame):
     #Raise erros if any of the required fields are empty
     if (dfInitialPlan[['FabricETA','BWTrim','AWTrim']]=='').any().any():
         raise ValueError('Required Data is missing')
-    
+
+    dfInitialPlan['id'] = pd.to_numeric(dfInitialPlan['id'], errors='coerce')
+
     fields = ['id']
-    idsToSearch = dfInitialPlan[dfInitialPlan['id'].str.len()>0]['id'].to_list()
+    idsToSearch = dfInitialPlan[~dfInitialPlan['id'].isna()]['id'].to_list()
     previousPlans = models.WorkOrderInitialPlan.objects.filter(id__in=idsToSearch)
     dfPreviousPlans = pd.DataFrame(previousPlans.values(*fields)) if previousPlans else pd.DataFrame(columns=fields)
     del previousPlans, fields

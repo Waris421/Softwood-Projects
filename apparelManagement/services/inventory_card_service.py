@@ -72,6 +72,9 @@ def AddInventory (data: Dict[str, str]):
     '''
     code = data['Code']
 
+    if '/' in code:
+        raise ValueError('No Slashes are allowed in Code')
+
     try:
         models.Inventory.objects.get(Code=code)
         raise NameError('Inventory Code already exists')

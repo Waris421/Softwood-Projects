@@ -304,53 +304,15 @@
                 body: data,
                 headers: { "X-CSRFToken": csrf},
             });
-            const requirement = await response.json();
 
-            rowToCopy = setTextColor(rowToCopy, requirement?.[0].Color ?? null);
-            rowToCopy.children[1].children[0].value = requirement?.[0].id ?? null;
-            rowToCopy.children[2].children[0].value = requirement?.[0].InventoryCode ?? null;
-            rowToCopy.children[3].children[0].value = requirement?.[0].InventoryName ?? null;
-            rowToCopy.children[4].children[0].value = requirement?.[0].Variant ?? null;
-            rowToCopy.children[5].children[0].value = requirement?.[0].Required ?? null;
-            rowToCopy.children[6].children[0].value = requirement?.[0].Ordered ?? null;
-            rowToCopy.children[7].children[0].value = requirement?.[0].Received ?? null;
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
 
-            for (let i=1; i<requirement.length; i++) {
-                let copy = rowToCopy.cloneNode(true);
-                copy.setAttribute("row",i+1);
-
-                copy = setTextColor(copy, requirement?.[i].Color ?? null)
-                copy.children[1].children[0].value = requirement?.[i].id ?? null;
-                copy.children[2].children[0].value = requirement?.[i].InventoryCode ?? null;
-                copy.children[3].children[0].value = requirement?.[i].InventoryName ?? null;
-                copy.children[4].children[0].value = requirement?.[i].Variant ?? null;
-                copy.children[5].children[0].value = requirement?.[i].Required ?? null;
-                copy.children[6].children[0].value = requirement?.[i].Ordered ?? null;
-                copy.children[7].children[0].value = requirement?.[i].Received ?? null;
-
-                table.appendChild(copy);
+                hideLoadingIcon();
             }
 
-            unsavedDataFlag = true;
-            
-            hideLoadingIcon();
-        }
-
-        function setTextColor(row, textColor) {
-            const inputElements = row.querySelectorAll('input');
-
-            inputElements.forEach(input => {
-                const classList = input.classList;
-                
-                const textClassesToRemove = Array.from(classList).filter(className => className.startsWith('text-'));
-                
-                textClassesToRemove.forEach(className => classList.remove(className));
-                
-                const newTextClasses = textColor.split(' ');
-                classList.add(...newTextClasses);
-            });
-
-            return row;
+            document.location.reload();
         }
     </script>
 

@@ -8,7 +8,7 @@ from math import ceil
 import os
 
 from django.db import transaction
-from django.db.models import DateTimeField, Q, Sum, Subquery
+from django.db.models import DateTimeField, Q, Sum, Subquery, F, ExpressionWrapper, DecimalField
 from django.db.models.functions import TruncDate, Cast, TruncMonth
 from django.conf import settings
 
@@ -58,8 +58,13 @@ def ExtractUploadedData(dataFile):
     countryCodes = convertCountryNameToCode(dfUploadedData['Country'])
     dfUploadedData['Country'] = dfUploadedData['Country'].map(countryCodes)
 
-    dfUploadedData['Importer'] = dfUploadedData['Importer'].str.replace('_x000D_', '', regex=False)
-    dfUploadedData['Exporter'] = dfUploadedData['Exporter'].str.replace('_x000D_', '', regex=False)
+    #Clean the empty spaces etch from the data
+    columnsToClean = ['Importer', 'Exporter']
+    for col in columnsToClean:
+        dfUploadedData[col] = dfUploadedData[col].str.replace(r'(_x000D_|\n|\t)', '', regex=True)
+        dfUploadedData[col] = dfUploadedData[col].str.rstrip('`., ')
+        dfUploadedData[col] = dfUploadedData[col].str.strip()
+    
 
     dfUploadedData['ShipDate'] = dfUploadedData['ShipDate'].dt.strftime('%Y-%m-%d')
 
@@ -153,12 +158,13 @@ def GetMonthWiseQty():
 
     return dfToListOfDicts(dfExportData)
 
-def GetCountrySummary(months: List[str], importers: List[str], exporters: List[str], categories: List[str]):
+def GetCountrySummary(months: List[str], importerAliases: List[str], exporters: List[str], categories: List[str], countries: List[str]):
     startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
-    if importers:
-        filters &= Q(Importer__in=importers)
+    if importerAliases:
+        importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
     
     if exporters:
         filters &= Q(Exporter__in=exporters)
@@ -183,9 +189,14 @@ def GetCountrySummary(months: List[str], importers: List[str], exporters: List[s
     dfExportData.drop(inplace=True, columns=['alpha2', 'alpha3', 'numeric'])
     dfExportData.rename(inplace=True, columns={'Country':'CountryCode','country': 'CountryName'}) 
 
+    #Sort w.r.t qty first
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
-
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers)    
+
+    #Bring the selected countries to the top
+    dfExportData['SortKey'] = dfExportData['CountryCode'].apply(lambda x: 0 if x in countries else 1)
+    dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
+    dfExportData.drop(inplace=True, columns=['SortKey'])
 
     return dfToListOfDicts(dfExportData)
 
@@ -207,7 +218,7 @@ def GetCategorySummary(months: List[str]):
 
     return dfToListOfDicts(dfExportData)
 
-def GetImporterSummary(months: List[str], countries: List[str], exporters: List[str], categories: List[str]):
+def GetImporterSummary(months: List[str], countries: List[str], exporters: List[str], categories: List[str], importers: List[str]):
     startDate, endDate = convertMonthstoStrtEndDates(months)    
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
@@ -222,8 +233,13 @@ def GetImporterSummary(months: List[str], countries: List[str], exporters: List[
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
 
-    fields = ['Importer','Quantity']
-    exportData = models.ExportData.objects.filter(filters).values('Importer').annotate(Quantity=Sum('Quantity'))
+    fields = ['Importer','Quantity', 'ShipmentValue']
+    exportData = models.ExportData.objects.filter(filters).annotate(
+        ShipmentValue=ExpressionWrapper(F('Quantity') * F('Price'), output_field=DecimalField())
+    ).values('Importer').annotate(
+        Quantity=Sum('Quantity'),
+        ShipmentValue=Sum('ShipmentValue')
+    )
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData
 
@@ -239,22 +255,32 @@ def GetImporterSummary(months: List[str], countries: List[str], exporters: List[
     dfExportData['Importer'] = np.where(dfExportData['Alias'].isna(), dfExportData['Importer'], dfExportData['Alias'])
     dfExportData.drop(inplace=True, columns=['Alias'])
 
-    dfExportData = dfExportData.groupby('Importer').agg({'Quantity': 'sum'}).reset_index()
+    dfExportData = dfExportData.groupby('Importer').agg({'Quantity': 'sum', 'ShipmentValue': 'sum'}).reset_index()
+    
+    dfExportData['Price'] = (dfExportData['ShipmentValue'].astype(float) / dfExportData['Quantity']).round(2)
+    dfExportData.drop(inplace=True, columns=['ShipmentValue'])
 
+    #Sort w.r.t qty first
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
 
+    #Bring the selected importers to the top
+    dfExportData['SortKey'] = dfExportData['Importer'].apply(lambda x: 0 if x in importers else 1)
+    dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
+    dfExportData.drop(inplace=True, columns=['SortKey'])
+
     return dfToListOfDicts(dfExportData)
 
-def GetExporterSummary(months: List[str], countries: List[str], importers: List[str], categories: List[str]):
+def GetExporterSummary(months: List[str], countries: List[str], importerAliases: List[str], categories: List[str], exporters: List[str]):
     startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
     if countries:
         filters &= Q(Country__in=countries)
     
-    if importers:
-        filters &= Q(Importer__in=importers)
+    if importerAliases:
+        importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
     
     if categories:
         HSCodes = convertCategoryToHSCodeStart(categories)
@@ -266,21 +292,27 @@ def GetExporterSummary(months: List[str], countries: List[str], importers: List[
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData,fields
 
+    #sort w.r.t. country first
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
-
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
+
+    #Bring the selected exporters to the top
+    dfExportData['SortKey'] = dfExportData['Exporter'].apply(lambda x: 0 if x in exporters else 1)
+    dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
+    dfExportData.drop(inplace=True, columns=['SortKey'])
 
     return dfToListOfDicts(dfExportData)
 
-def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str], importers: List[str], categories: List[str], page: str):
+def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str], importerAliases: List[str], categories: List[str], page: str):
     startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
     if countries:
         filters &= Q(Country__in=countries)
     
-    if importers:
-        filters &= Q(Importer__in=importers)
+    if importerAliases:
+        importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
     
     if exporters:
         filters &= Q(Exporter__in=exporters)
@@ -308,20 +340,37 @@ def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str
     
     return dfToListOfDicts(dfExportData), numberOfPages
 
-def GetStats(months: List[str], countries: List[str], exporters: List[str], importers: List[str], categories: List[str], page: str):
+def GetStats(months: List[str], countries: List[str], exporters: List[str], importerAliases: List[str], categories: List[str]):
     startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
     if countries:
         filters &= Q(Country__in=countries)
     
-    if importers:
-        filters &= Q(Importer__in=importers)
+    if importerAliases:
+        importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames)
     
     if exporters:
         filters &= Q(Exporter__in=exporters)
 
-    print(filters)
+    instances = models.ExportData.objects.filter(filters)
+
+    totalQuantity = instances.aggregate(TotalQuantity=Sum('Quantity'))['TotalQuantity']
+
+    totalValue = instances.aggregate(total_v=Sum(F('Quantity') * F('Price'), output_field=DecimalField()))['total_v']
+    
+    averagePrice = float(totalValue)/totalQuantity
+
+    totalQuantity = formatNumbers(totalQuantity)
+    averagePrice = round(averagePrice, 2)
+
+    result = {
+        'quantity': totalQuantity,
+        'price': averagePrice
+    }
+
+    return result
 
 def GetImportersForRefinement(filterMethod: str|None, search: str|None):
     QUERY_LIMIT = 20

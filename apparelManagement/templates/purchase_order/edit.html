@@ -13,7 +13,7 @@
             <div class="grid grid-cols-14 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/3] items-center">
                     <label class="mx-2 whitespace-nowrap">PO:&nbsp; </label>
-                    <input type="text" class="{{theme.textInput}}" value="{{order.id}}" name="PONumber" id="orderNumber" readonly>
+                    <input type="number" class="{{theme.textInput}}" value="{{order.id}}" name="PONumber" id="orderNumber" onchange="changePrimaryKey(this)">
                 </div>
                 <div class="flex col-[3/6] items-center relative">
                     <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
@@ -157,8 +157,8 @@
                             </div>
                         </div>
                         <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
-                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
-                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onchange="getDefaultQty(this)"></select>
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}} relative">
+                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onclick="showSearchBox(this, '/options/workorders', getDefaultQty)"></select>
                             </div>
                             <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
                                 <input type="number" class="{{theme.textInput}}" value="" name="Quantity" min="0" onchange="changeQty()">
@@ -562,14 +562,13 @@
     <script>    //To get the default qty of work order in alloc box
         async function getDefaultQty(source) {
             const workOrder = source.value;
-
-            const allocInvVar = document.getElementById('allocInvCode').value;
+            const allocId = document.getElementById('allocId').value;
 
             const poNumber = document.getElementById('orderNumber').value;
 
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
-            const obj = {'invVar':allocInvVar, 'workOrder':workOrder, 'poNumber':poNumber};
+            const obj = {'allocId':allocId, 'workOrder':workOrder, 'poNumber':poNumber};
             const data = JSON.stringify(obj);
 
             const response = await fetch('/purchaseorder/defaultqty/get', {
@@ -585,6 +584,13 @@
             qtyBox.value = qty;
 
             changeQty();
+        }
+    </script>
+
+    <script>    //To change WO
+        function changePrimaryKey(source) {
+            const url = `/purchaseorder/${source.value}/edit`;
+            document.location.href = url;
         }
     </script>
 

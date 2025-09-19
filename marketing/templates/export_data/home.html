@@ -106,6 +106,22 @@
                     </div>
                 </div>
             </div>  
+            <div class="flex flex-col col-[1/2] items-center">
+                <div class="stats shadow">
+                    <div class="stat">
+                        <div class="stat-title">Total Garment Quantity</div>
+                        <div id="quantityStat" class="stat-value"></div>
+                        <div class="stat-desc">Pieces</div>
+                    </div>
+                </div>
+                <div class="stats shadow">
+                    <div class="stat">
+                        <div class="stat-title">Weighted Average Price</div>
+                        <div id="priceStat" class="stat-value"></div>
+                        <div class="stat-desc">USD</div>
+                    </div>
+                </div>
+            </div>
             <div class="flex flex-col col-[2/5] items-center">
                 <div id ="detailsTable" class="mt-6 w-full">
                     <table class="{{theme.table}} table-fixed">
@@ -346,6 +362,27 @@
         }
     </script>
 
+    <script>    //To update the stats
+        async function populateStats(params) {
+            const url = "{% url 'marketing:exportDataStats' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                showMessage(error);
+                return ;
+            }
+
+            const stats = await response.json();
+
+            const quantityStat = document.getElementById('quantityStat');
+            quantityStat.textContent = stats['quantity'];
+
+            const priceStat = document.getElementById('priceStat');
+            priceStat.textContent = stats['price'];
+        }
+    </script>
+
     <script>    //To populate the importer selector
         const importerSelector = document.getElementById('importerSelector');
         const importerSearch = document.getElementById('importerSearch');
@@ -403,7 +440,7 @@
                     <label class="label cursor-pointer p-2">
                         <span class="label-text">
                             <span class="font-semibold" data-country-name="${importer.Importer}">${importer.Importer}</span>
-                            <span class="text-xs text-gray-500 ml-2">${importer.Quantity}</span>
+                            <span class="text-xs text-gray-500 ml-2">${importer.Quantity} at ${importer.Price}</span>
                         </span>
                         <input type="checkbox" class="checkbox" value="${importer.Importer}" ${isSelected ? 'checked' : ''}>
                     </label>
@@ -609,7 +646,7 @@
         }
     </script>
 
-    <script>    //To rest filters
+    <script>    //To reset filters
         function resetFilters() {
             const filtersForm = document.getElementById('filtersForm');
 
@@ -676,6 +713,8 @@
             populateExporters(params.toString(), selectedExporters);
 
             populateDetailsTable(params.toString(), 1);
+
+            populateStats(params.toString());
 
             hideLoadingIcon();
         });

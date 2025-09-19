@@ -81,9 +81,10 @@ def ExportDataCountries(request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
+    countries = request.GET.getlist('countries[]', [])
 
     try:
-        countrySummary = export_data_serivce.GetCountrySummary(months, importers, exporters, categories)
+        countrySummary = export_data_serivce.GetCountrySummary(months, importers, exporters, categories, countries)
         return JsonResponse(countrySummary, safe=False)
     except Exception as e:
         print(f'Countries: {e}')
@@ -115,13 +116,15 @@ def ExportDataImporters(request: HttpRequest):
     countries = request.GET.getlist('countries[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
+    importers = request.GET.getlist('importers[]', [])
 
     try:
-        importerSummary = export_data_serivce.GetImporterSummary(months, countries, exporters, categories)
-        return JsonResponse(importerSummary, safe=False)
+        importerSummary = export_data_serivce.GetImporterSummary(months, countries, exporters, categories, importers)
     except Exception as e:
         print(f'Importers: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
+
+    return JsonResponse(importerSummary, safe=False)
 
 @login_required(login_url='/login')
 def ExportDataExporters(request: HttpRequest):
@@ -132,9 +135,10 @@ def ExportDataExporters(request: HttpRequest):
     countries = request.GET.getlist('countries[]', [])
     importers = request.GET.getlist('importers[]', [])
     categories = request.GET.getlist('categories[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
 
     try:
-        exporterSummary = export_data_serivce.GetExporterSummary(months, countries, importers, categories)
+        exporterSummary = export_data_serivce.GetExporterSummary(months, countries, importers, categories, exporters)
         return JsonResponse(exporterSummary, safe=False)
     except Exception as e:
         print(f'Exporters: {e}')
@@ -173,6 +177,13 @@ def ExportDataStats(request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
+
+    try:
+        stats = export_data_serivce.GetStats(months, countries, exporters, importers, categories)
+        return JsonResponse(stats, safe=False)
+    except Exception as e:
+        print(f'Stats: {e}')
+        return HttpResponse('An error occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
 def ExportDataSettings(request: HttpRequest):
@@ -226,6 +237,7 @@ def UploadExportReport(request:HttpRequest):
             return render(request, 'export_data/upload.html', context)
     else:
         context = {
+            'settingsIconViewName': 'marketing:exportDataSettings',
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'export_data/upload.html', context)

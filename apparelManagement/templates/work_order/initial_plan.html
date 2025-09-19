@@ -6,7 +6,6 @@
 
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
-
     <!-- The main filter form-->
     <div class="{{theme.border}} {{theme.formHeading}}">
         <form action="{% url 'apparelManagement:initialPlan' %}" method="get" autocomplete="off">

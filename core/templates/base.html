@@ -274,8 +274,10 @@
         }
 
         const firstVisibleInput = copy.querySelector('input:not([hidden]):not([disabled]):not([readonly])');
-        firstVisibleInput.focus();
-
+        if (firstVisibleInput) {
+          firstVisibleInput.focus();
+        }
+              
         if (nextFunction) {
           nextFunction(copy);
         }

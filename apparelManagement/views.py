@@ -482,9 +482,9 @@ def CalculateRequirement(request: HttpRequest):
         print(e)
         return HttpResponse('Invalid Input', status=400)
 
-    requirement = work_order_service.CalculateRequirement(styleCard, workOrder)
+    work_order_service.CalculateRequirement(styleCard, workOrder)
 
-    return JsonResponse(data=requirement, safe=False)
+    return HttpResponse('Ok', status=200)
 
 @login_required(login_url='/login')
 def GetRequirementHistory (request: HttpRequest):
@@ -783,7 +783,7 @@ def EditPurchaseOrder(request: HttpRequest, pk):
     try:
         orderObject = models.PurchaseOrder.objects.get(id=pk)
     except:
-        return HttpResponse('Order not found', status=404)
+        return generic_services.showMessageResponse(request, 'Order not found', 404)
     
     if request.method == 'POST':
         if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='change'):
@@ -833,23 +833,21 @@ def GetWODefaultQtyForPO (request: HttpRequest):
     
     data = json.loads(request.body.decode('utf-8'))
 
-    invVar = data['invVar'].split('_')
-    inventory = models.Inventory.objects.get(Code=invVar[0])
-    variant = invVar[1]
+    poInvId = data['allocId']
+    
+    try:
+        poInventory = models.POInventory.objects.get(id=poInvId)
+    except:
+        return JsonResponse(0, safe=False)
 
     workOrder = data['workOrder']
-    if workOrder == 'null':
-        return JsonResponse(0, safe=False)
-    else:
+    
+    try:
         workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
+    except:
+        return JsonResponse(0, safe=False)
 
-    if 'poNumber' in data:
-        currentPO = data['poNumber']
-        currentPO = models.PurchaseOrder.objects.get(id=currentPO)
-    else:
-        currentPO = models.PurchaseOrder()
-
-    quantity = purchase_order_service.GetWorkOrderDefaultQty(workOrder, inventory, variant, currentPO)
+    quantity = purchase_order_service.GetWorkOrderDefaultQty(workOrder, poInventory)
 
     return JsonResponse(quantity, safe=False)
 
