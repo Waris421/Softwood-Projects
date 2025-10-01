@@ -14,8 +14,33 @@
       </script>
 
       <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
+      
       <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+      
       <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+      <style>
+        .noUi-connect {
+          background: rgba(26, 53, 190, 0.7)
+        }
+        .noUi-horizontal .noUi-handle {
+          background: #09cb36;
+          box-shadow: none;
+        }
+        .noUi-tooltip {
+          visibility: hidden;
+          opacity: 0;
+          transition: opacity 0.3s ease-in-out;
+        }
+
+        .noUi-handle:hover .noUi-tooltip,
+        .noUi-tooltip.visible {
+          visibility: visible;
+          opacity: 1;
+        }
+      </style>
         
       <title>
           {% block title %} Fashion OS {% endblock %}
@@ -161,12 +186,41 @@
         messageContainer.appendChild(messageElement);
 
         //close the message automatically after given number of seconds
-        setTimeout(() => {
-          messageElement.classList.replace('opacity-100','opacity-0');
-          setTimeout(()=> {
+        let elapsedTime = 0;
+        let timer = null;
+
+        const startTimer = () => {
+          if (timer !== null) return; // Prevent multiple timers
+
+          timer = setInterval(() => {
+            if (!document.hidden) {
+              elapsedTime++;
+              if (elapsedTime >= timeOut) {
+                  clearInterval(timer);
+                  hideMessage();
+              }
+            }
+          }, 1000);
+        };
+
+        const hideMessage = () => {
+          messageElement.classList.replace('opacity-100', 'opacity-0');
+          setTimeout(() => {
               messageElement.remove();
           }, 300);
-        }, timeOut * 1000);
+        };
+        startTimer();
+
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) {
+            startTimer();
+          }
+        });
+
+        messageElement.children[1].addEventListener('click', () => {
+          clearInterval(timer);
+          hideMessage();
+        })
       }
     </script>
 

@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Issuance Form
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <!-- Selection Form -->
+    <form method="GET" id="ordersForm" autocomplete="off">
+        <div class="grid grid-cols-10 my-2 {{theme.justify}} {{theme.align}} {{theme.border}}">
+            <div class="flex flex-col col-[1/3] items-center relative">
+                    <span class="text-sm text-gray-500 mb-1">Order#:&nbsp;</span>
+                    <select id="id_order" class="{{theme.dropdown}}" name="order" onclick="showSearchBox(this, '/options/workorders')"></select>
+                </div>
+                <div class="flex flex-col col-[3/5] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Type:&nbsp;</span>
+                    <select id="type" class="{{theme.dropdown}}" name="type" onchange="this.form.submit()">
+                        <option value="FAB" {% if type == 'FAB' %}selected{% endif %}>Fabric</option>
+                        <option value="BW" {% if type == 'BW' %}selected{% endif %}>Before Wash</option>
+                        <option value="AW" {% if type == 'AW' %}selected{% endif %}>After Wash</option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[5/7] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Department:&nbsp;</span>
+                    <select id="id_department" class="{{theme.dropdown}}" name="department"></select>
+                </div>
+                <div class="flex flex-col col-[7/9] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Inventory:</span>
+                    <div class="dropdown m-1">
+                        <details class="m-1">
+                            <summary class="{{theme.emptyButton}}" id="selectToggle">
+                                <span id="selectCount" class="text-lg"></span>
+                            </summary>
+                            <ul id="inventoryCheckBoxContainer" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-64 mt-4">
+                            </ul>
+                        </details>
+                    </div>
+                    <div id="selectedInventoriesInput" hidden>
+                        {% for invCode in selectedInventories %}
+                            <input name="inventories[]" type="text" data-inventory-code="{{invCode}}" value="{{invCode}}">
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="flex col-[9/11] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <button class="{{theme.buttonSecondary}}" onclick="submitForms()" type="button">
+                        Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-10 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
+                    </div>
+                </div>
+                <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Name
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Unit
+                    </div>
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Required
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Ordered
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Received
+                    </div>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Issued
+                    </div>
+                </div>
+                <div class="flex col-[10/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Balance
+                    </div>
+                </div>
+            </div>
+            {% for data in entries %}
+                <div class="grid grid-cols-10 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}">
+                    </div>
+                    <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Inventory}}" name="Inventory" hidden>
+                        <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName" readonly>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
+                    </div>
+                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly>
+                    </div>
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Required}}" name="Required" readonly>
+                    </div>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Ordered}}" name="Ordered" readonly>
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Received}}" name="Received" readonly>
+                    </div>
+                    <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Issued}}" name="Issued" readonly>
+                    </div>
+                    <div class="flex col-[10/11] {{theme.align}} {{theme.justify}}">
+                        <input type="number" max="{{data.Balance}}" class="{{theme.textInput}}" value="{{data.Balance}}" name="Balance">
+                    </div>
+                </div>
+            {% endfor %}                
+        </div>
+    </form>
+
+    <script>    //To run when the page loads
+        window.addEventListener('load', async () =>{
+            showLoadingIcon();
+
+            //orders Dropdown
+            let response = await fetch('/options/workorders?search={{order}}');
+            const orders = await response.json();
+            await appendOptions('id_order', orders, Number("{{order}}"));
+
+            //departments Dropdown
+            response = await fetch('/options/departments');
+            const departments = await response.json();
+            await appendOptions('id_department', departments, ("{{department}}"));
+
+            handleInventorySelection();
+
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script>    //To select/deselect all rows
+        function selectAll(headingBox) {
+            const checkStatus = headingBox.checked;
+            const rows = headingBox.parentElement.parentElement.parentElement.parentElement.children;
+
+            for (let i=1; i<rows.length; i++) {
+                const rowCheck = rows[i].children[0].children[0];
+
+                rowCheck.checked = checkStatus;
+            }
+        }
+    </script>
+
+    <script>    //To handle inventory selection box
+        function handleInventorySelection() {
+            const checkBoxContainer = document.getElementById('inventoryCheckBoxContainer');
+            const selectedCountSpan = document.getElementById('selectCount');
+            const hiddenInput = document.getElementById('selectedInventoriesInput');
+
+            function renderOptions() {
+                const allInventories = {{ allInventories|safe }};
+                const selectedInventories = {{ selectedInventories|safe }};
+                
+                checkBoxContainer.innerHTML = '';
+
+                if (!allInventories || allInventories.length === 0) {
+                    const noDataLi = document.createElement('li');
+                    noDataLi.textContent = 'No inventories available.';
+                    noDataLi.classList.add('p-2', 'text-gray-500');
+                    checkBoxContainer.appendChild(noDataLi);
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                allInventories.forEach(inventory => {
+                    const liElement = document.createElement('li');
+
+                    const isChecked = selectedInventories.includes(inventory.Inventory);
+                    const checkedStatus = isChecked ? 'checked' : '';
+
+                    liElement.innerHTML = `
+                        <label class"flex items-center p-2 cursor-pointer hover:bg-base-200 rounded-md">
+                            <input type="checkbox" class="{{theme.checkbox}} item-checkbox" value=${inventory.Inventory} dataLabel="item2" ${checkedStatus}>
+                            <span class="ml-2">
+                                ${inventory.InventoryName}
+                            </span>
+                        </label>
+                    `;
+
+                    fragment.appendChild(liElement);
+                });
+                checkBoxContainer.appendChild(fragment);
+
+                checkBoxContainer.addEventListener('change', handleCheckboxChange);
+            }
+
+            function handleCheckboxChange(event) {
+                const checkBox = event.target;
+                const selectedInventoryCode = checkBox.value;
+
+                if (checkBox.checked) {
+                    const inputElement = document.createElement('input');
+                    inputElement.name = 'inventories[]';
+                    inputElement.type = 'text';
+
+                    inputElement.dataset.inventoryCode = selectedInventoryCode;
+                    inputElement.value = selectedInventoryCode;
+
+                    hiddenInput.appendChild(inputElement);
+                } else {
+                    const inputToRemove = hiddenInput.querySelector(`input[data-inventory-code="${selectedInventoryCode}"]`);
+
+                    hiddenInput.removeChild(inputToRemove);
+                }
+                updateSelectedDisplay();
+            }
+
+            function updateSelectedDisplay() {
+                const selectedInventoriesInputs = hiddenInput.children;
+
+                selectedCountSpan.textContent = `(${selectedInventoriesInputs.length} selected)`;
+            }
+
+            renderOptions();
+            updateSelectedDisplay();
+        }
+
+    </script>
+
+    <script>    //To make the issuance
+        async function submitForms() {
+            showLoadingIcon();
+
+            const inventoryForm = document.getElementById('inventoryForm');
+            const rows = inventoryForm.children[0].children;
+
+            let selectedRows = [];
+
+            for (const row of rows) {
+                const rowNumber = row.getAttribute('row');
+                const checkStatus = row.children[0].children[0].checked;
+
+                if (rowNumber>0 && checkStatus) {
+                    selectedRows.push(row);
+                }
+            }
+
+            if (selectedRows.length === 0) {
+                showMessage('No inventory is selected');
+                hideLoadingIcon();
+                return;
+            }
+
+            let data = {};
+            for (const row of selectedRows) {
+                data = prepareIssueData(row, data);
+            }
+
+            const orderForm = document.getElementById('ordersForm');
+            const orderData = orderForm.children[0].children;
+
+            const workOrder = orderData[0].children[1].value;
+            if (workOrder === 'null') {
+                alert ('Please select an order');
+                hideLoadingIcon();
+                return;
+            }
+
+            const department = orderData[2].children[1].value;
+            if (department === 'null') {
+                alert('Please select your department');
+                hideLoadingIcon();
+                return;
+                
+            }
+
+            data['issue_WorkOrder'] = workOrder;
+            data['issue_Department'] = department;
+
+            data = JSON.stringify(data);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+            hideLoadingIcon();
+        }
+
+        function prepareIssueData(row, data) {
+            const inventory = row.querySelector("[name='Inventory']").value;
+            const variant = row.querySelector("[name='Variant']").value;
+            const quantity = row.querySelector("[name='Balance']").value;
+            const rowNum = row.getAttribute('row');
+
+            data['data_Inventory_'+rowNum] = inventory;
+            data['data_Variant_'+rowNum] = variant;
+            data['data_Quantity_'+rowNum] = quantity;
+
+            return data;
+        }
+    </script>
+{% endblock content %}

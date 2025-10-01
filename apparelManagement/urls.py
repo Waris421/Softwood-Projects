@@ -70,6 +70,7 @@ urlpatterns = [
 
     path('issuance', views.Issuance, name='issue'),
     path('issuance/add', views.AddIssuance, name='addIssue'),
+    path('issuance/add/order', views.AddIssuanceForOrder, name='addIssueForOrder'),
 
     path('options/yesorno', options_service.yesOrNo, name='YesOrNo' ),
     path('options/customers', options_service.getCustomersList, name='CustomerList'),

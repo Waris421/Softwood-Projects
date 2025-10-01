@@ -55,7 +55,15 @@ def ExtractUploadedData(dataFile):
     dfUploadedData.rename(inplace=True, columns={'Origin':'Country', 'SB Date':'ShipDate'})
 
     dfUploadedData['Country'] = dfUploadedData['Country'].str.strip()
-    countryCodes = convertCountryNameToCode(dfUploadedData['Country'])
+    try:
+        countryCodes = convertCountryNameToCode(dfUploadedData['Country'])
+    except Exception as e:
+        raise ValueError(e)
+
+    for countryName, countryCode in countryCodes.items():
+        if not countryCode:
+            raise ValueError(f'Invalid Country Name: {countryName}')
+
     dfUploadedData['Country'] = dfUploadedData['Country'].map(countryCodes)
 
     #Clean the empty spaces etch from the data
@@ -86,19 +94,19 @@ def GetPendingUploads():
     dfPendingUploads['ShipDate'] = pd.to_datetime(dfPendingUploads['ShipDate'])
 
     addedMonths = models.ExportData.objects.annotate(
-        ShipDatetime=Cast('ShipDate', output_field=DateTimeField()),
-        ShipMonth=TruncDate('ShipDatetime', kind='month')
-    ).values_list('ShipMonth', flat=True).distinct()
-    addedMonths = [month.strftime('%b-%y') for month in addedMonths if month]
-    addedMonths = set(addedMonths)
+        shipMonth=TruncMonth('ShipDate')
+    ).values('shipMonth').distinct().order_by('shipMonth')
+    addedMonths = [item['shipMonth'] for item in addedMonths]
+    addedMonths = [month.strftime('%b-%y') for month in addedMonths]
+    addedMonths = ", ".join(addedMonths)
 
     summaryDict = {}
     uniqueMonths = dfPendingUploads['ShipDate'].dt.strftime('%b-%y').unique()
     summaryDict['months'] = ", ".join(sorted(uniqueMonths))
 
-    summaryDict['totalQty'] = float(dfPendingUploads['Quantity'].sum())
-    summaryDict['Price'] = float(dfPendingUploads['Price'].mean())
-    summaryDict['numberOfEntries'] = len(dfPendingUploads)
+    summaryDict['totalQty'] = formatNumbers(float(dfPendingUploads['Quantity'].sum()))
+    summaryDict['Price'] = formatNumbers(float(dfPendingUploads['Price'].mean()))
+    summaryDict['numberOfEntries'] = formatNumbers(len(dfPendingUploads))
 
     hsCodeCounts = Counter(dfPendingUploads['HSCode'])
     if hsCodeCounts:
@@ -143,10 +151,11 @@ def ConfirmPendingUploads(approval: str):
 
 def GetMonthWiseQty():
     fields = ['Month', 'Quantity', 'Checked']
-    exportData = models.ExportData.objects.annotate(Month=TruncMonth('ShipDate')
-                                                    ).values('Month').annotate(
-                                                        Quantity=Sum('Quantity',
-                                                        )).order_by('Month')
+    exportData = models.ExportData.objects.annotate(
+        Month=TruncMonth('ShipDate')
+    ).values('Month').annotate(
+        Quantity=Sum('Quantity')
+    ).order_by('-Month')
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData, fields
 
@@ -158,7 +167,7 @@ def GetMonthWiseQty():
 
     return dfToListOfDicts(dfExportData)
 
-def GetCountrySummary(months: List[str], importerAliases: List[str], exporters: List[str], categories: List[str], countries: List[str]):
+def GetCountrySummary(months: List[str], importerAliases: List[str], exporters: List[str], categories: List[str], countries: List[str], search: str|None):
     startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
@@ -174,6 +183,9 @@ def GetCountrySummary(months: List[str], importerAliases: List[str], exporters: 
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
     
+    if search:
+        filters &= Q(Country__icontains=search)
+    
     
     fields = ['Country','Quantity']
     exportData = models.ExportData.objects.filter(filters).values('Country').annotate(Quantity=Sum('Quantity'))
@@ -185,9 +197,10 @@ def GetCountrySummary(months: List[str], importerAliases: List[str], exporters: 
 
     dfExportData = pd.merge(left=dfExportData, right=dfCoordinates, left_on='Country', right_on='alpha2', how='left')
     del dfCoordinates
-
     dfExportData.drop(inplace=True, columns=['alpha2', 'alpha3', 'numeric'])
     dfExportData.rename(inplace=True, columns={'Country':'CountryCode','country': 'CountryName'}) 
+    
+    dfExportData[['CountryName', 'latitude', 'longitude']] = dfExportData[['CountryName', 'latitude', 'longitude']].fillna('')
 
     #Sort w.r.t qty first
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
@@ -218,7 +231,7 @@ def GetCategorySummary(months: List[str]):
 
     return dfToListOfDicts(dfExportData)
 
-def GetImporterSummary(months: List[str], countries: List[str], exporters: List[str], categories: List[str], importers: List[str]):
+def GetImporterSummary(months: List[str], countries: List[str], exporters: List[str], categories: List[str], importers: List[str], search: str|None):
     startDate, endDate = convertMonthstoStrtEndDates(months)    
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
@@ -232,6 +245,10 @@ def GetImporterSummary(months: List[str], countries: List[str], exporters: List[
         HSCodes = convertCategoryToHSCodeStart(categories)
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
+    
+    if search:
+        importerNames = models.ImporterAlias.objects.filter(Name__icontains=search).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames) | Q(Importer__icontains=search)
 
     fields = ['Importer','Quantity', 'ShipmentValue']
     exportData = models.ExportData.objects.filter(filters).annotate(
@@ -269,9 +286,12 @@ def GetImporterSummary(months: List[str], countries: List[str], exporters: List[
     dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
     dfExportData.drop(inplace=True, columns=['SortKey'])
 
+    #select the first 50 rows only
+    dfExportData = dfExportData.head(50)
+
     return dfToListOfDicts(dfExportData)
 
-def GetExporterSummary(months: List[str], countries: List[str], importerAliases: List[str], categories: List[str], exporters: List[str]):
+def GetExporterSummary(months: List[str], countries: List[str], importerAliases: List[str], categories: List[str], exporters: List[str], search: str|None):
     startDate, endDate = convertMonthstoStrtEndDates(months)
     filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
 
@@ -286,6 +306,8 @@ def GetExporterSummary(months: List[str], countries: List[str], importerAliases:
         HSCodes = convertCategoryToHSCodeStart(categories)
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
+    if search:
+        filters &= Q(Exporter__icontains = search)
 
     fields = ['Exporter','Quantity']
     exportData = models.ExportData.objects.filter(filters).values('Exporter').annotate(Quantity=Sum('Quantity'))
@@ -301,6 +323,9 @@ def GetExporterSummary(months: List[str], countries: List[str], importerAliases:
     dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
     dfExportData.drop(inplace=True, columns=['SortKey'])
 
+    #Select the frist 50 rows only
+    dfExportData = dfExportData.head(50)
+
     return dfToListOfDicts(dfExportData)
 
 def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str], importerAliases: List[str], categories: List[str], page: str):
@@ -314,6 +339,11 @@ def GetDetailsTable(months: List[str], countries: List[str], exporters: List[str
         importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
         filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
     
+    if categories:
+        HSCodes = convertCategoryToHSCodeStart(categories)
+        for HSCode in HSCodes:
+            filters &= Q(HSCode__startswith=HSCode)
+
     if exporters:
         filters &= Q(Exporter__in=exporters)
     
@@ -351,6 +381,11 @@ def GetStats(months: List[str], countries: List[str], exporters: List[str], impo
         importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
         filters &= Q(Importer__in=importerNames)
     
+    if categories:
+        HSCodes = convertCategoryToHSCodeStart(categories)
+        for HSCode in HSCodes:
+            filters &= Q(HSCode__startswith=HSCode)
+
     if exporters:
         filters &= Q(Exporter__in=exporters)
 
@@ -371,6 +406,30 @@ def GetStats(months: List[str], countries: List[str], exporters: List[str], impo
     }
 
     return result
+
+def DownLoadExportData(months: List[str], countries: List[str], exporters: List[str], importerAliases: List[str], categories: List[str]):
+    startDate, endDate = convertMonthstoStrtEndDates(months)
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    if countries:
+        filters &= Q(Country__in=countries)
+    
+    if importerAliases:
+        importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
+    
+    if categories:
+        HSCodes = convertCategoryToHSCodeStart(categories)
+        for HSCode in HSCodes:
+            filters &= Q(HSCode__startswith=HSCode)
+
+    if exporters:
+        filters &= Q(Exporter__in=exporters)
+    
+    fields = ['Country', 'Exporter', 'ShipDate', 'Importer', 'Quantity', 'Price', 'Currency', 'HSCode', 'Description']
+    exportData = models.ExportData.objects.filter(filters).values(*fields)
+
+    return list(exportData)
 
 def GetImportersForRefinement(filterMethod: str|None, search: str|None):
     QUERY_LIMIT = 20

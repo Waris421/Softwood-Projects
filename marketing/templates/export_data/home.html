@@ -49,14 +49,14 @@
             </div>
             <div class="flex flex-col col-[2/3] items-center">
                 <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
-                    <h2 class="card-title text-xl font-bold mb-4">Importer</h2>
+                    <h2 class="card-title text-xl font-bold mb-4">Importer (First 50)</h2>
                     <input id="importerSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
                     <ul id="importerSelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
             </div>
             <div class="flex flex-col col-[3/4] items-center">
                 <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
-                    <h2 class="card-title text-xl font-bold mb-4">Exporter</h2>
+                    <h2 class="card-title text-xl font-bold mb-4">Exporter (First 50)</h2>
                     <input id="exporterSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
                     <ul id="exporterSelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
@@ -100,6 +100,14 @@
                             </div>
                         </div>
                     </div>
+                    <div class="flex flex-col col-[1/2] items-center">
+                        <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
+                            <span class="text-sm text-gray-500 mb-2">Quantity:</span>
+                            <div id="quantityRangeSlider">
+
+                            </div>
+                        </div>
+                    </div>
                     <div class="flex col-[1/2] btn-group {{theme.align}} justify-end">
                         <a class="{{theme.buttonBasic}}" role="button" onclick="applyFilters()">Filter</a>
                         <a class="{{theme.buttonSecondary}}" role="button" onclick="resetFilters()">Reset</a>
@@ -139,10 +147,11 @@
                     </table>
                     <div class="grid grid-cols-4 {{theme.justify}} {{theme.align}}">
                         <div class="flex flex-col col-[4/5] items-center">
-                            <div class="flex justify-center mt-4">
+                            <div class="flex justify-center mt-4" id="paginationContainer">
                                 <label class="mx-2 whitespace-nowrap">Page:&nbsp; </label>
-                                <select id="paginationContainer" class="{{theme.dropdownPagination}}">
-                                </select>
+                                <input type="number" class="input input-bordered input-xs w-3/5 text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white">
+                                <label class="mx-2 whitespace-nowrap"></label>
+                                <span class="material-symbols-outlined" onclick="downloadData()">download_2</span>
                             </div>
                         </div>
                     </div>
@@ -152,18 +161,17 @@
     </div>
 
     <script>    //To apply search on a selection box
-        function applySearch(searchTerm, selectorElement) {
-            const elements = selectorElement.children;
+        async function applySearch(searchTerm, params, fetchFunction, renderFunction, selectedItems) {
+            params += `&search=${searchTerm}`;
 
-            for (const element of elements) {
-                const value = element.children[0].children[0].children[0].textContent.toLowerCase();
-                
-                if (searchTerm === '' || value.includes(searchTerm)) {
-                    element.style.display = '';
-                } else {
-                    element.style.display = 'none';
-                }
+            let allData = [];
+
+            try {
+                allData = await fetchFunction(params);
+            } catch {
+
             }
+            renderFunction(allData, selectedItems);
         }
     </script>
 
@@ -205,6 +213,7 @@
         let allCategoriesData = [];
 
         async function populateCategories(params, selectedCategories) {
+            showLoadingIcon();
             const url = "{% url 'marketing:exportDataCategories' %}";
             const response = await fetch(`${url}?${params}`);
 
@@ -283,16 +292,12 @@
         let searchTimer;
         
         async function populateCountries(params, selectedCountries) {
-            const url = "{% url 'marketing:exportDataCountries' %}";
-            const response = await fetch(`${url}?${params}`);
-
-            if (!response.ok) {
-                const error = await response.text();
-                showMessage(error);
+            try {
+                allCountriesData = await getCountries(params);
+            } catch (e) {
+                showMessage(e);
                 return ;
             }
-
-            allCountriesData = await response.json();
 
             renderCountries(allCountriesData, selectedCountries);
 
@@ -309,9 +314,23 @@
                 const searchTerm = event.target.value.toLowerCase();
                 
                 searchTimer = setTimeout(() => {
-                    applySearch(searchTerm, countrySelector);
+                    applySearch(searchTerm, params, getCountries, renderCountries, selectedCountries);
                 }, 500);
             });
+        }
+
+        async function getCountries(params) {
+            const url = "{% url 'marketing:exportDataCountries' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error);
+            }
+
+            const countries = await response.json();
+
+            return countries;
         }
 
         function renderCountries(countries, selectedCountries) {
@@ -370,6 +389,7 @@
             if (!response.ok) {
                 const error = await response.text();
                 showMessage(error);
+                hideLoadingIcon();
                 return ;
             }
 
@@ -391,16 +411,12 @@
         let allImportersData = [];
 
         async function populateImporters(params, selectedImporters) {
-            const url = "{% url 'marketing:exportDataImporters' %}";
-            const response = await fetch(`${url}?${params}`);
-            
-            if (!response.ok) {
-                const error = await response.text();
-                showMessage(error);
+            try {
+                allImportersData = await getImporters(params);
+            } catch (e) {
+                showMessage(e);
                 return ;
             }
-
-            allImportersData = await response.json();
 
             renderImporters(allImportersData, selectedImporters);
 
@@ -417,9 +433,24 @@
                 const searchTerm = event.target.value.toLowerCase();
                 
                 searchTimer = setTimeout(() => {
-                    applySearch(searchTerm, importerSelector);
+                    applySearch(searchTerm, params, getImporters, renderImporters, selectedImporters);
                 }, 500);
             });
+            hideLoadingIcon();
+        }
+
+        async function getImporters(params) {
+            const url = "{% url 'marketing:exportDataImporters' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error);
+            }
+
+            const importers = await response.json();
+
+            return importers;
         }
 
         function renderImporters (importers, selectedImporters) {
@@ -477,16 +508,12 @@
         let allExportersData = [];
 
         async function populateExporters(params, selectedExporters) {
-            const url = "{% url 'marketing:exportDataExporters' %}";
-            const response = await fetch(`${url}?${params}`);
-
-            if (!response.ok) {
-                const error = await response.text();
-                showMessage(error);
+            try {
+                allExportersData = await getExporters(params);
+            } catch (e) {
+                showMessage(e);
                 return ;
             }
-
-            allExportersData = await response.json();
 
             renderExporters(allExportersData, selectedExporters);
 
@@ -503,9 +530,23 @@
                 const searchTerm = event.target.value.toLowerCase();
                 
                 searchTimer = setTimeout(() => {
-                    applySearch(searchTerm, exporterSelector);
+                    applySearch(searchTerm, params, getExporters, renderExporters, selectedExporters);
                 }, 500);
             });
+        }
+
+        async function getExporters(params) {
+            const url = "{% url 'marketing:exportDataExporters' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error);
+            }
+
+            const exporters = await response.json();
+
+            return exporters;
         }
 
         function renderExporters(exporters, selectedExporters) {
@@ -623,27 +664,71 @@
         async function renderDetailsPagination(params, numberOfPages, selectedPage) {            
             function handlePageChange(params, event) {
                 const selectedPageNumber = parseInt(event.target.value);
+
                 populateDetailsTable(params, selectedPageNumber);
             }
 
-            paginationContainer.innerHTML = '';
-            paginationContainer.removeEventListener('change', handlePageChange);
-            
-            const fragment = document.createDocumentFragment();
+            const pageNumberInput = paginationContainer.children[1];
+            const totalPagesLabel = paginationContainer.children[2];
 
-            for (let i=1; i<=numberOfPages; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = `${i}`;
-                if (i === selectedPage) {
-                    option.selected = true;
-                }
-                fragment.appendChild(option);
-            }
-            paginationContainer.appendChild(fragment);
+            pageNumberInput.removeEventListener('change', handlePageChange);
 
-            paginationContainer.addEventListener('change', (event) => handlePageChange(params, event));
+            pageNumberInput.value = selectedPage;
+
+            totalPagesLabel.textContent = ` of ${numberOfPages}`;
+
+            pageNumberInput.addEventListener('change', (event) => handlePageChange(params, event));
         }
+    </script>
+
+    <script>    //To set the quantity sliders
+        const quantityRangeSlider = document.getElementById('quantityRangeSlider');
+
+        async function updateQuantitySlider(params, selectedMinQty, selectedMaxQty) {
+            let quantityRange = [];
+
+            try {
+                quantityRange = getQuantityRange(params)
+            } catch (e) {
+                showMessage(e);
+                return;
+            }
+
+            const minSliderQty = 0;
+            const maxSliderQty = 100
+
+            noUiSlider.create(quantityRangeSlider, {
+                start: [minSliderQty, maxSliderQty],
+                connect: true,
+                range: {
+                    'min': minSliderQty,
+                    'max': maxSliderQty
+                },
+                tooltips : [true, true],
+            });
+
+            quantityRangeSlider.noUiSlider.on('update', (values, handle) => {
+                const minQty = Math.round(values[0]);
+                const maxQty = Math.round(values[1]);
+
+                //Set up the min and max qty inputs here
+            });
+        }
+
+        async function getQuantityRange(params) {
+            const url = "{% url 'marketing:exportDataQtyRange' %}";
+            const response = await fetch(`${url}?${params}`);
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error);
+            }
+
+            const exporters = await response.json();
+
+            return exporters;
+        }
+
     </script>
 
     <script>    //To reset filters
@@ -667,10 +752,52 @@
         }
     </script>
 
+    <script>    //To download the data
+        async function downloadData() {
+            showLoadingIcon();
+            const monthInputs = monthsFilterDiv.querySelectorAll('input[name="months[]"]');
+
+            const countryInputs = countriesFilterDiv.querySelectorAll('input[name="countries[]"]');
+            const importerInputs = importersFilterDiv.querySelectorAll('input[name="importers[]"]');
+            const exporterInputs = exportersFilterDiv.querySelectorAll('input[name="exporters[]"]');
+            const categoryInputs = categoryFilterDiv.querySelectorAll('input[name="categories[]"]');
+
+            const params = new URLSearchParams();
+            monthInputs.forEach(input => {
+                params.append('months[]', input.value);
+            });
+            countryInputs.forEach(input => {
+                params.append('countries[]', input.value);
+            });
+            importerInputs.forEach(input => {
+                params.append('importers[]', input.value);
+            });
+            exporterInputs.forEach(input => {
+                params.append('exporters[]', input.value);
+            });
+            categoryInputs.forEach(input => {
+                params.append('categories[]', input.value);
+            });
+
+            const baseURL = "{% url 'marketing:exportDataDownload' %}";
+            const url = `${baseURL}?${params.toString()}`;
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                const error = await response.text();
+                showMessage(error);
+                hideLoadingIcon();
+                return ;
+            }
+
+            showMessage('This feature is in process');
+
+            hideLoadingIcon();
+        }
+    </script>
+
     <script> //To run when the page loads
         window.addEventListener('load', async () => {
-            showLoadingIcon();
-
             const monthInputs = monthsFilterDiv.querySelectorAll('input[name="months[]"]');
 
             const countryInputs = countriesFilterDiv.querySelectorAll('input[name="countries[]"]');
@@ -706,6 +833,8 @@
 
             populateCategories(params.toString(), selectedCategories);
 
+            updateQuantitySlider(params.toString(), 0, 100);
+
             populateCountries(params.toString(), selectedCountries);
 
             populateImporters(params.toString(), selectedImporters);
@@ -715,8 +844,6 @@
             populateDetailsTable(params.toString(), 1);
 
             populateStats(params.toString());
-
-            hideLoadingIcon();
         });
     </script>
 {% endblock content %}

@@ -1,9 +1,20 @@
 import pandas as pd
 import numpy as np
 
+from typing import List
+
+from django.db.models import Q
+
 from .. import models
 
-from core.services.generic_services import concatenateValues, dfToListOfDicts
+from core.services.generic_services import concatenateValues, dfToListOfDicts, convertTexttoObject
+
+def calculateBalance(row: pd.Index) -> float:
+    '''Checks the balance qty that can be issued.'''
+    if row['Received'] > row['Required']:
+        return row['Required'] - row['Issued']
+    else:
+        return row['Received'] - row['Issued']
 
 def AddIssuance(requisition: models.Requisition, comments: str):
     issuance = {
@@ -40,6 +51,141 @@ def AddIssuance(requisition: models.Requisition, comments: str):
             issueAllocation = models.IssueAllocation(**issueAllocation)
             issueAllocation.save()
 
+def AddIsuanceForOrder(dfIssuance: pd.DataFrame, dfWorkOrder: pd.DataFrame):
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber = dfWorkOrder['WorkOrder'][0])
+    except:
+        raise ValueError('Invalid WorkOrder')
+    
+    try:
+        department = models.Department.objects.get(Name = dfWorkOrder['Department'][0])
+    except:
+        raise ValueError('Invalid Department')
+    
+    requisition = models.Requisition.objects.all().first()
+
+    issuance = {
+        'Department': department,
+        'ReceivedBy': department,
+        'InventoryRequisition': requisition
+    }
+    try:
+        issuance = models.Issuance(**issuance)
+        issuance.save()
+    except Exception as e:
+        raise ValueError(e)
+    
+    dfIssuance['Inventory'] = convertTexttoObject(models.Inventory, dfIssuance['Inventory'], 'Code')
+    
+    for _, row in dfIssuance.iterrows():
+        issueInventory = models.IssueInventory(**row)
+        issueInventory.Issuance = issuance
+        issueInventory.save()
+
+        models.IssueAllocation(
+            IssueInventory=issueInventory,
+            WorkOrder=workOrder,
+            Quantity=row['Quantity']
+        ).save()
+
+def GetDataForOrderIssuance(orderNumber: str|None, type: str|None, selectedInvs: List[str]):
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+        del orderNumber
+    except:
+        return [], []
+
+    filters = Q(Style=workOrder.StyleCode)
+    if type:
+        filters &= Q(Type=type)
+        del type
+    fields = ['InventoryCode']
+    inventories = models.StyleConsumption.objects.filter(filters).values(*fields)
+    
+    filters = Q(OrderNumber=workOrder) & Q(InventoryCode__in=inventories)
+    fields = ['InventoryCode', 'Variant', 'Quantity']
+    requirement = models.InvRequirement.objects.filter(filters).values(*fields)
+    dfRequirement = pd.DataFrame(requirement) if requirement else pd.DataFrame(columns=fields)
+    del requirement, inventories
+
+    fields = ['POInvId', 'Quantity']
+    poAllocations = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfPOAllocation = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
+    del poAllocations
+
+    fields = ['id', 'Inventory','Variant']
+    poInventory = models.POInventory.objects.filter(id__in=dfPOAllocation['POInvId'].to_list()).values(*fields)
+    dfPOInventory = pd.DataFrame(poInventory) if poInventory else pd.DataFrame(columns=fields)
+    del poInventory
+
+    fields = ['RecInvId', 'Quantity']
+    recAllocation = models.RecAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfRecAllocation = pd.DataFrame(recAllocation) if recAllocation else pd.DataFrame(columns=fields)
+    del recAllocation
+
+    fields = ['id', 'InventoryCode', 'Variant']
+    recInventory = models.RecInventory.objects.filter(id__in=dfRecAllocation['RecInvId'].to_list()).values(*fields)
+    dfRecInventory = pd.DataFrame(recInventory) if recInventory else pd.DataFrame(columns=fields)
+    del recInventory
+
+    fields = ['IssueInventory', 'Quantity']
+    issueAllocation = models.IssueAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfIssueAllocation = pd.DataFrame(issueAllocation) if issueAllocation else pd.DataFrame(columns=fields)
+    del issueAllocation
+
+    fields = ['id', 'Inventory', 'Variant']
+    issueInventory = models.IssueInventory.objects.filter(id__in=dfIssueAllocation['IssueInventory'].to_list()).values(*fields)
+    dfIssueInventory = pd.DataFrame(issueInventory) if issueInventory else pd.DataFrame(columns=fields)
+    del issueInventory
+
+    fields = ['Code', 'Name', 'Unit']
+    inventories = models.Inventory.objects.filter(Code__in=dfRequirement['InventoryCode'].to_list()).values(*fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
+    del inventories, fields
+
+    dfRequirement.rename(inplace=True, columns={'InventoryCode':'Inventory', 'Quantity': 'Required'})
+    
+    dfPOAllocation = pd.merge(left=dfPOAllocation, right=dfPOInventory, left_on='POInvId', right_on='id', how='left')
+    del dfPOInventory
+    dfPOAllocation.drop(inplace=True, columns=['id','POInvId'])
+    dfPOAllocation.rename(inplace=True, columns={'Quantity':'Ordered'})
+
+    dfRecAllocation = pd.merge(left=dfRecAllocation, right=dfRecInventory, left_on='RecInvId', right_on='id', how='left')
+    del dfRecInventory
+    dfRecAllocation.drop(inplace=True, columns=['RecInvId', 'id'])
+    dfRecAllocation.rename(inplace=True, columns={'Quantity':'Received'})
+
+    dfIssueAllocation = pd.merge(left=dfIssueAllocation, right=dfIssueInventory, left_on='IssueInventory', right_on='id', how='left')
+    del dfIssueInventory
+    dfIssueAllocation.drop(inplace=True, columns=['IssueInventory', 'id'])
+    dfIssueAllocation.rename(inplace=True, columns={'Quantity':'Issued'})
+
+    dfResults = pd.merge(left=dfRequirement, right=dfPOAllocation, on=['Inventory', 'Variant'], how='left')
+    del dfRequirement, dfPOAllocation
+
+    dfResults = pd.merge(left=dfResults, right=dfRecAllocation, left_on=['Inventory', 'Variant'], right_on=['InventoryCode', 'Variant'], how='left')
+    del dfRecAllocation
+    dfResults.drop(inplace=True, columns=['InventoryCode'])
+
+    dfResults = pd.merge(left=dfResults, right=dfIssueAllocation, on=['Inventory', 'Variant'], how='left')
+    del dfIssueAllocation
+
+    dfResults = pd.merge(left=dfResults, right=dfInventories, left_on=['Inventory'], right_on=['Code'], how='left')
+    del dfInventories
+    dfResults.drop(inplace=True, columns=['Code'])
+    dfResults.rename(inplace=True, columns={'Name': 'InventoryName'})
+
+    allInventories = dfResults[['Inventory', 'InventoryName']].drop_duplicates().to_dict('records')
+    if selectedInvs:
+        dfResults = dfResults[dfResults['Inventory'].isin(selectedInvs)]
+
+    qtyCols = ['Required', 'Ordered', 'Received', 'Issued']
+    dfResults[qtyCols] = dfResults[qtyCols].fillna(0)
+
+    dfResults['Balance'] = dfResults.apply(calculateBalance, axis=1)
+
+    return dfToListOfDicts(dfResults), allInventories
+    
 def GetIssuanceList (
         searchTerm: str,
         departmentFilter: str,

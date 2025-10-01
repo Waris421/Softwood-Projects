@@ -26,7 +26,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY_FOR_DJANGO')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.2.14', '206.42.124.10']
+ALLOWED_HOSTS = ['192.168.2.14', '206.42.124.10', '.ngrok-free.app']
+
+CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app']
 
 # Application definition
 

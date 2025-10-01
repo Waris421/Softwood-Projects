@@ -23,6 +23,8 @@ erp/static/
 # C extensions
 *.so
 
+*.pem
+
 # Distribution / packaging
 .Python
 build/

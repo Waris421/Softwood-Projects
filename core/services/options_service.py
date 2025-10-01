@@ -329,7 +329,7 @@ def getWorkOrders(request: HttpRequest):
         dfData = pd.DataFrame(data)
     else:
         dfData = pd.DataFrame(columns=fields)
-
+        
     dfData.rename(inplace=True, columns={'OrderNumber':'value'})
     dfData['text'] = dfData['value'].astype(str)+' - '+dfData['StyleCode']+' - '+dfData['Customer']
     dfData.drop(inplace=True, columns=['Customer','StyleCode'])

@@ -78,9 +78,10 @@ class InventoryCodeP3Admin(admin.ModelAdmin):
     list_filter = ('Code',)
     ordering = ('Part2',)
 
-@admin.register(models.InventoryReciept)
-class InventoryReceiptAdmin(admin.ModelAdmin):
-    '''Admin View for InventoryReceipt'''
-    list_display = ('id', 'Supplier', 'PONumber')
-    list_filter = ('Supplier',)
-    ordering = ('id',)
+@admin.register(models.Issuance)
+class IssuanceAdmin(admin.ModelAdmin):
+    '''Admin View for Issuance'''
+
+    list_display = ('id','Department', 'IssuanceDate')
+    list_filter = ('Department',)
+    ordering = ('IssuanceDate',)

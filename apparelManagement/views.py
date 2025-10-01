@@ -1054,16 +1054,14 @@ def GetContextForPurchaseReceipt(request: HttpRequest):
 
 @login_required(login_url='/login')
 def EditPurchaseReceipt(request: HttpRequest, pk:str):
-    if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='change'):
-        return generic_services.showMessageResponse(request, 'Access Denied', 403)
-
     try:
         receiptObject = models.InventoryReciept.objects.get(id=pk)
     except:
         return HttpResponse('Resource not found', status=404)
     
     if request.method == 'POST':
-        
+        if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='change'):
+            return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
@@ -1076,7 +1074,9 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
         except Exception as e: 
             print(e)           
             return HttpResponse(e, status=400)
-    else:        
+    else:     
+        if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='view'):
+            return generic_services.showMessageResponse(request, 'Access Denied', 403)   
         receipt, inventory = purchase_receipt_service.ProcessReceiptData(receiptObject)
 
         context = {'receipt':receipt,
@@ -1438,6 +1438,38 @@ def AddRequisitionForOrder (request: HttpRequest):
             context.update({'invs':json.dumps([])})
 
         return render(request, 'requisition/add_order.html', context)
+
+@login_required(login_url='/login')
+def AddIssuanceForOrder(request: HttpRequest):
+    if request.method == 'POST':
+        data = json.loads(request.body.decode('utf-8'))
+        dfInventory, dfWorkOrder = generic_services.refineJson(data)
+
+        try:
+            issuance_service.AddIsuanceForOrder(dfInventory, dfWorkOrder)
+            return HttpResponse('OK', status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        order = request.GET.get('order',None)
+        inventories = request.GET.getlist('inventories[]', [])
+        type = request.GET.get('type',None)
+        department = request.GET.get('department','')
+
+        if order == 'null':
+            order = None
+        
+        data, allInventories = issuance_service.GetDataForOrderIssuance(order, type, inventories)
+        
+        context = {
+            'entries': data, 'allInventories': allInventories,
+            'order': order, 'type': type,
+            'department': department, 'selectedInventories': inventories,
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        
+        return render(request, 'issuance/add_order.html', context)
 
 @login_required(login_url='/login')
 def AddRequisitionForInv (request: HttpRequest):

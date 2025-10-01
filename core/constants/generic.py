@@ -35,7 +35,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         ]},
         {'groupName': 'Issuance', 'appName': 'apparelManagement', 'modelName': 'Requisition', 'views': [
             {'displayName': 'View Requests', 'viewName': 'apparelManagement:requisition'},
-            {'displayName': 'Request For Order', 'viewName': 'apparelManagement:addRequisitionForOrder'},
+            {'displayName': 'Issue For Order', 'viewName': 'apparelManagement:addIssueForOrder'},
             {'displayName': 'Request For Item', 'viewName': 'apparelManagement:addRequisitionForInv'},
             {'displayName': 'View Issuances', 'viewName': 'apparelManagement:issue'},
         ]},

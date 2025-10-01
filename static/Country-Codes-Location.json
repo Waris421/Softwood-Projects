@@ -1942,5 +1942,21 @@
       "numeric" : 4,
       "latitude" : 33,
       "longitude" : 65
+    },
+{
+  "country": "Kosovo",
+  "alpha2": "XK",
+  "alpha3": "XKX",
+  "numeric": null,
+  "latitude": 42.6,
+  "longitude": 21.1667
+    },
+{
+  "country": "Curaçao",
+  "alpha2": "CW",
+  "alpha3": "CUW",
+  "numeric": 531,
+  "latitude": 12.1696,
+  "longitude": -68.99
     }
-  ]
+]

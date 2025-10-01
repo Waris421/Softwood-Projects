@@ -1,15 +1,17 @@
 from django.shortcuts import render, redirect
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 
 import json
+import csv
 from urllib.parse import urlencode
 
 from core.constants.theme import theme
 from . import models
 from core.services import auth_service
 from core.services.generic_services import refineJson, applySearch, paginate, showMessageResponse
+from core.services.auth_service import hasPermission
 from .services import correspondance_service, customer_service, export_data_serivce
 
 @login_required(login_url='/login')
@@ -82,9 +84,10 @@ def ExportDataCountries(request: HttpRequest):
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
     countries = request.GET.getlist('countries[]', [])
+    search = request.GET.get('search', None)
 
     try:
-        countrySummary = export_data_serivce.GetCountrySummary(months, importers, exporters, categories, countries)
+        countrySummary = export_data_serivce.GetCountrySummary(months, importers, exporters, categories, countries, search)
         return JsonResponse(countrySummary, safe=False)
     except Exception as e:
         print(f'Countries: {e}')
@@ -117,9 +120,10 @@ def ExportDataImporters(request: HttpRequest):
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
     importers = request.GET.getlist('importers[]', [])
+    search = request.GET.get('search', None)
 
     try:
-        importerSummary = export_data_serivce.GetImporterSummary(months, countries, exporters, categories, importers)
+        importerSummary = export_data_serivce.GetImporterSummary(months, countries, exporters, categories, importers, search)
     except Exception as e:
         print(f'Importers: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
@@ -136,9 +140,10 @@ def ExportDataExporters(request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     categories = request.GET.getlist('categories[]', [])
     exporters = request.GET.getlist('exporters[]', [])
+    search = request.GET.get('search', None)
 
     try:
-        exporterSummary = export_data_serivce.GetExporterSummary(months, countries, importers, categories, exporters)
+        exporterSummary = export_data_serivce.GetExporterSummary(months, countries, importers, categories, exporters, search)
         return JsonResponse(exporterSummary, safe=False)
     except Exception as e:
         print(f'Exporters: {e}')
@@ -158,7 +163,6 @@ def ExportDataTable(request: HttpRequest):
 
     try:
         dataTable, numberOfPages = export_data_serivce.GetDetailsTable(months, countries, exporters, importers, categories, page)
-        print(numberOfPages)
         data = {
             'data': dataTable, 'numberOfPages': numberOfPages,
         }
@@ -186,17 +190,71 @@ def ExportDataStats(request: HttpRequest):
         return HttpResponse('An error occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
-def ExportDataSettings(request: HttpRequest):
+def ExportDataQuantityRange(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
     
+    months = request.GET.getlist('months[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
+
+
+    return HttpResponse('Under Construction', status=503)
+
+@login_required(login_url='/login')
+def ExportDataDownload(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    months = request.GET.getlist('months[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    categories = request.GET.getlist('categories[]', [])
+
+    try:
+        data = export_data_serivce.DownLoadExportData(months, countries, exporters, importers, categories)
+    except Exception as e:
+        print(e)
+        return HttpResponse(e, status=400)
+    
+    response = StreamingHttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="data.csv"'
+
+    writer = csv.writer(response)
+
+    if data:
+        headers = data[0].keys()
+        writer.writerow(headers)
+
+    for row in data:
+        writer.writerow(row.values())
+    
+    return response
+    
+    return JsonResponse(data, safe=False)
+
+@login_required(login_url='/login')
+def ExportDataSettings(request: HttpRequest):
+    if not hasPermission(request.user, 'marketing', 'ExportDataDraft','add'):
+        return showMessageResponse(request, 'Access Denied', statusCode=403)
+    
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)    
+
     context = {
+        'settingsIconViewName': 'marketing:exportDataSettings',
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render(request, 'export_data/settings.html', context)
 
 @login_required(login_url='/login')
 def RefineImporters(request: HttpRequest):
+    if not hasPermission(request.user, 'marketing', 'ImporterAlias', 'change'):
+        return showMessageResponse(request, 'Access Denied', statusCode=403)
+
     if request.method == 'POST':
         jsonData = json.loads(request.body.decode('utf-8'))
 
@@ -217,6 +275,7 @@ def RefineImporters(request: HttpRequest):
             'importersData': importersData,
             'currentCount': currentCount, 'totalCount': totalCount,
             'filterMethod': filterMethod, 'search': search,
+            'settingsIconViewName': 'marketing:exportDataSettings',
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'export_data/importer_alias.html', context)
@@ -227,14 +286,14 @@ def UploadExportReport(request:HttpRequest):
         dataFile = request.FILES['exportDataFile']        
         try:
             export_data_serivce.ExtractUploadedData(dataFile)
-            return showMessageResponse(request, 'Data Submitted for approval', 200)
+            return showMessageResponse(request, 'Data Submitted for approval', 200, 'marketing:exportDataSettings')
         except Exception as e:
             print(e)
             context = {
                 'error': str(e),
                 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
             }
-            return render(request, 'export_data/upload.html', context)
+            return render(request, 'export_data/upload.html', context, status=400)
     else:
         context = {
             'settingsIconViewName': 'marketing:exportDataSettings',
@@ -244,6 +303,9 @@ def UploadExportReport(request:HttpRequest):
 
 @login_required(login_url='/login')
 def UploadExportReportConfirmation(request:HttpRequest):
+    if not hasPermission(request.user, 'marketing', 'ExportData','add'):
+        return showMessageResponse(request, 'Access Denied', statusCode=403)
+
     if request.method == 'POST':
         action = request.POST.get('action')
         
@@ -258,12 +320,13 @@ def UploadExportReportConfirmation(request:HttpRequest):
             pendingUploads, addedMonths = export_data_serivce.GetPendingUploads()
             context = {
                 'pendingUploads': pendingUploads, 'addedMonths': addedMonths,
+                'settingsIconViewName': 'marketing:exportDataSettings',
                 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
             }
             return render(request, 'export_data/confirm_upload.html', context)
         except Exception as e:
             print(e)
-            return showMessageResponse(request, str(e), 400)
+            return showMessageResponse(request, str(e), 400, 'marketing:exportDataSettings')
 
 @login_required(login_url='/login')
 def AddCustomer (request: HttpRequest):

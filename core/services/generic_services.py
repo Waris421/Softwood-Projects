@@ -12,6 +12,7 @@ from collections import defaultdict
 from typing import Dict, Any, List, Union
 
 import google.generativeai as genai
+from google.api_core.exceptions import InvalidArgument, GoogleAPIError
 
 from django.db import transaction
 from django.db.models import Model
@@ -309,14 +310,16 @@ def dfToListOfDicts(df: pd.DataFrame):
     else:
         return df.to_dict(orient='records')
 
-def showMessageResponse(request: HttpRequest, message: str, statusCode=400):
+def showMessageResponse(request: HttpRequest, message: str, statusCode=400, settingsIconViewName:str|None = None):
     context = {
         'message': message,
         'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
     }
+    if settingsIconViewName:
+        context.update({'settingsIconViewName': settingsIconViewName})
     return render(request, 'blank.html', context, status=statusCode)
 
-def convertCountryNameToCode(countryNamesSeries: pd.Series):
+def convertCountryNameToCode(countryNamesSeries: pd.Series) -> Dict[str, str]:
     countryNames = countryNamesSeries.unique().tolist()
 
     genai.configure(api_key=API_KEY_FOR_AI)
@@ -350,7 +353,14 @@ def convertCountryNameToCode(countryNamesSeries: pd.Series):
         }
     )
 
-    response = model.generate_content(prompt)
+    try:
+        response = model.generate_content(prompt)
+    except InvalidArgument as e:
+        raise ValueError(f"AI couldn't validate the credentials. Check with administrator. Details: {e}")
+    except GoogleAPIError as e:
+        raise ValueError(f"Cou;ldn't connect to AI. Try again later. Details: {e}")
+    except Exception as e:
+        raise ValueError(f"An unexpected error occurred. Check with your administrator. Details: {e}")
 
     if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
         jsonString = response.candidates[0].content.parts[0].text
@@ -377,7 +387,7 @@ def formatNumbers(n: int|float):
         return f'{n/1_000_000:.1f}m'
     if abs(n) >= 1_000:
         return f'{n/1_000:.1f}k'
-    return str(n)
+    return f'{n:.2f}'
 
 def roundFloatCols(df: pd.DataFrame):
     """
