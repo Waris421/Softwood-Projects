@@ -27,7 +27,7 @@ urlpatterns = [
     path('marketing/export-data/categories', views.ExportDataCategories, name='exportDataCategories'),
     path('marketing/export-data/details', views.ExportDataTable, name='exportDataDetails'),
     path('marketing/export-data/stats', views.ExportDataStats, name='exportDataStats'),
-    path('marketing/export-data/qty-range', views.ExportDataQuantityRange, name='exportDataQtyRange'),
+    path('marketing/export-data/sliders', views.ExportDataSliders, name='exportDataSliders'),
     path('marketing/export-data/download', views.ExportDataDownload, name='exportDataDownload'),
 
     path('options/countries', options_service.GetCountries, name='countries'),

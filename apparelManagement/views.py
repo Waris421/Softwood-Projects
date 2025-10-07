@@ -856,8 +856,14 @@ def getAllocatedQty (request: HttpRequest):
     if request.method == 'POST':
         data = json.loads(request.body.decode('utf-8'))
     
-        inventory = models.Inventory.objects.get(Code=data['invCode'])
+        try:
+            inventory = models.Inventory.objects.get(Code=data['invCode'])
+        except Exception as e:
+            print(e)
+            return HttpResponse('Inventory code not available', status=400)
+        
         variant = data['variant']
+        
         purchaseOrder = models.PurchaseOrder.objects.get(id=data['poNumber'])
 
         quantity = purchase_order_service.getAllocatedQty(purchaseOrder, inventory, variant)
@@ -1061,7 +1067,7 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
     
     if request.method == 'POST':
         if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='change'):
-            return generic_services.showMessageResponse(request, 'Access Denied', 403)
+            return HttpResponse('Access Denied', status=403)
     
         #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))

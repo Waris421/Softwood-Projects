@@ -88,18 +88,28 @@
         </ul>
       </div>
       <div class="navbar-end">
-        <ul class="menu menu-horizontal px-1 items-center">
+        <ul class="menu menu-horizontal p-0 items-center space-x-1">
           <li>
-            <span>Logged in as {{user.first_name}}</span>
-          </li>
-          <li>
-            <a href="/logout">Logout</a>
-          </li>
-          <li><a href="/">Go to Main</a></li>
-          <li>
-            <a id="settingsIcon" class="material-symbols-outlined" custom-url="{% if settingsIconViewName %}{% url settingsIconViewName %}{% endif %}">
-              settings
+            <a href="/" class="btn btn-ghost btn-square" title="Home">
+                <span class="material-symbols-outlined">home</span>
             </a>
+          </li>
+          <li>
+            <a id="settingsIcon" class="btn btn-ghost btn-square" 
+              custom-url="{% if settingsIconViewName %}{% url settingsIconViewName %}{% endif %}"
+              title="Settings">
+              <span class="material-symbols-outlined">settings</span>
+            </a>
+          </li>
+          <li>
+            <a href="/logout" class="btn btn-ghost btn-square" title="Logout">
+                <span class="material-symbols-outlined">chip_extraction</span>
+            </a>
+          </li>
+          <li class="hidden sm:inline-flex">
+            <span class="text-sm font-light text-gray-600 dark:text-gray-400 mr-2">
+                {{user.first_name}}
+            </span>
           </li>
         </ul>
       </div>
@@ -639,6 +649,31 @@
         }
         settingsIcon.href = url;
       });
+    </script>
+
+    <script>  //To download data from a response object
+      async function convertResponseToCSV(response) {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'download.csv';
+        if (contentDisposition) {
+          const matches = /filename\*?=['"]?([^"';\n\r]+)['"]?/.exec(contentDisposition);
+          if (matches && matches[1]) {
+              filename = matches[1];
+          }
+        }
+
+        const csvBlob = await response.blob();
+        const url = window.URL.createObjectURL(csvBlob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
     </script>
   </body>
 </html>

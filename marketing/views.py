@@ -56,6 +56,11 @@ def ExportData (request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
+    
+    minQty = request.GET.get('minQty')
+    maxQty = request.GET.get('maxQty')
+    minPrice = request.GET.get('minPrice')
+    maxPrice = request.GET.get('maxPrice')
 
     try:
         months = export_data_serivce.GetMonthWiseQty()
@@ -70,6 +75,7 @@ def ExportData (request: HttpRequest):
         'exporters': exporters, 'exportersJson': json.dumps(exporters),
         'categories': categories, 'categoriesJson': json.dumps(categories),
         'months': months, 'monthsJson': json.dumps(months),
+        'minQty': minQty, 'maxQty': maxQty, 'minPrice': minPrice, 'maxPrice': maxPrice,
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'export_data/home.html', context)
@@ -84,10 +90,27 @@ def ExportDataCountries(request: HttpRequest):
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
     countries = request.GET.getlist('countries[]', [])
+    
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
     search = request.GET.get('search', None)
 
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
+
     try:
-        countrySummary = export_data_serivce.GetCountrySummary(months, importers, exporters, categories, countries, search)
+        countrySummary = export_data_serivce.GetCountrySummary(
+            months, importers, exporters, categories, countries, search,
+            minQty, maxQty, minPrice, maxPrice
+        )
         return JsonResponse(countrySummary, safe=False)
     except Exception as e:
         print(f'Countries: {e}')
@@ -99,12 +122,29 @@ def ExportDataCategories(request: HttpRequest):
         return HttpResponse('Not Allowed', status=403)
     
     months = request.GET.getlist('months[]', [])
-    countries = request.GET.getlist('countries[]', [])
-    exporters = request.GET.getlist('exporters[]', [])
     importers = request.GET.getlist('importers[]', [])
+    exporters = request.GET.getlist('exporters[]', [])
+    countries = request.GET.getlist('countries[]', [])
+    
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
+
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
 
     try:
-        categorySummary = export_data_serivce.GetCategorySummary(months)
+        categorySummary = export_data_serivce.GetCategorySummary(
+            months, importers, exporters, countries,
+            minQty, maxQty, minPrice, maxPrice
+        )
         return JsonResponse(categorySummary, safe=False)
     except Exception as e:
         print(f'Categories: {e}')
@@ -120,10 +160,27 @@ def ExportDataImporters(request: HttpRequest):
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
     importers = request.GET.getlist('importers[]', [])
+    
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
     search = request.GET.get('search', None)
 
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
+
     try:
-        importerSummary = export_data_serivce.GetImporterSummary(months, countries, exporters, categories, importers, search)
+        importerSummary = export_data_serivce.GetImporterSummary(
+            months, countries, exporters, categories, importers, search,
+            minQty, maxQty, minPrice, maxPrice
+        )
     except Exception as e:
         print(f'Importers: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
@@ -140,10 +197,27 @@ def ExportDataExporters(request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     categories = request.GET.getlist('categories[]', [])
     exporters = request.GET.getlist('exporters[]', [])
+    
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
     search = request.GET.get('search', None)
 
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
+
     try:
-        exporterSummary = export_data_serivce.GetExporterSummary(months, countries, importers, categories, exporters, search)
+        exporterSummary = export_data_serivce.GetExporterSummary(
+            months, countries, importers, categories, exporters, search,
+            minQty, maxQty, minPrice, maxPrice
+        )
         return JsonResponse(exporterSummary, safe=False)
     except Exception as e:
         print(f'Exporters: {e}')
@@ -159,10 +233,28 @@ def ExportDataTable(request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
+    
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
+    
     page = request.GET.get('page', '1')
 
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
+
     try:
-        dataTable, numberOfPages = export_data_serivce.GetDetailsTable(months, countries, exporters, importers, categories, page)
+        dataTable, numberOfPages = export_data_serivce.GetDetailsTable(
+            months, countries, exporters, importers, categories, page,
+            minQty, maxQty, minPrice, maxPrice
+        )
         data = {
             'data': dataTable, 'numberOfPages': numberOfPages,
         }
@@ -182,15 +274,32 @@ def ExportDataStats(request: HttpRequest):
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
 
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
+
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
+
     try:
-        stats = export_data_serivce.GetStats(months, countries, exporters, importers, categories)
+        stats = export_data_serivce.GetStats(
+            months, countries, exporters, importers, categories,
+            minQty, maxQty, minPrice, maxPrice
+        )
         return JsonResponse(stats, safe=False)
     except Exception as e:
         print(f'Stats: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
 
 @login_required(login_url='/login')
-def ExportDataQuantityRange(request: HttpRequest):
+def ExportDataSliders(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
     
@@ -199,9 +308,15 @@ def ExportDataQuantityRange(request: HttpRequest):
     importers = request.GET.getlist('importers[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
-
-
-    return HttpResponse('Under Construction', status=503)
+    
+    try:
+        paramters = export_data_serivce.GetSliderParamters(
+            months, countries, exporters, importers, categories
+        )
+        return JsonResponse(paramters, safe=False)
+    except Exception as e:
+        print(f'Quantity: {e}')
+        return HttpResponse('An error occurred', status=400)
 
 @login_required(login_url='/login')
 def ExportDataDownload(request: HttpRequest):
@@ -214,27 +329,37 @@ def ExportDataDownload(request: HttpRequest):
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
 
+    minQty = request.GET.get('minQty', None)
+    maxQty = request.GET.get('maxQty', None)
+    minPrice = request.GET.get('minPrice', None)
+    maxPrice = request.GET.get('maxPrice', None)
+
+    if minQty == 'None':
+        minQty = None
+    if maxQty == 'None':
+        maxQty = None
+    if minPrice == 'None':
+        minPrice = None
+    if maxPrice == 'None':
+        maxPrice = None
+
     try:
-        data = export_data_serivce.DownLoadExportData(months, countries, exporters, importers, categories)
+        dfData = export_data_serivce.DownLoadExportData(
+            months, countries, exporters, importers, categories,
+            minQty, maxQty, minPrice, maxPrice
+        )
     except Exception as e:
         print(e)
         return HttpResponse(e, status=400)
-    
-    response = StreamingHttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="data.csv"'
 
-    writer = csv.writer(response)
-
-    if data:
-        headers = data[0].keys()
-        writer.writerow(headers)
-
-    for row in data:
-        writer.writerow(row.values())
+    response = HttpResponse(
+        content_type='text/csv',
+        headers={'Content-Disposition': 'attachment; filename="data.csv"'},
+        status=200,
+    )
+    dfData.to_csv(path_or_buf=response, index=False, encoding='utf-8', float_format='%.2f')
     
     return response
-    
-    return JsonResponse(data, safe=False)
 
 @login_required(login_url='/login')
 def ExportDataSettings(request: HttpRequest):

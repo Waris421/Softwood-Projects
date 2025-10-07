@@ -69,7 +69,7 @@
                                 <div id="monthDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
                                     Month
                                 </div>
-                                <ul tabindex="0" id="monthSelector" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
+                                <ul tabindex="0" id="monthSelector" class="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
                                     {% for data in months %}
                                         <li>
                                             <label class="label cursor-pointer p-2">
@@ -95,16 +95,8 @@
                                 <div id="monthDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
                                     Category
                                 </div>
-                                <ul tabindex="0" id="categorySelector" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
+                                <ul tabindex="0" id="categorySelector" class="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
                                 </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-col col-[1/2] items-center">
-                        <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
-                            <span class="text-sm text-gray-500 mb-2">Quantity:</span>
-                            <div id="quantityRangeSlider">
-
                             </div>
                         </div>
                     </div>
@@ -415,6 +407,7 @@
                 allImportersData = await getImporters(params);
             } catch (e) {
                 showMessage(e);
+                hideLoadingIcon();
                 return ;
             }
 
@@ -603,6 +596,7 @@
         let allDetailsData = []
 
         async function populateDetailsTable(params, pageNumber) {
+            showLoadingIcon()
             const url = "{% url 'marketing:exportDataDetails' %}";
             const response = await fetch(`${url}?${params}&page=${pageNumber}`);
 
@@ -620,6 +614,8 @@
 
             renderDetailsTable(tableBody, allDetailsData);
             renderDetailsPagination(params, numberOfPages, pageNumber);
+
+            hideLoadingIcon();
         }
 
         function renderDetailsTable(tableBody, details) {
@@ -681,56 +677,6 @@
         }
     </script>
 
-    <script>    //To set the quantity sliders
-        const quantityRangeSlider = document.getElementById('quantityRangeSlider');
-
-        async function updateQuantitySlider(params, selectedMinQty, selectedMaxQty) {
-            let quantityRange = [];
-
-            try {
-                quantityRange = getQuantityRange(params)
-            } catch (e) {
-                showMessage(e);
-                return;
-            }
-
-            const minSliderQty = 0;
-            const maxSliderQty = 100
-
-            noUiSlider.create(quantityRangeSlider, {
-                start: [minSliderQty, maxSliderQty],
-                connect: true,
-                range: {
-                    'min': minSliderQty,
-                    'max': maxSliderQty
-                },
-                tooltips : [true, true],
-            });
-
-            quantityRangeSlider.noUiSlider.on('update', (values, handle) => {
-                const minQty = Math.round(values[0]);
-                const maxQty = Math.round(values[1]);
-
-                //Set up the min and max qty inputs here
-            });
-        }
-
-        async function getQuantityRange(params) {
-            const url = "{% url 'marketing:exportDataQtyRange' %}";
-            const response = await fetch(`${url}?${params}`);
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error);
-            }
-
-            const exporters = await response.json();
-
-            return exporters;
-        }
-
-    </script>
-
     <script>    //To reset filters
         function resetFilters() {
             const filtersForm = document.getElementById('filtersForm');
@@ -789,8 +735,7 @@
                 hideLoadingIcon();
                 return ;
             }
-
-            showMessage('This feature is in process');
+            await convertResponseToCSV(response);
 
             hideLoadingIcon();
         }
@@ -833,17 +778,15 @@
 
             populateCategories(params.toString(), selectedCategories);
 
-            updateQuantitySlider(params.toString(), 0, 100);
-
             populateCountries(params.toString(), selectedCountries);
-
-            populateImporters(params.toString(), selectedImporters);
 
             populateExporters(params.toString(), selectedExporters);
 
             populateDetailsTable(params.toString(), 1);
 
             populateStats(params.toString());
+
+            populateImporters(params.toString(), selectedImporters);
         });
     </script>
 {% endblock content %}
