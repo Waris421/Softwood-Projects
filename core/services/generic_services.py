@@ -10,15 +10,16 @@ from datetime import datetime
 import calendar
 from collections import defaultdict
 from typing import Dict, Any, List, Union
+from playwright.sync_api import sync_playwright
 
 import google.generativeai as genai
 from google.api_core.exceptions import InvalidArgument, GoogleAPIError
 
 from django.db import transaction
 from django.db.models import Model
-from django.db import models as dbModels
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.http import HttpRequest
+from django.template.loader import render_to_string
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django_countries import countries
 
@@ -429,3 +430,25 @@ def convertMonthstoStrtEndDates(months: List[str], format='%b-%Y'):
     endingDate = latestMonth.replace(day=lastDayOfLatestMonth).date()
 
     return startingDate, endingDate
+
+def convertContextToPDFResponse(context: Dict[str, Any], template: str):
+    htmlString = render_to_string(template, context)
+
+    pdfBytes = None
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.set_content(htmlString, wait_until='domcontentloaded')
+            pdfBytes = page.pdf(format='A4', print_background=True)
+            browser.close()
+    except Exception as e:
+        raise ValueError(e)
+    
+    if pdfBytes:
+        response = HttpResponse(pdfBytes, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="document.pdf"'
+        return response
+    else:
+        raise ValueError('Cannot generate PDF')

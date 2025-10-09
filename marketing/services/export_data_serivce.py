@@ -326,6 +326,7 @@ def GetImporterSummary(
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
 
+    print('Ok so far')
     #Bring the selected importers to the top
     dfExportData['SortKey'] = dfExportData['Importer'].apply(lambda x: 0 if x in importers else 1)
     dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)

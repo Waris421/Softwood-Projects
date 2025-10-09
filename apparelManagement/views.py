@@ -206,6 +206,30 @@ def CopyInv (request: HttpRequest, pk: str):
         context = {'theme': theme, 'code': pk, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/copy.html', context)
 
+@login_required(login_url='/login')
+def InventoryReports(request: HttpRequest):
+    if request.method != 'GET':
+        return generic_services.showMessageResponse(request, 'Not allowed', 405)
+
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+
+    context = {'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+    return render(request, 'inventory/reports_home.html', context)
+
+@login_required(login_url='/login')
+def InventoryFreeStockReport(request: HttpRequest):
+    if request.method != 'GET':
+        return generic_services.showMessageResponse(request, 'Not allowed', 405)
+
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    freeStockQuantity = inventory_card_service.GetFreeStockQuantity()
+
+    context = {'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+    return render(request, 'inventory/report_free_stock.html', context)
+
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='view'):
@@ -613,14 +637,25 @@ def PrintWorkOrder(request: HttpRequest, pk: str):
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
+
         try:
             match requiredFormat:
                 case 'CUT':
                     context = {'order':order, 'cut':cutting, 'summary': cuttingSummary, 'theme': theme}
-                    return render(request, 'work_order/print_cut.html', context)
+                    try:
+                        response = generic_services.convertContextToPDFResponse(context, 'work_order/print_cut.html' )
+                        return response
+                    except Exception as e:
+                        print(e)
+                        return HttpResponse(e, status=400)
                 case 'F&T':
                     context = {'order':order, 'cut':cuttingSummary,'material':material, 'theme': theme}
-                    return render(request, 'work_order/print_ft.html', context)
+                    try:
+                        response = generic_services.convertContextToPDFResponse(context, 'work_order/print_ft.html')
+                        return response
+                    except Exception as e:
+                        print(e)
+                        return HttpResponse(e, status=400)
                 case 'PST':
                     print('Need to make production status format')
                     return HttpResponse('This page is under construction')
@@ -703,6 +738,7 @@ def AutoInventoryRequirement(request: HttpRequest):
     else:
         startingOrder = request.GET.get('startingOrder',None)
         endingOrder = request.GET.get('endingOrder',None)
+        customer = request.GET.get('customer', None)
         inventories = request.GET.get('inventories','').split(',')
         if not inventories[0]:
             inventories = inventories[1:]
@@ -715,11 +751,12 @@ def AutoInventoryRequirement(request: HttpRequest):
         if not endingOrder:
             endingOrder = startingOrder
 
-        requirement, invs = purchase_order_service.PrepareDataForAutoReq(startingOrder, endingOrder)
+        requirement, invs = purchase_order_service.PrepareDataForAutoReq(startingOrder, endingOrder, customer)
 
         context = {
             'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
             'startingOrder':startingOrder, 'endingOrder':endingOrder, 'inventories':json.dumps(inventories),
+            'customer': customer,
             'requirement':requirement}   
         #This is in response to a bug where the code was giving error when there was no inventory in the list.
         if invs:
@@ -889,19 +926,43 @@ def PrintPurchaseOrder(request: HttpRequest, pk: str):
         if requiredFormat == 'SUP':
             order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject)
             context = {'order':order, 'inv':inventory, 'summary': summary, 'theme': theme} 
-            return render(request, 'purchase_order/print_supplier.html', context)
+            
+            try:
+                response = generic_services.convertContextToPDFResponse(context, 'purchase_order/print_supplier.html')
+                return response
+            except Exception as e:
+                print(e)
+                return HttpResponse(e, status=400)
         elif requiredFormat == 'SUPV1':
             order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject, 'V1')
             context = {'order':order, 'inv':inventory, 'summary': summary, 'theme': theme}
-            return render(request, 'purchase_order/print_supplier.html', context)
+            
+            try:
+                response = generic_services.convertContextToPDFResponse(context, 'purchase_order/print_supplier.html')
+                return response
+            except Exception as e:
+                print(e)
+                return HttpResponse(e, status=400)
         elif requiredFormat == 'SUPV2':
             order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject, 'V2')
             context = {'order':order, 'inv':inventory, 'summary': summary, 'theme': theme}
-            return render(request, 'purchase_order/print_supplier.html', context)
+            
+            try:
+                response = generic_services.convertContextToPDFResponse(context, 'purchase_order/print_supplier.html')
+                return response
+            except Exception as e:
+                print(e)
+                return HttpResponse(e, status=400)
         elif requiredFormat=='ACC':
             order, inventory, allocation, summary = purchase_order_service.PrintPO(orderObject)
             context = {'order':order, 'inv':inventory, 'alloc': allocation, 'summary': summary, 'theme': theme}
-            return render(request, 'purchase_order/print_accounts.html', context)
+            
+            try:
+                response = generic_services.convertContextToPDFResponse(context, 'purchase_order/print_accounts.html')
+                return response
+            except Exception as e:
+                print(e)
+                return HttpResponse(e, status=400)
         else:
             return HttpResponse('Invalid print format.', status=400)
     else:
@@ -1152,7 +1213,13 @@ def PrintPurchaseReceipt(request: HttpRequest, pk: str):
     elif requiredFormat == 'ACC':
         receipt, inventory, allocation = purchase_receipt_service.PrintRec(inventoryReciept)
         context = {'receipt':receipt, 'inv':inventory, 'allocation': allocation, 'theme': theme}
-        return render(request, 'purchase_receipt/print_accounts.html', context)
+
+        try:
+            response = generic_services.convertContextToPDFResponse(context, 'purchase_receipt/print_accounts.html' )
+            return response
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
     else:
         return HttpResponse('Invalid print format.', status=400)        
 

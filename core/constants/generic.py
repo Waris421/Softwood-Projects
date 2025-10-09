@@ -10,6 +10,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         {'groupName': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'views': [
             {'displayName': 'View All', 'viewName': 'apparelManagement:Inv'},
             {'displayName': 'Add New', 'viewName': 'apparelManagement:addInv'},
+            {'displayName': 'Reports', 'viewName': 'apparelManagement:inventoryReportsHome'},
         ]},
         {'groupName': 'StyleCard', 'appName': 'apparelManagement', 'modelName': 'StyleCard', 'views': [
             {'displayName': 'View All', 'viewName': 'apparelManagement:Style'},

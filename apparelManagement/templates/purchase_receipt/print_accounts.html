@@ -4,31 +4,11 @@
     {{receipt.id}}
 {% endblock %}
 
+{% block documentName %}
+    Inventory Receipt
+{% endblock documentName %}
+
 {% block content %}
-    <!--Document Heading-->
-    <div class="{{theme.border}}">
-        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <h1 class="{{theme.titleBold}}">SOFTWOOD PRIVATE LIMITED</h1>
-            </div>
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.headingNormal}}">20-KM Off Ferozpur Road, Main Bazar Youhannabad, Lahore</div>
-            </div>
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.headingNormal}}">+92 042 35951191, info@softwoodtextiles.com</div>
-            </div>
-        </div>
-    </div>
-
-    <!--Document Name-->
-    <div class="{{theme.border}}">
-        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <h3 class="{{theme.headingBold}}">Purchase Receipt</h3>
-            </div>
-        </div>
-    </div>
-
     <!--Document main data-->
     <div class="{{theme.border}}">
         <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">

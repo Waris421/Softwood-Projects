@@ -177,3 +177,6 @@ def GenenrateCode (jsonData: Dict[str, Any]):
         data['part3'] = part3
 
     return data
+
+def GetFreeStockQuantity():
+    print('I am called')

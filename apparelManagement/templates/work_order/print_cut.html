@@ -4,34 +4,15 @@
     {{order.OrderNumber}}
 {% endblock %}
 
-
 {% block orientation %}
     landscape
 {% endblock orientation %}
 
-{% block content %}
-    <div class="{{theme.border}}">
-        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <h1 class="{{theme.titleBold}}">SOFTWOOD PRIVATE LIMITED</h1>
-            </div>
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.headingNormal}}">20-KM Off Ferozpur Road, Main Bazar Youhannabad, Lahore</div>
-            </div>
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.headingNormal}}">+92 042 35951191, info@softwoodtextiles.com</div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="{{theme.border}}">
-        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
-            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                <h3 class="{{theme.headingBold}}">Cutting Plan</h3>
-            </div>
-        </div>
-    </div>
+{% block documentName %}
+    Cut Plan
+{% endblock documentName %}
 
+{% block content %} 
     <div class="{{theme.border}}">
         <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
             <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
@@ -79,51 +60,25 @@
 
     <div id="cuttingTable" class="w-full">      
         {% for var1, details in cut.items %}
-            <div class="grid grid-cols-1 my-2">
-                 <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                    <div class="{{theme.headingBold}}">{{var1}}</div>
-                 </div>
-            </div>
-            <div class="flex flex-nowrap my-0 {{theme.justify}} {{theme.align}} w-full">
-                <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                    <div class="{{theme.headingBold}}">Variant</div>
-                </div>
-                {% for data in details %}
-                    <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                        <div class="{{theme.headingBold}}">{{data.Variant2}}</div>
+            <div class="{{theme.border}}">
+                <div class="grid grid-cols-1 my-2">
+                    <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                        <div class="{{theme.headingBold}}">{{var1}}</div>
                     </div>
-                {% endfor %}
-            </div>
-            <div class="flex flex-nowrap my-0 {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                    <div class="{{theme.headingBold}}">PO Quantity</div>
                 </div>
-                {% for data in details %}
-                    <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                        <div class="{{theme.headingBold}}">{{data.POQuantity}}</div>
-                    </div>
-                {% endfor %}
-            </div>
-            <div class="flex flex-nowrap my-0 {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                    <div class="{{theme.headingBold}}">Will Cut</div>
+                <div class="flex flex-wrap my-0 {{theme.justify}} {{theme.align}} w-full">
+                    {% for data in details %}
+                        <div class="flex flex-col min-w-[8rem]">
+                            <div class="p-1 {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.headingBold}}">{{data.Variant2}}</div>
+                                <div class="{{theme.headingNormal}}">{{data.POQuantity}}</div>
+                                <div class="{{theme.headingNormal}}">{{data.CutQuantity}}</div>
+                                <div class="{{theme.headingNormal}}">{{data.ActualCut}}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
                 </div>
-                {% for data in details %}
-                    <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                        <div class="{{theme.headingBold}}">{{data.CutQuantity}}</div>
-                    </div>
-                {% endfor %}
-            </div>
-            <div class="flex flex-nowrap my-0 {{theme.justify}} {{theme.align}}">
-                <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                    <div class="{{theme.headingBold}}">Actual Cut</div>
-                </div>
-                {% for data in details %}
-                    <div class="{{theme.rowEntry}} {{theme.align}} {{theme.justify}} {{theme.border}}">
-                        <div class="{{theme.headingBold}}">{{data.ActualCut}}</div>
-                    </div>
-                {% endfor %}
-            </div>
+            </div>    
         {% endfor %}
     </div>
 {% endblock %}

@@ -3,6 +3,7 @@ import numpy as np
 from datetime import date, timedelta, datetime
 
 from django.forms import model_to_dict
+from django.db.models import Q
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
@@ -223,15 +224,18 @@ def GeneratePOfromAutoReq(dfData: pd.DataFrame, supplierName:str):
 
     return orderCard.id
 
-def PrepareDataForAutoReq(startingOrder: int, endingOrder: int):
+def PrepareDataForAutoReq(startingOrder: int, endingOrder: int, customer: str):
     '''
     Get all unordered accessories for auto requirement
     '''
     if not startingOrder:
         return None, None
 
+    filters = Q(OrderNumber__gte=startingOrder) & Q(OrderNumber__lte=endingOrder) & Q(Customer=customer)
+    workOrders = models.WorkOrder.objects.filter(filters)
+
     fields = ['OrderNumber','InventoryCode','Variant','Quantity']
-    requirement = models.InvRequirement.objects.filter(OrderNumber__gte=startingOrder).filter(OrderNumber__lte=endingOrder).values(*fields)
+    requirement = models.InvRequirement.objects.filter(OrderNumber__in=workOrders).values(*fields)
     if requirement:
         dfRequirement = pd.DataFrame(requirement)
     else:
@@ -239,7 +243,7 @@ def PrepareDataForAutoReq(startingOrder: int, endingOrder: int):
     del requirement
 
     fields = ['POInvId','WorkOrder','Quantity']
-    poAllocation = models.POAllocation.objects.filter(WorkOrder__gte=startingOrder).filter(WorkOrder__lte=endingOrder).values(*fields)
+    poAllocation = models.POAllocation.objects.filter(WorkOrder__in=workOrders).values(*fields)
     if poAllocation:
         dfAllocation = pd.DataFrame(poAllocation)
     else:
@@ -263,7 +267,7 @@ def PrepareDataForAutoReq(startingOrder: int, endingOrder: int):
     del inventories
 
     fields = ['OrderNumber','StyleCode']
-    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfRequirement['OrderNumber']).values(*fields)
+    workOrders = workOrders.values(*fields)
     if workOrders:
         dfWorkOrders = pd.DataFrame(workOrders)
     else:

@@ -952,7 +952,10 @@ def PrintWO (order: models.WorkOrder):
     dfRequirement = roundFloatCols(dfRequirement)
 
     cutting = {}
+    variantsColList = [['PO Qty', 'Will Cut', 'Actual Cut', 'Variant1', 'Variant']]
     for name, group in dfVariants:
-        cutting[name] = group.to_dict(orient='records')
+        headerRow = pd.DataFrame(variantsColList, columns=group.columns)
+        dfTemp = pd.concat([headerRow, group], ignore_index=True)
+        cutting[name] = dfTemp.to_dict(orient='records')
 
     return order, cutting, cuttingSummary, dfToListOfDicts(dfRequirement), None
