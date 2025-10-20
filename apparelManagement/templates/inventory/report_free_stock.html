@@ -5,5 +5,162 @@
 {% endblock title %}
 
 {% block content %}
-    Content
+    <div class="{{theme.border}}">
+        <form action="{% url 'apparelManagement:inventoryReportFreeStock' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-6 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/2] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Group:</span>
+                    <select id="typeFilter" name="type" onchange="this.form.submit()" class="{{theme.dropdown}}"></select>
+                </div>
+                <div class="flex flex-col col-[2/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Min Stock:</span>
+                    <input type="number" class="{{theme.textInput}}" name="minStockLvl" value="{{minStockLvl}}" min="1">
+                </div>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Quality Approval:</span>
+                    <select id="approvalFilter" name="approval" onchange="this.form.submit()" class="{{theme.dropdown}}"></select>
+                </div>
+                <div class="flex col-[4/7] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonSecondary}}" role="button" onclick="allocateToOrders()">Allocate</a>
+                    <a class="{{theme.buttonSecondary}}" role="button" onclick="downloadReport()">Download</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-11 mt-4 x-3 {{theme.border}} {{theme.tableHead}} sticky top-16 z-40">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
+                    </div>
+                </div>
+                <div class="flex col-[2/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+                <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Quantity
+                    </div>
+                </div>
+                <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Unit
+                    </div>
+                </div>
+                <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Approval
+                    </div>
+                </div>
+            </div>
+            {% for data in inv %}
+                <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}">
+                        <span class="material-symbols-outlined" style="font-size: 24px;" onclick="getContextForFreeStock(event)">info</span>
+                    </div>
+                    <div hidden>
+                        <input type="text" value="{{data.InventoryCode}}" name="InventoryCode" >
+                    </div>
+                    <div class="flex col-[2/6] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="InventoryName" readonly >
+                    </div>
+                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly >
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.FreeQty}}" name="Quantity" max="{{data.FreeQty}}" min="0">
+                    </div>
+                    <div class="flex col-[9/11] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly >
+                    </div>
+                    <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox"  disabled class="toggle"
+                            {% if data.Approval %}checked{% endif %}
+                        >
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <script>    //To select all visible boxes
+        function selectAll(box) {
+            const checkStatus = box.checked;
+            const rows = box.parentElement.parentElement.parentElement.parentElement.children;
+            for (let i=1; i<rows.length; i++) {
+                const rowCheck = rows[i].children[0].children[0];
+
+                rowCheck.checked = checkStatus;
+            }
+        }
+    </script>
+
+    <script>    //To show stock history
+        async function getContextForFreeStock(event) {
+            showLoadingIcon();
+            
+            const source = event.target;
+            const inventoryCode = source.parentElement.parentElement.children[1].children[0].value;
+            
+            const url = "{% url 'apparelManagement:inventoryFreeStockHistory' %}";
+
+            const response = await fetch(`${url}?code=${inventoryCode}`);
+
+            if (!response.ok) {
+                errorMessage = await response.text();
+                showMessage(errorMessage);
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            showMessage('This feature is under construction');
+
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script>    //To allocate the free qty to order
+        async function allocateToOrders() {
+            showMessage('This feature is under construction');
+        }
+    </script>
+
+    <script>    //To download the report
+        async function downloadReport() {
+            showMessage('This feature is under construction');
+        }
+    </script>
+
+    <script>    //To run when the page is fully loaded
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            const emptyRow = { "value": '', "text": "-----------" };
+            
+            let response = await fetch('/options/groups/inventory');
+            const types = await response.json();
+            await appendOptions('typeFilter', types, '{{type}}');
+
+            response = await fetch('/options/yesorno');
+            const approval = await response.json();
+            approval.unshift(emptyRow);
+            const selectedApproval = convertBoolStrtoBool('{{approval}}')
+            
+            await appendOptions('approvalFilter', approval, selectedApproval);
+            
+            hideLoadingIcon();
+        });
+    </script>
 {% endblock content %}

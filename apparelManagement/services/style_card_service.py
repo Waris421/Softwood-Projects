@@ -367,7 +367,12 @@ def ProcessStyleData(styleCard: models.StyleCard):
 
     fields = ['id', 'Stage', 'PreReqs__Stage']
     route = models.StyleRoute.objects.filter(Style=styleCard).values(*fields)
-    dfRoute = pd.DataFrame(route) if route else pd.DataFrame(columns=fields)
+    
+    if route:
+        dfRoute = pd.DataFrame(route)
+    else:
+        emptyRow = {'id':[''], 'Stage':[''], 'PreReqs__Stage':['']}
+        dfRoute = pd.DataFrame(emptyRow)
     del route, fields
     
     dfRoute.rename(inplace=True, columns={'PreReqs__Stage':'PreReqs'})

@@ -40,7 +40,7 @@
     
     <!--Inventory Table-->
     <form method="POST" id="inventoryForm" autocomplete="off">
-        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}" row="0">
+        <div class="grid grid-cols-11 my-2 {{theme.justify}} {{theme.align}}" row="0">
             <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                 <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                     Inventory
@@ -58,12 +58,17 @@
             </div>
             <div class="flex col-[8/10] {{theme.align}} {{theme.justify}}">
                 <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                    Price
+                </div>
+            </div>
+            <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                     Unit
                 </div>
             </div>
         </div>
         {% for data in inventory %}
-            <div class="grid grid-cols-9 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+            <div class="grid grid-cols-11 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                 <div hidden>
                     <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="POInvId">
                 </div>
@@ -78,6 +83,9 @@
                     <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
                 </div>
                 <div class="flex col-[8/10] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.Currency}}. {{data.Price}}/-" name="Price" readonly>
+                </div>
+                <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
                     <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly>
                 </div>
             </div>

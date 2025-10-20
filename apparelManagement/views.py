@@ -100,12 +100,16 @@ def AddInv (request: HttpRequest):
 @login_required(login_url='/login')
 def GenerateInventoryCode (request: HttpRequest):
     if request.method != 'POST':
-        return generic_services.showMessageResponse(request, 'Not allowed', 405)
+        return HttpResponse('Not allowed', status=405)
     
     jsonData = json.loads(request.body.decode('utf-8'))
     
-    data = inventory_card_service.GenenrateCode(jsonData)
-    return JsonResponse(data, safe=False)
+    try:
+        data = inventory_card_service.GenenrateCode(jsonData)
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        print(e)
+        return HttpResponse(e, status=400)
 
 @login_required(login_url='/login')
 def CheckInventoryCodeExists(request: HttpRequest, pk: str):
@@ -225,10 +229,50 @@ def InventoryFreeStockReport(request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
         return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
-    freeStockQuantity = inventory_card_service.GetFreeStockQuantity()
+    type = request.GET.get('type', 'FABRIC')
+    minStockLvl = request.GET.get('minStockLvl', None)
+    approval = request.GET.get('approval', '')
 
-    context = {'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+    try:
+        freeStockQuantity = inventory_card_service.GetFreeStockQuantity(type, minStockLvl, approval)
+    except Exception as e:
+        print(e)
+        return generic_services.showMessageResponse(
+            request, 'An error occurred. Check with your administrator', 400
+        )
+
+    context = {
+        'inv': freeStockQuantity,
+        'type': type, 'minStockLvl': minStockLvl, 'approval': approval,
+        'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+    }
     return render(request, 'inventory/report_free_stock.html', context)
+
+@login_required(login_url='/login')
+def InventoryFreeStockHistory(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not allowed', status=405)
+
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
+        return HttpResponse('Not allowed', status=403)
+
+    inventoryCode = request.GET.get('code', None)
+    if not inventoryCode:
+        return HttpResponse('Invalid Input', status=400)
+    
+    try:
+        inventory = models.Inventory.objects.get(Code=inventoryCode)
+        del inventoryCode
+    except:
+        return HttpResponse('Invalid Inventory Code', status=400)
+
+    try:
+        history = inventory_card_service.GetFreeStockHistory(inventory)
+    except Exception as e:
+        print(e)
+        return HttpResponse(e, status=400)
+    
+    return JsonResponse(history, safe=False)
 
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):
@@ -1051,7 +1095,8 @@ def PurchaseReceipt(request: HttpRequest):
     if (supplierFilter == 'null') or (supplierFilter == 'None'):
         supplierFilter = None
     
-    receipt = purchase_receipt_service.GetReceiptList(searchTerm, supplierFilter, recFilter)
+    receipt = purchase_receipt_service.GetReceiptList(supplierFilter, recFilter)
+    receipt = generic_services.applySearch(receipt, searchTerm)
 
     data = generic_services.paginate(receipt, pageNumber)
     

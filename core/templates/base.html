@@ -160,8 +160,8 @@
               const option = document.createElement('option');
               option.text = optionData.text;
               option.value = optionData.value;
-              if (optionData.value == selected) {
-                  option.selected = true;
+              if (String(optionData.value) === String(selected)) {
+                option.selected = true;
               }
               fragment.appendChild(option);
             });
@@ -672,6 +672,44 @@
         
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+      }
+
+      async function convertResponseToPDF(response) {
+        const pdfBlob = await response.blob();
+        const pdfURL = URL.createObjectURL(pdfBlob);
+        
+        const a = document.createElement('a');
+        a.style.display = 'none';
+
+        a.href = pdfURL;
+        a.target = '_blank';
+
+        document.body.appendChild(a);
+        a.click();
+
+        document.body.removeChild(a);
+
+        setTimeout(() => {
+            URL.revokeObjectURL(pdfURL);
+        }, 100);
+      }
+    </script>
+
+    <script>  //TO convert string true, false to booleans
+      function convertBoolStrtoBool(boolStr, emptyFalse=false) {
+        if (boolStr.toLowerCase() === 'true') {
+          return true;
+        }
+
+        if (boolStr.toLowerCase() === 'false') {
+          return false;
+        }
+
+        if (boolStr === '' && emptyFalse) {
+          return false;
+        }
+
+        return boolStr;
       }
     </script>
   </body>

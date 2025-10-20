@@ -231,7 +231,11 @@ def PrepareDataForAutoReq(startingOrder: int, endingOrder: int, customer: str):
     if not startingOrder:
         return None, None
 
-    filters = Q(OrderNumber__gte=startingOrder) & Q(OrderNumber__lte=endingOrder) & Q(Customer=customer)
+    filters = Q(OrderNumber__gte=startingOrder) & Q(OrderNumber__lte=endingOrder)
+
+    if customer:
+        filters &= Q(Customer=customer)
+
     workOrders = models.WorkOrder.objects.filter(filters)
 
     fields = ['OrderNumber','InventoryCode','Variant','Quantity']

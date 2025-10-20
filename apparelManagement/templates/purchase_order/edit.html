@@ -657,20 +657,15 @@
                 headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
             });
             
-            if (response.ok) {
-                const pdfBlob = await response.blob();
-
-                const pdfURL = URL.createObjectURL(pdfBlob);
-
-                const win = window.open(pdfURL, '_blank');
-
-                win.onafterprint = function() {
-                    URL.revokeObjectURL(pdfURL);
-                };
-            } else {
+            if (!response.ok) {
                 errorMessage = await response.text();
                 showMessage(errorMessage);
-            }            
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            await convertResponseToPDF(response);          
 
             hideLoadingIcon();
         }

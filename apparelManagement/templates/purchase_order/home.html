@@ -146,13 +146,7 @@
                 return ;
             }
 
-            const pdfBlob = await response.blob();
-            const pdfURL = URL.createObjectURL(pdfBlob);
-
-            const win = window.open(pdfURL, '_blank');
-            win.onafterprint = function() {
-                URL.revokeObjectURL(pdfURL);
-            };
+            await convertResponseToPDF(response);
 
             hideLoadingIcon();
         }

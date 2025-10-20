@@ -49,7 +49,7 @@ theme = {
     'hyperLink': 'link link-primary',
 
     #Loading Icon
-    'loadingIcon': 'loading loading-ring loading-xl',
+    'loadingIcon': 'loading loading-spinner loading-xl',
 
     #Dialog Box
     'dialogBox': 'modal-box w-11/12 max-w-5xl',

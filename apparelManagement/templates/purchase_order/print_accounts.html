@@ -108,12 +108,12 @@
                             Style
                         </div>
                     </div>
-                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                    <div class="flex col-[6/9] {{theme.align}} {{theme.justify}}">
                         <div class="{{theme.headingBold}} {{theme.textJustify}}">
                             Delivery Date
                         </div>
                     </div>
-                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
                         <div class="{{theme.headingBold}} {{theme.textJustify}}">
                             Quantity
                         </div>
@@ -128,10 +128,10 @@
                             <div class="flex col-[3/6] {{theme.align}} {{theme.justify}}">
                                 <h5 class="{{theme.content}}">{{allocOption.StyleCode}}</h5>
                             </div>
-                            <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                            <div class="flex col-[6/9] {{theme.align}} {{theme.justify}}">
                                 <h5 class="{{theme.content}}">{{allocOption.DeliveryDate|date:'d-m-Y'}}</h5>
                             </div>
-                            <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                            <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
                                 <h5 class="{{theme.content}}">{{allocOption.Quantity}}</h5>
                             </div>
                         </div>
@@ -163,5 +163,13 @@
                 <div class="{{theme.headingNormal}}">{{summary.Currency}} {{summary.afterTaxAmount}}/-</div>
             </div>
         </div>
+    </div>
+{% endblock %}
+
+{% block footer %}
+    <div class="footer footer-horizontal footer-center p-10">
+        <div class="{{theme.footer}} font-bold">
+            This is a system generated document and does not require signature.
+        </div> 
     </div>
 {% endblock %}

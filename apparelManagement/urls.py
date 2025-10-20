@@ -19,6 +19,7 @@ urlpatterns = [
     path('inv/code/gen/', views.GenerateInventoryCode, name='genInvCode'),
     path('inv/reports', views.InventoryReports, name='inventoryReportsHome'),
     path('inv/reports/free-stock', views.InventoryFreeStockReport, name='inventoryReportFreeStock'),
+    path('inv/free-stock/history', views.InventoryFreeStockHistory, name='inventoryFreeStockHistory'),
 
     path ('style',views.Style, name='Style'),
     path ('style/add',views.AddStyle, name='addStyle'),

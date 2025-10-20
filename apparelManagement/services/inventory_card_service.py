@@ -1,10 +1,50 @@
 import pandas as pd
 import numpy as np
 
-from typing import Dict, Any
+from django.db.models import Q
+
+from typing import Dict
 
 from .. import models
 from core.services.generic_services import dfToListOfDicts
+
+def calculateReceivedFreeStock (dfReceivings: pd.DataFrame):
+    dfReceiptWiseQty = dfReceivings.groupby(['InventoryCode', 'Variant', 'ReceiptNumber'])['TotalReceivedQty'].first().reset_index()
+    
+    dfReceiptsQty = dfReceiptWiseQty.groupby(['InventoryCode', 'Variant'])['TotalReceivedQty'].sum().reset_index(name='TotalReceivedInventoryQty')
+    
+    dfAllocatedQty = dfReceivings.groupby(['InventoryCode', 'Variant', 'Approval'])['AllocatedQty'].sum().reset_index(name='TotalAllocatedQty')
+    
+    dfResults = pd.merge(dfAllocatedQty, dfReceiptsQty, on=['InventoryCode', 'Variant'])
+
+    dfResults['FreeQty'] = dfResults['TotalReceivedInventoryQty'] - dfResults['TotalAllocatedQty']
+    dfResults.drop(inplace=True, columns=['TotalReceivedInventoryQty', 'TotalAllocatedQty'])
+
+    return dfResults
+
+def calculateIssueFreeStock(dfRecevings: pd.DataFrame, dfIssuances: pd.DataFrame):
+    dfIssuances.rename(inplace=True, columns={'Inventory':'InventoryCode', 'Quantity':'AllocatedQty'})
+
+    dfRecevings = dfRecevings.groupby(['WorkOrder', 'InventoryCode', 'Variant'])['AllocatedQty'].sum().reset_index()
+    dfIssuances = dfIssuances.groupby(['WorkOrder', 'InventoryCode', 'Variant'])['AllocatedQty'].sum().reset_index()
+
+    dfResults = pd.merge(left=dfRecevings, right=dfIssuances, on=['WorkOrder', 'InventoryCode', 'Variant'], how='right', suffixes=('_received', '_issued'))
+    dfResults.fillna(0, inplace=True)
+
+    dfResults['FreeQty'] = dfResults['AllocatedQty_received'] - dfResults['AllocatedQty_issued']
+
+    dfResults.drop(inplace=True, columns=['AllocatedQty_received', 'AllocatedQty_issued', 'WorkOrder'])
+
+    return dfResults
+
+def getApprovalStatus(row: pd.Index):
+    if row['Approval'] == True:
+        return 'Approved'
+    
+    if pd.isna(row['QualityComments']):
+        return 'Pending'
+
+    return f"Rejected - {row['QualityComments']}"
 
 def GetInventories (group: str, stockFilter: str):
     if group:
@@ -139,7 +179,7 @@ def getInventoryCardDropDowns ():
 
     return groups, unitTypes, auditReq, inUse, currencies,  codeP1
 
-def GenenrateCode (jsonData: Dict[str, Any]):
+def GenenrateCode (jsonData: Dict[str, str]):
     part1 = jsonData['part_0']
     part2 = jsonData['part_1']
     part3 = jsonData['part_2']
@@ -157,14 +197,19 @@ def GenenrateCode (jsonData: Dict[str, Any]):
     del temp
 
     data['part2s'] = part2s
-    del part2s
+
+    if not part2:
+        try:
+            part2 = part2s[0]['value']
+        except:
+            part2 = None
 
     if part2:
         data['part2'] = part2
         try:
             part2 = models.InventoryCodePart2.objects.get(Code=part2, Part1=part1)
         except:
-            part2 = models.InventoryCodePart2()
+            part2 = models.InventoryCodePart2.objects.filter(Part1=part1).first()
         part3s = models.InventoryCodePart3.objects.filter(Part2=part2).values('Code','Name')
         temp = []
         for item in part3s:
@@ -178,5 +223,106 @@ def GenenrateCode (jsonData: Dict[str, Any]):
 
     return data
 
-def GetFreeStockQuantity():
-    print('I am called')
+def GetFreeStockQuantity(type: str, minStockLvl: str|None, approvalStr: str):
+    filters = Q(InventoryCode__Group=type)
+
+    if approvalStr:
+        approval = True if approvalStr == 'true' else False
+        filters &= Q(Approval=approval)
+    
+    fields = ['id', 'ReceiptNumber', 'InventoryCode', 'Variant', 'Quantity', 'Approval']
+    receivedInventories = models.RecInventory.objects.filter(filters).values(*fields)
+    dfRecInventories = pd.DataFrame(receivedInventories) if receivedInventories else pd.DataFrame(columns=fields)
+    del receivedInventories
+
+    fields = ['RecInvId','WorkOrder', 'Quantity']
+    receiptAllocations = models.RecAllocation.objects.filter(RecInvId__in=dfRecInventories['id'].to_list()).values(*fields)
+    dfReceiptAllocations = pd.DataFrame(receiptAllocations) if receiptAllocations else pd.DataFrame(columns=fields)
+    del receiptAllocations
+    
+    fields = ['id', 'Inventory', 'Variant']
+    issueInventory = models.IssueInventory.objects.filter(Inventory__Group=type).values(*fields)
+    dfIssueInventory = pd.DataFrame(issueInventory) if issueInventory else pd.DataFrame(columns=fields)
+    del issueInventory
+
+    fields = ['IssueInventory', 'WorkOrder', 'Quantity']
+    issueAllocation = models.IssueAllocation.objects.filter(IssueInventory__in=dfIssueInventory['id'].to_list()).values(*fields)
+    dfIssueAllocaiton = pd.DataFrame(issueAllocation) if issueAllocation else pd.DataFrame(columns=fields)
+    del issueAllocation
+    
+    dfRecInventories = pd.merge(left=dfRecInventories, right=dfReceiptAllocations, left_on='id', right_on='RecInvId', how='left')
+    del dfReceiptAllocations
+    dfRecInventories.drop(inplace=True, columns=['id', 'RecInvId'])
+    dfRecInventories.rename(inplace=True, columns={'Quantity_x': 'TotalReceivedQty', 'Quantity_y': 'AllocatedQty'})
+    
+    dfIssueInventory = pd.merge(left=dfIssueInventory, right=dfIssueAllocaiton, left_on='id', right_on='IssueInventory', how='left')
+    del dfIssueAllocaiton
+    dfIssueInventory.drop(inplace=True, columns=['id', 'IssueInventory'])
+
+    dfFreeAtReceipts = calculateReceivedFreeStock(dfRecInventories[['ReceiptNumber', 'InventoryCode', 'Variant', 'TotalReceivedQty', 'AllocatedQty', 'Approval']])
+    dfFreeAtIssuance = calculateIssueFreeStock(dfRecInventories[['InventoryCode', 'Variant', 'WorkOrder', 'AllocatedQty']], dfIssueInventory)
+    del dfRecInventories, dfIssueInventory
+
+    dfResults = pd.merge(left=dfFreeAtReceipts, right=dfFreeAtIssuance, on=['InventoryCode', 'Variant'], how='outer', suffixes=('_received', '_issued'))
+    del dfFreeAtReceipts, dfFreeAtIssuance
+
+    dfResults.fillna(0, inplace=True)
+
+    dfResults['FreeQty'] = dfResults['FreeQty_received'] + dfResults['FreeQty_issued']
+    if not dfResults.empty:
+        dfResults['FreeQty'] = dfResults['FreeQty'].round(2)
+    dfResults.drop(inplace=True, columns=['FreeQty_received', 'FreeQty_issued'])
+
+    if minStockLvl:
+        qtyThreshold = int(minStockLvl)
+        qtyThreshold = max(qtyThreshold, 1)
+    else:
+        qtyThreshold = 1
+    dfResults = dfResults[dfResults['FreeQty'] >= qtyThreshold]
+
+    fields = ['Code', 'Name', 'Unit']
+    inventories = models.Inventory.objects.filter(Code__in=dfResults['InventoryCode'].to_list()).values(*fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
+    del inventories, fields
+
+    dfResults = pd.merge(left=dfResults, right=dfInventories, left_on='InventoryCode', right_on='Code', how='left')
+    del dfInventories
+
+    dfResults.drop(inplace=True, columns=['Code'])
+
+    dfResults.sort_values(inplace=True, by='FreeQty', ascending=False)
+
+    return dfToListOfDicts(dfResults)
+
+def GetFreeStockHistory(inventory: models.Inventory):
+    fields = ['ReceiptNumber', 'id', 'InventoryCode', 'Variant', 'Quantity', 'Approval', 'QualityComments']
+    recInventories = models.RecInventory.objects.filter(InventoryCode=inventory).values(*fields)
+    dfRecInventories = pd.DataFrame(recInventories) if recInventories else pd.DataFrame(columns=fields)
+    del recInventories
+
+    fields = ['id', 'ReceiptDate', 'Supplier', 'PONumber']
+    invReceipts = models.InventoryReciept.objects.filter(id__in=dfRecInventories['ReceiptNumber'].to_list()).values(*fields)
+    dfInvReceipts = pd.DataFrame(invReceipts) if invReceipts else pd.DataFrame(columns=fields)
+    del invReceipts
+
+    fields = ['PONumber', 'Inventory', 'Variant', 'Price', 'Currency', 'Forex']
+    purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfInvReceipts['PONumber'].to_list())
+    poInventories = models.POInventory.objects.filter(PONumber__in=purchaseOrders).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del purchaseOrders, poInventories
+    
+    dfRecInventories['ApprovalStatus'] = dfRecInventories.apply(getApprovalStatus, axis=1)
+    dfRecInventories.drop(inplace=True, columns=['Approval', 'QualityComments'])
+
+    dfRecInventories = pd.merge(left=dfRecInventories, right=dfInvReceipts, left_on='ReceiptNumber', right_on='id', how='left')
+    del dfInvReceipts
+    dfRecInventories.drop(inplace=True, columns=['ReceiptNumber', 'id_y'])
+    dfRecInventories.rename(inplace=True, columns={'id_x': 'RecInvId'})
+
+    dfRecInventories = pd.merge(left=dfRecInventories,right=dfPOInventories,
+                                left_on=['PONumber', 'InventoryCode', 'Variant'],
+                                right_on=['PONumber', 'Inventory', 'Variant'], how='left')
+
+    print(dfRecInventories)
+
+    return []

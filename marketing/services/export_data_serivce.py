@@ -326,7 +326,6 @@ def GetImporterSummary(
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers) 
 
-    print('Ok so far')
     #Bring the selected importers to the top
     dfExportData['SortKey'] = dfExportData['Importer'].apply(lambda x: 0 if x in importers else 1)
     dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
@@ -668,7 +667,7 @@ def SaveImportersAlias(dfAliases: pd.DataFrame):
     previousData = models.ImporterAlias.objects.filter(Name__in=dfAliases['Importer'].to_list()).values(*fields)
     dfPreviousData = pd.DataFrame(previousData) if previousData else pd.DataFrame(columns=fields)
     del previousData, fields
-
+    
     dfAliases.rename(inplace=True, columns={'Importer':'Name'})
     
     dfAliases = pd.merge(left=dfAliases, right=dfPreviousData, on='Name', how='left')

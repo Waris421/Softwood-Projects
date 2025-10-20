@@ -74,10 +74,10 @@
                                         <li>
                                             <label class="label cursor-pointer p-2">
                                                 <span class="label-text">
-                                                    <span class="font-semibold" data-month-name="{{data.Month}}">{{data.Month}}</span>
+                                                    <span class="font-semibold text-xs" data-month-name="{{data.Month}}">{{data.Month}}</span>
                                                     <span class="text-xs text-gray-500 ml-2">{{data.Quantity}}</span>
                                                 </span>
-                                                <input type="checkbox" class="checkbox" value="{{data.Month}}"
+                                                <input type="checkbox" class="checkbox checkbox-sm" value="{{data.Month}}"
                                                 {% if data.Checked %}
                                                     checked
                                                 {% endif %}
@@ -154,6 +154,7 @@
 
     <script>    //To apply search on a selection box
         async function applySearch(searchTerm, params, fetchFunction, renderFunction, selectedItems) {
+            showLoadingIcon();
             params += `&search=${searchTerm}`;
 
             let allData = [];
@@ -164,6 +165,7 @@
 
             }
             renderFunction(allData, selectedItems);
+            hideLoadingIcon();
         }
     </script>
 
@@ -205,7 +207,6 @@
         let allCategoriesData = [];
 
         async function populateCategories(params, selectedCategories) {
-            showLoadingIcon();
             const url = "{% url 'marketing:exportDataCategories' %}";
             const response = await fetch(`${url}?${params}`);
 
@@ -246,10 +247,10 @@
                 li.innerHTML = `
                     <label class="label cursor-pointer p-2">
                         <span class="label-text">
-                            <span class="font-semibold" data-category-name="${category.Category}">${category.Category}</span>
+                            <span class="font-semibold text-sm" data-category-name="${category.Category}">${category.Category}</span>
                             <span class="text-xs text-gray-500 ml-2">${category.Quantity}</span>
                         </span>
-                        <input type="checkbox" class="checkbox" value="${category.Category}" ${isSelected ? 'checked' : ''}>
+                        <input type="checkbox" class="checkbox checkbox-sm" value="${category.Category}" ${isSelected ? 'checked' : ''}>
                     </label>
                 `;
                 fragment.appendChild(li);
@@ -342,10 +343,10 @@
                 li.innerHTML = `
                     <label class="label cursor-pointer p-2">
                         <span class="label-text">
-                            <span class="font-semibold" data-country-name="${country.CountryName}">${country.CountryName}</span>
+                            <span class="font-semibold text-xs" data-country-name="${country.CountryName}">${country.CountryName}</span>
                             <span class="text-xs text-gray-500 ml-2">${country.Quantity}</span>
                         </span>
-                        <input type="checkbox" class="checkbox" value="${country.CountryCode}" ${isSelected ? 'checked' : ''}>
+                        <input type="checkbox" class="checkbox checkbox-sm" value="${country.CountryCode}" ${isSelected ? 'checked' : ''}>
                     </label>
                 `;
                 fragment.appendChild(li);
@@ -381,7 +382,6 @@
             if (!response.ok) {
                 const error = await response.text();
                 showMessage(error);
-                hideLoadingIcon();
                 return ;
             }
 
@@ -407,7 +407,6 @@
                 allImportersData = await getImporters(params);
             } catch (e) {
                 showMessage(e);
-                hideLoadingIcon();
                 return ;
             }
 
@@ -429,7 +428,6 @@
                     applySearch(searchTerm, params, getImporters, renderImporters, selectedImporters);
                 }, 500);
             });
-            hideLoadingIcon();
         }
 
         async function getImporters(params) {
@@ -463,10 +461,10 @@
                 li.innerHTML = `
                     <label class="label cursor-pointer p-2">
                         <span class="label-text">
-                            <span class="font-semibold" data-country-name="${importer.Importer}">${importer.Importer}</span>
+                            <span class="font-semibold text-xs" data-country-name="${importer.Importer}">${importer.Importer}</span>
                             <span class="text-xs text-gray-500 ml-2">${importer.Quantity} at ${importer.Price}</span>
                         </span>
-                        <input type="checkbox" class="checkbox" value="${importer.Importer}" ${isSelected ? 'checked' : ''}>
+                        <input type="checkbox" class="checkbox checkbox-sm" value="${importer.Importer}" ${isSelected ? 'checked' : ''}>
                     </label>
                 `;
                 fragment.appendChild(li);
@@ -559,10 +557,10 @@
                 li.innerHTML = `
                     <label class="label cursor-pointer p-2">
                         <span class="label-text">
-                            <span class="font-semibold" data-exporter-name="${exporter.Exporter}">${exporter.Exporter}</span>
+                            <span class="font-semibold text-xs" data-exporter-name="${exporter.Exporter}">${exporter.Exporter}</span>
                             <span class="text-xs text-gray-500 ml-2">${exporter.Quantity}</span>
                         </span>
-                        <input type="checkbox" class="checkbox" value="${exporter.Exporter}" ${isSelected ? 'checked' : ''}>
+                        <input type="checkbox" class="checkbox checkbox-sm" value="${exporter.Exporter}" ${isSelected ? 'checked' : ''}>
                     </label>
                 `;
                 fragment.appendChild(li);
@@ -596,7 +594,6 @@
         let allDetailsData = []
 
         async function populateDetailsTable(params, pageNumber) {
-            showLoadingIcon()
             const url = "{% url 'marketing:exportDataDetails' %}";
             const response = await fetch(`${url}?${params}&page=${pageNumber}`);
 
@@ -614,8 +611,6 @@
 
             renderDetailsTable(tableBody, allDetailsData);
             renderDetailsPagination(params, numberOfPages, pageNumber);
-
-            hideLoadingIcon();
         }
 
         function renderDetailsTable(tableBody, details) {
@@ -658,10 +653,13 @@
         }
 
         async function renderDetailsPagination(params, numberOfPages, selectedPage) {            
-            function handlePageChange(params, event) {
+            async function handlePageChange(params, event) {
+                showLoadingIcon();
                 const selectedPageNumber = parseInt(event.target.value);
 
-                populateDetailsTable(params, selectedPageNumber);
+                await populateDetailsTable(params, selectedPageNumber);
+
+                hideLoadingIcon();
             }
 
             const pageNumberInput = paginationContainer.children[1];
@@ -673,7 +671,7 @@
 
             totalPagesLabel.textContent = ` of ${numberOfPages}`;
 
-            pageNumberInput.addEventListener('change', (event) => handlePageChange(params, event));
+            pageNumberInput.addEventListener('change', async (event) => await handlePageChange(params, event));
         }
     </script>
 
@@ -776,17 +774,26 @@
             const selectedExporters = {{ exportersJson|safe }};
             const selectedCategories = {{ categoriesJson|safe}};
 
-            populateCategories(params.toString(), selectedCategories);
-
-            populateCountries(params.toString(), selectedCountries);
-
-            populateExporters(params.toString(), selectedExporters);
-
-            populateDetailsTable(params.toString(), 1);
-
-            populateStats(params.toString());
-
-            populateImporters(params.toString(), selectedImporters);
+            
+            //All the functions that will load the data.
+            const allPromises = [
+                populateCategories(params.toString(), selectedCategories),
+                populateCountries(params.toString(), selectedCountries),
+                populateExporters(params.toString(), selectedExporters),
+                populateDetailsTable(params.toString(), 1),
+                populateStats(params.toString()),
+                populateImporters(params.toString(), selectedImporters),
+            ]
+            //Show a loading icon to user, load all the data and then hide the icon once complete or there is an error
+            showLoadingIcon();
+            Promise.all(allPromises)
+                .then(() => {
+                    hideLoadingIcon();
+                })
+                .catch(error => {
+                    showMessage(error);
+                    hideLoadingIcon(); // Hide the icon even on error
+                });
         });
     </script>
 {% endblock content %}

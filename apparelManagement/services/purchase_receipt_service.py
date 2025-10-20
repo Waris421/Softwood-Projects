@@ -7,7 +7,7 @@ from django.db.models import Q
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
 
-def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
+def GetReceiptList(supplier: str, receiptNumber: int):
     '''
     Get the list of all purchase orders
     '''
@@ -19,34 +19,22 @@ def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
         filters &= Q(Supplier=supplier)
     
     receipts = models.InventoryReciept.objects.filter(filters).values(*fields)
-    if receipts:
-        dfReceipts = pd.DataFrame(receipts)
-    else:
-        dfReceipts = pd.DataFrame(columns=fields)
+    dfReceipts = pd.DataFrame(receipts) if receipts else pd.DataFrame(columns=fields)
     del receipts
     
     fields = ['id','ReceiptNumber','InventoryCode']
     inventories = models.RecInventory.objects.filter(ReceiptNumber__in=dfReceipts['id'].to_list()).values(*fields)
-    if inventories:
-        dfInventories = pd.DataFrame(inventories)
-    else:
-        dfInventories = pd.DataFrame(columns=fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
     del inventories
 
     fields = ['RecInvId','WorkOrder']
     allocations = models.RecAllocation.objects.filter(RecInvId__in=dfInventories['id'].to_list()).values(*fields)
-    if allocations:
-        dfAllocations = pd.DataFrame(allocations)
-    else:
-        dfAllocations = pd.DataFrame(columns=fields)
+    dfAllocations = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=fields)
     del allocations
 
     fields = ['Code','Name']
     inventoryCards = models.Inventory.objects.filter(Code__in=dfInventories['InventoryCode'].to_list()).values(*fields)
-    if inventoryCards:
-        dfInventoryCards = pd.DataFrame(inventoryCards)
-    else:
-        dfInventoryCards = pd.DataFrame(columns=fields)
+    dfInventoryCards = pd.DataFrame(inventoryCards) if inventoryCards else pd.DataFrame(columns=fields)
     del inventoryCards, fields
 
     #Give verbose names to the id columns
@@ -78,15 +66,11 @@ def GetReceiptList(searchTerm: str, supplier: str, receiptNumber: int):
         'WorkOrder': concatenateValues,
     }).reset_index()
 
-    searchTerm = searchTerm.lower()
-    mask = dfReceipts.apply(lambda row: any(searchTerm in str(val).lower() for val in row.values), axis=1)
-    dfReceipts = dfReceipts[mask]
-
     dfReceipts = dfReceipts.sort_values(by='ReceiptNumber', ascending=False)
     return dfToListOfDicts(dfReceipts)
 
 def GetPOData(purchaseOrder: models.PurchaseOrder):
-    fields = ['id','Inventory','Variant','Quantity']
+    fields = ['id','Inventory','Variant','Quantity', 'Price', 'Currency']
     poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder).values(*fields)
     dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
     del poInventories

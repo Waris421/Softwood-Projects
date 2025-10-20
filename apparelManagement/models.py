@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
-from django.core.exceptions import ValidationError
+
+from core.services.generic_services import stringValidator as string_validator
 
 InvGroups = [
     ('TRIM','Trim'),
@@ -71,16 +72,6 @@ SkillLevels = [
     (3, 3),
     (4, 4)
 ]
-
-def string_validator (key: str):
-    '''raises error if there are any slashes in the key or it is empty'''
-
-    if '/' in key:
-        raise ValidationError ('Slashes are not allowed here')
-    key = key.strip()
-
-    if not key:
-        raise ValidationError ('You are entering an empty Code')
 
 class Notification(models.Model):
     """Data model for handling notifications."""

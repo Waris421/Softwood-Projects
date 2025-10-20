@@ -22,6 +22,7 @@ from django.template.loader import render_to_string
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django_countries import countries
+from django.core.exceptions import ValidationError
 
 from core.constants.generic import API_KEY_FOR_AI
 from core.services.auth_service import getNavLinks
@@ -452,3 +453,13 @@ def convertContextToPDFResponse(context: Dict[str, Any], template: str):
         return response
     else:
         raise ValueError('Cannot generate PDF')
+    
+def stringValidator (key: str):
+    '''raises error if there are any slashes in the key or it is empty'''
+
+    if '/' in key:
+        raise ValidationError ('Slashes are not allowed here')
+    key = key.strip()
+
+    if not key:
+        raise ValidationError ('You are entering an empty Code')
