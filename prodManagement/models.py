@@ -1,7 +1,10 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+
 from apparelManagement.models import Department, StyleCard, WorkOrder, OrderVariant
+from apparelManagement.models import StyleRoute, Currency
+from planning.models import ProductionPlan
 
 class Operation(models.Model):
     id = models.AutoField(primary_key=True)
@@ -175,3 +178,17 @@ class Attendance(models.Model):
             models.Index(fields=['Worker']),
             models.Index(fields=['Date'])
         ]
+
+class OutSourceJobContract(models.Model):
+    id = models.AutoField(primary_key=True)
+    StartDate = models.DateField()
+    EndDate = models.DateField()
+    Approval = models.BooleanField(blank=True, null=True)
+    ApprovedBy = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
+    Comments = models.CharField(max_length=255, blank=True, null=True)
+
+class OurSourceJobContractDetails(models.Model):
+    id = models.AutoField(primary_key=True)
+    OutSourceJobContract = models.ForeignKey(OutSourceJobContract, on_delete=models.CASCADE)
+    ProductionPlan = models.ForeignKey(ProductionPlan, on_delete=models.PROTECT)
+    Price = models.DecimalField(max_digits=10, decimal_places=2)

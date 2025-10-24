@@ -40,6 +40,9 @@ urlpatterns = [
     path('productivity/api/wages-summary', views.GetWagesSummary, name='getWageSummary'),
     path('productivity/api/attendance-details', views.GetAttendanceDetails, name='getAttendanceDetail'),
 
+    path('productivity/outsource-contracts', views.GetOutSourceContracts, name='outSourceContracts'),
+    path('productivity/outsource-contracts/add', views.AddOutSourceContract, name='addoutsourceContracts'),
+
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),
     path('options/section/<int:pk>', options_service.getOperationSection, name='sectionOperation'),
@@ -51,4 +54,5 @@ urlpatterns = [
     path('options/bundle-cards/available', options_service.GetAvailableCardGroups, name='availableBundleCards'),
     path('options/workers', options_service.GetWorkers, name='workersDropdown'),
     path('options/api/app-options', options_service.AppOptions.as_view(), name='appOtions'),
+    path('options/order-route', views.GetWorkOrderRoute, name='workOrderRoute'),
 ]

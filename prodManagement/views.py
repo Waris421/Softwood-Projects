@@ -11,11 +11,12 @@ from rest_framework.authtoken.models import Token
 import rest_framework
 
 import json
+import os
 
 from core.constants.theme import theme
 from core.services import generic_services, auth_service
 from .services import stitching_service, bulletin_service, core_sheet_service
-from .services import  worker_service, serial_service
+from .services import  worker_service, serial_service, outsource_service
 
 from . import models
 
@@ -650,3 +651,60 @@ def GetAttendanceDetails(request: HttpRequest):
     data = serial_service.GetAttendanceDetail(startDate, endDate, worker, line, section)
 
     return JsonResponse(data)
+
+@login_required(login_url='/login')
+def GetOutSourceContracts(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    workOrder = request.GET.get('workOrder', '')
+    source = request.GET.get('source', '')
+    contractNumber = request.GET.get('contractNumber', '')
+    approval = request.GET.get('approval', 'pending')
+
+    contracts = outsource_service.GetOutsourceContracts(workOrder, source, contractNumber, approval)
+
+    context = {
+        'workOrder': workOrder, 'source': source, 'contractNumber': contractNumber, 'approval': approval,
+        'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+    }
+    return render(request, 'outsource/contracts.html', context)
+
+@login_required(login_url='/login')
+def AddOutSourceContract(request: HttpRequest):
+    if request.method == 'POST':
+        jsonData = json.loads(request.body.decode('utf-8'))
+        dfContract, dfDetails = generic_services.refineJson(jsonData) 
+
+        try:
+            contractNumebr = outsource_service.AddContract(dfContract, dfDetails)        
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+        
+        return HttpResponse(contractNumebr, status=200)
+    else:
+        context = {
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+        }
+        return render(request, 'outsource/contract_add.html', context)
+
+@login_required(login_url='/login')
+def GetWorkOrderRoute(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=403)
+    
+    workOrder = request.GET.get('workOrder', None)
+
+    if not workOrder:
+        return HttpResponse('Missing Work Order', status=400)
+    
+   
+    try:
+        styleCard = models.WorkOrder.objects.get(OrderNumber=workOrder).StyleCode
+    except:
+        return HttpResponse('Invalid Work Order', status=400)
+    
+    route = models.StyleRoute.objects.filter(Style=styleCard).values('id', 'Stage')
+    route = [{'value': item['id'], 'text': item['Stage']} for item in route]
+    return JsonResponse(route, safe=False)

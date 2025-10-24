@@ -74,6 +74,9 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         {'groupName': 'Stitching', 'appName': 'prodManagement', 'modelName': 'Serial', 'views': [
             {'displayName': 'Scan Report', 'viewName': 'PM:serials'},
         ]},
+        {'groupName': 'Outsource', 'appName': 'prodManagement', 'modelName': 'Operation', 'views': [
+            {'displayName': 'Contract List', 'viewName': 'PM:outSourceContracts'},
+        ]},
     ],
     'QC': [
         {'groupName': 'Dashboard', 'appName': 'qualityControl', 'modelName': 'TrimAudit',  'views': [], 'viewName': 'QC:quality'},

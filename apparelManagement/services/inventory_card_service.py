@@ -305,7 +305,7 @@ def GetFreeStockHistory(inventory: models.Inventory):
     dfInvReceipts = pd.DataFrame(invReceipts) if invReceipts else pd.DataFrame(columns=fields)
     del invReceipts
 
-    fields = ['PONumber', 'Inventory', 'Variant', 'Price', 'Currency', 'Forex']
+    fields = ['PONumber', 'Inventory', 'Variant', 'Price', 'Quantity']
     purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfInvReceipts['PONumber'].to_list())
     poInventories = models.POInventory.objects.filter(PONumber__in=purchaseOrders).values(*fields)
     dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
@@ -319,9 +319,37 @@ def GetFreeStockHistory(inventory: models.Inventory):
     dfRecInventories.drop(inplace=True, columns=['ReceiptNumber', 'id_y'])
     dfRecInventories.rename(inplace=True, columns={'id_x': 'RecInvId'})
 
+    #Group the same inventories within a PO together and get their qty weighted average price
+    dfPOInventories['Value'] = dfPOInventories['Price'] * dfPOInventories['Quantity']
+    dfPOInventories = dfPOInventories.groupby(by=['PONumber','Inventory','Variant']).agg(
+        Quantity = ('Quantity', 'sum'),
+        Value = ('Value', 'sum'),
+    ).reset_index()
+    dfPOInventories['Price'] = dfPOInventories['Value'] / dfPOInventories['Quantity']
+    dfPOInventories.drop(inplace=True, columns=['Value', 'Quantity'])
+
     dfRecInventories = pd.merge(left=dfRecInventories,right=dfPOInventories,
                                 left_on=['PONumber', 'InventoryCode', 'Variant'],
                                 right_on=['PONumber', 'Inventory', 'Variant'], how='left')
+    del dfPOInventories
+    dfRecInventories.drop(inplace=True, columns=['Inventory'])
+
+    #Set an estimated price of nearby deliveries for cases where the price is zero
+    dfRecInventories['ReceiptDate'] = pd.to_datetime(dfRecInventories['ReceiptDate'])
+    dfRecInventories.sort_values(by='ReceiptDate', inplace=True)
+
+    zeroPriceFlag = (dfRecInventories['Price'] <= 0)
+
+    dfRecInventories.loc[zeroPriceFlag, 'Price'] = np.nan
+    dfRecInventories.set_index(keys='ReceiptDate', inplace=True)
+
+    # Apply Time-Weighted Interpolation for na values. Doesn't work on first and last value
+    dfRecInventories['Price'] = dfRecInventories['Price'].interpolate(method='time')
+    dfRecInventories.reset_index(inplace=True)
+    #If the first entry is without price, take the 2nd value
+    dfRecInventories['Price'] = dfRecInventories['Price'].bfill()
+    # If the last entry is without price, take the 2nd last value
+    dfRecInventories['Price'] = dfRecInventories['Price'].ffill()
 
     print(dfRecInventories)
 

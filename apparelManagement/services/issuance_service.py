@@ -9,12 +9,21 @@ from .. import models
 
 from core.services.generic_services import concatenateValues, dfToListOfDicts, convertTexttoObject
 
-def calculateBalance(row: pd.Index) -> float:
+def calculateBalance(df: pd.DataFrame) -> pd.Series:
     '''Checks the balance qty that can be issued.'''
-    if row['Received'] > row['Required']:
-        return row['Required'] - row['Issued']
-    else:
-        return row['Received'] - row['Issued']
+    minQty = np.minimum(df['Required'], df['Received'])
+
+    balance = minQty - df['Issued']
+
+    return balance
+
+def calculateMaxBalance(df: pd.DataFrame) -> pd.Series:
+    partA = (1.02 * df['Required']) - df['Issued']
+    partB = df['Received'] - df['Issued']
+
+    maxBalance = np.minimum(partA, partB)
+
+    return maxBalance
 
 def AddIssuance(requisition: models.Requisition, comments: str):
     issuance = {
@@ -160,15 +169,35 @@ def GetDataForOrderIssuance(orderNumber: str|None, type: str|None, selectedInvs:
     dfIssueAllocation.drop(inplace=True, columns=['IssueInventory', 'id'])
     dfIssueAllocation.rename(inplace=True, columns={'Quantity':'Issued'})
 
+    dfRequirement = dfRequirement.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'sum')
+    ).reset_index()
+    
     dfResults = pd.merge(left=dfRequirement, right=dfPOAllocation, on=['Inventory', 'Variant'], how='left')
     del dfRequirement, dfPOAllocation
+    dfResults = dfResults.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'first'),
+        Ordered = ('Ordered', 'sum'),
+    ).reset_index()
 
     dfResults = pd.merge(left=dfResults, right=dfRecAllocation, left_on=['Inventory', 'Variant'], right_on=['InventoryCode', 'Variant'], how='left')
     del dfRecAllocation
     dfResults.drop(inplace=True, columns=['InventoryCode'])
 
+    dfResults = dfResults.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'first'),
+        Ordered = ('Ordered', 'first'),
+        Received = ('Received', 'sum'),
+    ).reset_index()
+
     dfResults = pd.merge(left=dfResults, right=dfIssueAllocation, on=['Inventory', 'Variant'], how='left')
     del dfIssueAllocation
+    dfResults = dfResults.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'first'),
+        Ordered = ('Ordered', 'first'),
+        Received = ('Received', 'first'),
+        Issued = ('Issued', 'sum'),
+    ).reset_index()
 
     dfResults = pd.merge(left=dfResults, right=dfInventories, left_on=['Inventory'], right_on=['Code'], how='left')
     del dfInventories
@@ -180,9 +209,12 @@ def GetDataForOrderIssuance(orderNumber: str|None, type: str|None, selectedInvs:
         dfResults = dfResults[dfResults['Inventory'].isin(selectedInvs)]
 
     qtyCols = ['Required', 'Ordered', 'Received', 'Issued']
+    for col in qtyCols:
+        dfResults[col] = pd.to_numeric(dfResults[col], errors='coerce')
     dfResults[qtyCols] = dfResults[qtyCols].fillna(0)
 
-    dfResults['Balance'] = dfResults.apply(calculateBalance, axis=1)
+    dfResults['Balance'] = calculateBalance(dfResults)
+    dfResults['MaxBalance'] = calculateMaxBalance(dfResults)
 
     return dfToListOfDicts(dfResults), allInventories
     
