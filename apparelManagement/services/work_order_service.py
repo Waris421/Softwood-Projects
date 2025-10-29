@@ -75,8 +75,10 @@ def saveRequirementFromCalculate(workOrder: models.WorkOrder, dfRequirement:pd.D
     except Exception as e:
         raise ValueError (e)
 
-#Get the List of Orders.
 def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
+    '''
+    Get the List of Orders.
+    '''
     filters = Q()
     if customer:
         filters &= Q(Customer=customer)
@@ -89,30 +91,28 @@ def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
         endDate = convertStrToDateTime(endDateStr, '%Y-%m-%d').date()
         filters &= Q(DeliveryDate__lte= endDate)
     
-    orders = models.WorkOrder.objects.filter(filters).values()
-    del filters
-    
-    OrderDF = pd.DataFrame(orders)    
-    if OrderDF.empty:
-        return pd.DataFrame()
+    fields = ['OrderNumber', 'StyleCode_id', 'Customer_id', 'OrderDate', 'Merchandiser_id', 'DeliveryDate', 'Type', 'Currency_id', 'Price', 'Agent', 'Commission', 'ExcessCut']
+    orders = models.WorkOrder.objects.filter(filters).values(*fields)
+    del filters    
+    OrderDF = pd.DataFrame(orders) if orders else pd.DataFrame(columns=fields)
 
-    userObjs = User.objects.all().values('id','first_name')
-    UserDF = pd.DataFrame(userObjs)
+    fields = ['id','first_name']
+    userObjs = User.objects.all().values(*fields)
+    UserDF = pd.DataFrame(userObjs) if userObjs else pd.DataFrame(columms=fields)
     del userObjs
 
-    OrderDF = pd.merge(left=OrderDF, right=UserDF, left_on='Merchandiser_id', right_on='id', how='left')
+    fields = ['OrderNumber','Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber__in=OrderDF['OrderNumber'].to_list()).values(*fields)
+    VariantsDF = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)
+    del variants, fields
 
+    OrderDF = pd.merge(left=OrderDF, right=UserDF, left_on='Merchandiser_id', right_on='id', how='left')
     OrderDF.drop(columns = ['Merchandiser_id','id'], inplace=True)
     OrderDF.rename(columns={'first_name':'Merchandiser'}, inplace=True)
 
-    orders = orders.values('OrderNumber')
-    ordersFilter = Q(OrderNumber__in=[order['OrderNumber'] for order in orders])
-    variants = models.OrderVariant.objects.filter(ordersFilter).values('OrderNumber','Quantity')
-    VariantsDF = pd.DataFrame(variants)
-
-    def calculateQty (Orders, Variants):
+    def calculateQty(Orders: pd.Series, Variants: pd.DataFrame):
         if not Variants.empty:
-            merged = pd.merge(Orders, Variants, on='OrderNumber')
+            merged = pd.merge(left=Orders, right=Variants, on='OrderNumber')
             merged = pd.pivot_table(data=merged, values='Quantity', index='OrderNumber', aggfunc='sum', fill_value=0).reset_index()
             return merged
         else:
@@ -120,21 +120,18 @@ def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
 
     OrderQty = calculateQty(pd.DataFrame(OrderDF['OrderNumber']), VariantsDF)
     OrderDF = pd.merge(left=OrderDF, right=OrderQty, left_on='OrderNumber', right_on='OrderNumber', how='left')
-    del orders, ordersFilter, variants, VariantsDF, OrderQty
+    del orders, VariantsDF, OrderQty
 
-    if not OrderDF.empty:
-        OrderDF = OrderDF.sort_values (by='OrderNumber')
-        OrderDF = OrderDF.sort_values (by='Customer_id')
+    OrderDF = OrderDF.sort_values(['Customer_id', 'OrderNumber'])
     
-    cols = [i for i in OrderDF]
-    OrderDF = [dict(zip(cols, i)) for i in OrderDF.values]
-    return OrderDF
+    return dfToListOfDicts(OrderDF)
 
-#Function to save new Order
 def AddWorkOrder(
         dfOrder: pd.DataFrame,
         dfVariants: pd.DataFrame,
         user: User) -> int:
+    
+    '''Add a new work order'''
     
     #Get the order number
     orderNumber = dfOrder['OrderNumber'][0]
@@ -406,8 +403,11 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     
     return order, variants, dfToListOfDicts(dfRequirement)
 
-#To calculate requirement from stylecard
 def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrder):
+    '''
+    To calculate requirement from stylecard
+    '''
+    
     fields = ['id','InventoryCode','Variant']
     currentRequirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
     dfCurrentRequirement = pd.DataFrame(currentRequirement) if currentRequirement else pd.DataFrame(columns=fields)

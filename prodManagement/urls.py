@@ -42,6 +42,8 @@ urlpatterns = [
 
     path('productivity/outsource-contracts', views.GetOutSourceContracts, name='outSourceContracts'),
     path('productivity/outsource-contracts/add', views.AddOutSourceContract, name='addoutsourceContracts'),
+    path('productivity/outsource-contract/<int:pk>/edit', views.EditOutSourceContract, name='editoutsourceContracts'),
+    path('productivity/outsource-contract/<int:pk>/approve', views.ApproveOuteSourceContract, name='approveoutsourceContracts'),
 
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),

@@ -662,9 +662,14 @@ def GetOutSourceContracts(request: HttpRequest):
     contractNumber = request.GET.get('contractNumber', '')
     approval = request.GET.get('approval', 'pending')
 
+    workOrder = None if workOrder=='null' else workOrder
+    source = None if source=='null' else source
+
     contracts = outsource_service.GetOutsourceContracts(workOrder, source, contractNumber, approval)
+    contracts = generic_services.paginate(contracts, 1)
 
     context = {
+        'contracts': contracts.object_list, 'page_obj': contracts,
         'workOrder': workOrder, 'source': source, 'contractNumber': contractNumber, 'approval': approval,
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
     }
@@ -690,21 +695,69 @@ def AddOutSourceContract(request: HttpRequest):
         return render(request, 'outsource/contract_add.html', context)
 
 @login_required(login_url='/login')
+def EditOutSourceContract(request: HttpRequest, pk: int):
+    try:
+        contract = models.OutSourceJobContract.objects.get(id=pk)
+    except:
+        return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
+
+    if request.method == 'POST':
+        jsonData = json.loads(request.body.decode('utf-8'))
+        dfContract, dfDetails = generic_services.refineJson(jsonData) 
+        
+        try:
+            outsource_service.UpdateContract(dfContract, dfDetails)
+            return HttpResponse('OK', status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        try:
+            source, details, detailsJSON = outsource_service.ProcessContractData(contract)
+
+            context = {
+                'contract': contract, 'source': source, 
+                'details': details, 'detailsJSON': detailsJSON,
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            }
+            return render(request, 'outsource/contract_edit.html', context)
+        except Exception as e:
+            print(e)
+            return generic_services.showMessageResponse(request, str(e), 400)
+
+@login_required(login_url='/login')
+def ApproveOuteSourceContract(request: HttpRequest, pk: int):
+    try:
+        contract = models.OutSourceJobContract.objects.get(id=pk)
+    except:
+        return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
+    
+    if request.method == 'POST':
+        pass
+    else:
+        print(contract)
+    
+        context = {
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+        }
+        return render(request, 'outsource/contract_approve.html', context)
+
+@login_required(login_url='/login')
 def GetWorkOrderRoute(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
     
     workOrder = request.GET.get('workOrder', None)
+    source = request.GET.get('source', None)
+    ignore = request.GET.get('ignore', None)
 
     if not workOrder:
         return HttpResponse('Missing Work Order', status=400)
-    
    
     try:
         styleCard = models.WorkOrder.objects.get(OrderNumber=workOrder).StyleCode
     except:
         return HttpResponse('Invalid Work Order', status=400)
     
-    route = models.StyleRoute.objects.filter(Style=styleCard).values('id', 'Stage')
-    route = [{'value': item['id'], 'text': item['Stage']} for item in route]
+    route = outsource_service.GetWorkOrderRoute(styleCard, source, ignore)
     return JsonResponse(route, safe=False)

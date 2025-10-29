@@ -312,6 +312,12 @@ def dfToListOfDicts(df: pd.DataFrame):
     else:
         return df.to_dict(orient='records')
 
+def dfToJSON(df: pd.DataFrame):
+    '''
+    Converts a dataframe to a JSON string
+    '''
+    return df.to_json(orient='records', date_format='iso')
+
 def showMessageResponse(request: HttpRequest, message: str, statusCode=400, settingsIconViewName:str|None = None):
     context = {
         'message': message,
@@ -431,6 +437,14 @@ def convertMonthstoStrtEndDates(months: List[str], format='%b-%Y'):
     endingDate = latestMonth.replace(day=lastDayOfLatestMonth).date()
 
     return startingDate, endingDate
+
+def convertTextToBool(text) -> bool|None:
+    conversionMap = {
+        'pending': None,
+        'rejected': False,
+        'approved': True,
+    }
+    return conversionMap.get(text)
 
 def convertContextToPDFResponse(context: Dict[str, Any], template: str):
     htmlString = render_to_string(template, context)

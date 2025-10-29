@@ -752,7 +752,7 @@ def GetCapacities(request: HttpRequest):
     
     filters = Q()
     if search:
-        filters &= Q(Source__icontains=search)
+        filters &= Q(Source__icontains=search) | Q(id__icontains=search)
     
     fields = ['id', 'Source','Capacity']
     capacities = planningModels.Capacity.objects.filter(filters).values(*fields)

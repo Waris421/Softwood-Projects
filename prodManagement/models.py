@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 
 from apparelManagement.models import Department, StyleCard, WorkOrder, OrderVariant
 from apparelManagement.models import StyleRoute, Currency
-from planning.models import ProductionPlan
+from planning.models import ProductionPlan, Capacity
 
 class Operation(models.Model):
     id = models.AutoField(primary_key=True)
@@ -187,7 +187,7 @@ class OutSourceJobContract(models.Model):
     ApprovedBy = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
     Comments = models.CharField(max_length=255, blank=True, null=True)
 
-class OurSourceJobContractDetails(models.Model):
+class OutSourceJobContractDetails(models.Model):
     id = models.AutoField(primary_key=True)
     OutSourceJobContract = models.ForeignKey(OutSourceJobContract, on_delete=models.CASCADE)
     ProductionPlan = models.ForeignKey(ProductionPlan, on_delete=models.PROTECT)

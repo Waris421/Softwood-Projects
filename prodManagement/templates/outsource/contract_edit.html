@@ -1,27 +1,31 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    Contract Addition
+    Updating Outsource Contract
 {% endblock title %}
 
 {% block content %}
     {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     <form method="POST" id="contractForm" autocomplete="off">
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="grid grid-cols-5 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex flex-col col-[1/2] items-center relative">
-                    <label class="mx-2 whitespace-nowrap">Source:&nbsp; </label>
+                    <label class="mx-2 whitespace-nowrap">Contract#&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" name="id" value="{{contract.id}}" onchange="changeContract(this)">
+                </div>
+                <div class="flex flex-col col-[2/3] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Source&nbsp; </label>
                     <select id="id_source" class="{{theme.dropdown}}" name="Source" onclick="showSearchBox(this, '/options/capacities')"></select>
                 </div>
-                <div class="flex flex-col col-[2/3] items-center">
-                    <label class="mx-2 whitespace-nowrap">Start Date:&nbsp; </label>
-                    <input id="startDate" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" name="StartDate" placeholder="Select date">
-                </div>
                 <div class="flex flex-col col-[3/4] items-center">
-                    <label class="mx-2 whitespace-nowrap">Closing Date:&nbsp; </label>
-                    <input id="endDate" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" name="EndDate" placeholder="Select date">
+                    <label class="mx-2 whitespace-nowrap">Start Date:&nbsp; </label>
+                    <input id="startDate" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" value="{{contract.StartDate|date:'Y-m-d'}}" name="StartDate">
                 </div>
-                <div class="flex col-[4/5] items-center h-full">
+                <div class="flex flex-col col-[4/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Closing Date:&nbsp; </label>
+                    <input id="endDate" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" value="{{contract.EndDate|date:'Y-m-d'}}" name="EndDate">
+                </div>
+                <div class="flex col-[5/6] items-center h-full">
                     <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
                 </div>
             </div>
@@ -52,30 +56,58 @@
                     </div>
                 </div>
             </div>
-            <div class="grid grid-cols-6 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
-                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}} relative">
-                    <select id="workOrder_1" class="flex-grow {{theme.dropdown}}" name="WorkOrder" onclick="showSearchBox(this, '/options/workorders', getOperations)"></select>
+            {% for data in details %}
+                <div class="grid grid-cols-6 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div>
+                        <input class="{{theme.textInput}}" name="id" value="{{data.id}}" hidden="true">
+                    </div>
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}} relative">
+                        <select id="workOrder_{{forloop.counter}}" class="flex-grow {{theme.dropdown}}" name="WorkOrder" onclick="showSearchBox(this, '/options/workorders', getOperations)"></select>
+                    </div>
+                    <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                        <select id="id_operation_{{forloop.counter}}" class="flex-grow {{theme.dropdown}}" name="Operation"></select>
+                    </div>
+                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" name="Price" value="{{data.Price}}">
+                    </div>
+                    <div class="flex col-[6/7] space-x-1 {{theme.align}} {{theme.justify}}">
+                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                            <span>+</span>
+                        </button>
+                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                            <span>-</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
-                    <select id="id_operation_1" class="flex-grow {{theme.dropdown}}" name="Operation"></select>
-                </div>
-                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
-                    <input type="number" class="{{theme.textInput}}" name="Price">
-                </div>
-                <div class="flex col-[6/7] space-x-1 {{theme.align}} {{theme.justify}}">
-                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
-                        <span>+</span>
-                    </button>
-                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                        <span>-</span>
-                    </button>
-                </div>
-            </div>
+            {% endfor %}
         </div>
     </form>
 
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            let response = await fetch('/options/capacities');
+            const capacities = await response.json();
+            appendOptions(`id_source`, capacities, '{{source}}');
+
+            response = await fetch('/options/workorders');
+            const workOrders = await response.json();
+
+            const detailsData = {{ detailsJSON|safe }};
+            for (const [index, data] of detailsData.entries()) {
+                await appendOptions(`workOrder_${index+1}`, workOrders, data.WorkOrder);
+
+                const workOrderDropdown = document.getElementById('workOrder_'+(index+1));
+                getOperations(workOrderDropdown, data.StyleRoute, data.id);
+            }
+
+            hideLoadingIcon();
+        });
+    </script>
+
     <script>    //To get the operations of a work order
-        async function getOperations(source) {
+        async function getOperations(source, defaultSelection=null, toIgnore=null) {
             showLoadingIcon();
 
             const productionSource = document.getElementById('id_source').value;
@@ -86,8 +118,10 @@
             }
 
             workOrder = source.value;
-
-            const url = `/options/order-route?workOrder=${workOrder}&source=${productionSource}`
+            let url = `/options/order-route?workOrder=${workOrder}&source=${productionSource}`
+            if (toIgnore) {
+                url += `&ignore=${toIgnore}`;
+            }
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -99,14 +133,19 @@
             
             const operations = await response.json();
 
-            const dropdownId = source.parentElement.parentElement.children[1].children[0].id;
-            await appendOptions(dropdownId, operations);
+            const dropdown = source.parentElement.parentElement.children[2].children[0];
+            let selectedValue = dropdown.value;
+            if (defaultSelection) {
+                selectedValue = defaultSelection;
+            }
+            const dropdownId = dropdown.id;
+            await appendOptions(dropdownId, operations, selectedValue);
 
             hideLoadingIcon();
         }
     </script>
 
-    <script>   //To Send data to server
+    <script>    //To send data to server
         async function submitForms() {
             showLoadingIcon();
 
@@ -116,7 +155,6 @@
             const detailsForm = allForms['detailsForm'];
 
             const contract = contractForm.elements;
-
             let data = {};
 
             //Prepare the data for contract Group
@@ -131,7 +169,7 @@
             data = formToTable('details', detailsForm, data);
 
             await submitData(data);
-;
+
             hideLoadingIcon();
         }
 
@@ -153,8 +191,7 @@
                 return ;
             }
 
-            const contractNumber = await response.text();
-            window.location.href = `/productivity/outsource-contracts/${contractNumber}/edit`;
+            window.location.reload();
         }
     </script>
 {% endblock content %}

@@ -130,7 +130,8 @@ def getInventoryPlan(workOrders: List[int]):
     del dfInitialPlans
     dfResults.drop(inplace=True, columns=['WorkOrder'])
 
-    dfResults['DeliveryDate'] = dfResults.apply(applyInitialPlan, axis=1)
+    if not dfResults.empty:
+        dfResults['DeliveryDate'] = dfResults.apply(applyInitialPlan, axis=1)
     dfResults.drop(inplace=True, columns=['Fab', 'BW', 'AW'])
 
     dfResults = dfResults[~dfResults['DeliveryDate'].isna()]

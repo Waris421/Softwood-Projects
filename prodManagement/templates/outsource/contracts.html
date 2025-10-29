@@ -57,10 +57,31 @@
                 <th scope="col">Work Orders</th>
                 <th scope="col">Induction Date</th>
                 <th scope="col">Closing Date</th>
+                <th scope="col">Approval</th>
             </tr>
             <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in contracts %}
-                    <tr class="{{theme.tableBodyRow}}"></tr>
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td>
+                            <a class="{{theme.hyperLink}}" href="{% url 'PM:editoutsourceContracts' pk=data.id %}">
+                                {{ data.id }}
+                            </a>
+                        </td>
+                        <td>{{ data.Source }}</td>
+                        <td>{{ data.Stage }}</td>
+                        <td>{{ data.WorkOrder }}</td>
+                        <td>{{ data.StartDate }}</td>
+                        <td>{{ data.EndDate }}</td>
+                        <td>
+                            {% if data.Approval == None %}
+                                <a class="{{theme.hyperLink}}" href="{% url 'PM:approveoutsourceContracts' pk=data.id %}">
+                                    {{ data.ApprovalText }}
+                                </a>    
+                            {% else %}
+                                {{ data.ApprovalText }}
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
