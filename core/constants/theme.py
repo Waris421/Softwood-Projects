@@ -15,7 +15,7 @@ theme = {
     'table': 'table table-xs table-zebra',
     'tableHead': 'bg-base-200 dark:bg-base-800 text-center align-middle',
     'tableBody': 'text-center align-middle',
-    'tableBodyRow': 'hover:bg-gray-300',
+    'tableBodyRow': 'hover:bg-gray-300 dark:hover:bg-gray-700',
 
     #Pagination
     'pagination': 'flex justify-center mt-4',

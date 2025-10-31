@@ -1,10 +1,11 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    Outsource Contract
+    Outsource Contracts
 {% endblock title %}
 
 {% block content %}
+    {% csrf_token %}                        <!--This is to protect against CSRF attacks-->
     <div class="{{theme.border}}">
         <form action="{% url 'PM:outSourceContracts' %}" method="get" autocomplete="off">
             <div class="grid grid-cols-8 {{theme.justify}} {{theme.align}}">
@@ -59,13 +60,20 @@
                 <th scope="col">Closing Date</th>
                 <th scope="col">Approval</th>
             </tr>
-            <tbody id="tableData" class = "{{theme.tableBody}}">
+            <tbody id="tableData" class="{{theme.tableBody}}">
                 {% for data in contracts %}
                     <tr class="{{theme.tableBodyRow}}">
                         <td>
-                            <a class="{{theme.hyperLink}}" href="{% url 'PM:editoutsourceContracts' pk=data.id %}">
+                            {% if data.Approval == None %}
+                                <a class="{{theme.hyperLink}}" href="{% url 'PM:editoutsourceContracts' pk=data.id %}">
+                                    {{ data.id }}
+                                </a>
+                            {% else %}
                                 {{ data.id }}
-                            </a>
+                            {% endif %}
+                            <span class="material-symbols-outlined" onclick="showContractPrintOptions('{{ data.id }}')">
+                                print
+                            </span>
                         </td>
                         <td>{{ data.Source }}</td>
                         <td>{{ data.Stage }}</td>
@@ -101,5 +109,48 @@
 
             hideLoadingIcon();
         });
+    </script>
+
+    <script>    //To print the contract
+        function showContractPrintOptions(contractNumber) {
+            const options = [
+                {'value':`ALL_${contractNumber}`, 'text':'For Supplier - All Variants'},
+                {'value':`V1_${contractNumber}`, 'text':'For Supplier - Variant 1'},
+                {'value':`V2_${contractNumber}`, 'text':'For Supplier - Variant 2'},
+            ];
+            const selectedOption = `V2_${contractNumber}`;
+
+            showDropDown(options, printContract, selectedOption, false);
+        }
+
+        async function printContract(selectedOption) {
+            showLoadingIcon();
+
+            const result = String(selectedOption).split('_');
+            const selectedFormat = result[0]
+            const contractNumber = parseInt(result[1]);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const obj = {'format':selectedFormat};
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('/productivity/outsource-contract/'+contractNumber+'/print', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
+            });
+            if (!response.ok) {
+                errorMessage = await response.text();
+                showMessage(errorMessage);
+                hideLoadingIcon();
+
+                return ;
+            }
+            
+            await convertResponseToPDF(response);
+
+            hideLoadingIcon();
+        }
     </script>
 {% endblock content %}

@@ -85,3 +85,11 @@ class IssuanceAdmin(admin.ModelAdmin):
     list_display = ('id','Department', 'IssuanceDate')
     list_filter = ('Department',)
     ordering = ('IssuanceDate',)
+
+@admin.register(models.InventoryReciept)
+class ReceiptsAdmin(admin.ModelAdmin):
+    '''Admin View for Receipts'''
+
+    list_display = ('id', 'ReceiptDate', 'Supplier')
+    list_filter = ('Supplier',)
+    ordering = ('id',)

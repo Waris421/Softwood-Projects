@@ -11,12 +11,12 @@
             <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/3] items-center">
                     <div class="card-body">
-                        <h5 class="card-title {{theme.justify}}">Approval</h5>
+                        <h5 class="card-title {{theme.justify}}">Contract #{{contractObj.id}} Approval</h5>
                         <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
                             <div class="flex col-[1/2] items-center mt-2">
                                 <label class="mx-2 whitespace-nowrap">Decision:&nbsp; </label>
                                 <select class="{{theme.dropdown}} mx-2" name="Approval">
-                                    <option value="None" selected> Pending </option>
+                                    <option value="" selected> Pending </option>
                                     <option value="true"> Approve </option>
                                     <option value="false"> Reject </option>
                                 </select>
@@ -27,9 +27,28 @@
                             </div>
                             <div class="flex col-[1/2] items-center mt-2">
                                 <label class="mx-2 whitespace-nowrap">Details:&nbsp; </label>
-                                <textarea class="{{theme.textInputLarge}} mx-2" roww="2" readonly>
-                                    {{contract.Description}}
-                                </textarea>
+                                <table class="{{theme.table}}">
+                                    <thead>
+                                        <tr class="{{theme.tableHead}}">
+                                            <th scope="col">WO</th>
+                                            <th scope="col">Source</th>
+                                            <th scope="col">Stage</th>
+                                            <th scope="col">Style</th>
+                                            <th scope="col">Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="{{theme.tableBody}}">
+                                        {% for data in contract %}
+                                            <tr class="{{theme.tableBodyRow}}">
+                                                <td>{{ data.WorkOrder }}</td>
+                                                <td>{{ data.Source }}</td>
+                                                <td>{{ data.Stage }}</td>
+                                                <td>{{ data.Style }}</td>
+                                                <td>{{ data.Price }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                             <div class="flex col-[1/2] items-center mt-2">
                                 <button type="submit" class="{{theme.buttonBasic}} mx-2" >Save</button>
@@ -45,4 +64,16 @@
             </div>
         </div>
     </form>
+
+    <script>    //To run when the page is fully loaded
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            const message = '{{message}}';
+            if (message) {
+                showMessage(message);
+            }
+            hideLoadingIcon();
+        });
+    </script>
 {% endblock content %}

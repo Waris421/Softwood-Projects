@@ -24,7 +24,7 @@ from django.shortcuts import render
 from django_countries import countries
 from django.core.exceptions import ValidationError
 
-from core.constants.generic import API_KEY_FOR_AI
+from core.constants.generic import API_KEY_FOR_AI, LOCAL_CURRENCY
 from core.services.auth_service import getNavLinks
 from core.constants.theme import theme
 
@@ -442,7 +442,9 @@ def convertTextToBool(text) -> bool|None:
     conversionMap = {
         'pending': None,
         'rejected': False,
+        'false': False,
         'approved': True,
+        'true': True
     }
     return conversionMap.get(text)
 
@@ -467,7 +469,22 @@ def convertContextToPDFResponse(context: Dict[str, Any], template: str):
         return response
     else:
         raise ValueError('Cannot generate PDF')
-    
+
+def formatCurrencyAmount(value: float|int):
+    """
+    Formats a numeric value as a currency string, handling integers, 
+    floats, and NaN values.
+    """
+    if pd.isna(value):
+        formattedValue = 'N/A'
+        return formattedValue
+    elif isinstance(value, int) or (isinstance(value, float) and value == int(value)):
+        formattedValue = f"{int(value):,d}"
+    else:
+        formattedValue = f"{value:,.2f}"
+
+    return f"{LOCAL_CURRENCY}. {formattedValue}/-"
+
 def stringValidator (key: str):
     '''raises error if there are any slashes in the key or it is empty'''
 

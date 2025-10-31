@@ -732,15 +732,62 @@ def ApproveOuteSourceContract(request: HttpRequest, pk: int):
     except:
         return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
     
+    if contract.Approval is not None:
+        return generic_services.showMessageResponse(request, 'This resource is already closed', statusCode=403)
+    
     if request.method == 'POST':
-        pass
+        approval = request.POST.get('Approval', '')
+        comments = request.POST.get('Comments', '')
+
+        try:
+            outsource_service.ApproveContract(request.user, contract, approval, comments)
+            return redirect('PM:outSourceContracts')
+        except Exception as e:
+            print(e)
+            data = outsource_service.GetDataForContractApproval(contract)
+            context = {
+                'message': str(e), 'contract': data, 'contractObj': contract,
+                'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
+            }
+            return render(request, 'outsource/contract_approve.html', context)
     else:
-        print(contract)
+        try:
+            data = outsource_service.GetDataForContractApproval(contract)
+        except Exception as e:
+            print(e)
+            return generic_services.showMessageResponse(request, str(e))
     
         context = {
+            'contract': data, 'contractObj': contract,
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'outsource/contract_approve.html', context)
+
+@login_required(login_url='/login')
+def PrintContract(request: HttpRequest, pk: int):
+    if request.method != 'POST':
+        return HttpResponse('Not Allowed', status=405)
+    
+    data = json.loads(request.body.decode('utf-8'))
+    varFilter = data['format']
+    
+    try:
+        contract = models.OutSourceJobContract.objects.get(id=pk)
+    except:
+        return HttpResponse('Contract not found', status=404)
+    
+    if contract.Approval is not True:
+        return HttpResponse('This contract is not approved', status=403)
+
+    data, details, summary = outsource_service.PrintContract(contract, varFilter)
+
+    context = {'contract':data, 'details':details, 'summary': summary, 'theme': theme}
+    try:
+        response = generic_services.convertContextToPDFResponse(context, 'outsource/contract_print.html')
+        return response
+    except Exception as e:
+        print(e)
+        return HttpResponse(e, status=400)
 
 @login_required(login_url='/login')
 def GetWorkOrderRoute(request: HttpRequest):

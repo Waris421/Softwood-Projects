@@ -2,11 +2,14 @@ import pandas as pd
 import numpy as np
 
 from django.db.models import Q
+from django.contrib.auth.models import User
+from django.forms import model_to_dict
 from django.db import transaction
 
 from .. import models
 
-from core.services.generic_services import dfToListOfDicts, dfToJSON, convertTextToBool, concatenateValues
+from core.services.generic_services import dfToListOfDicts, dfToJSON, convertTextToBool, concatenateValues, formatCurrencyAmount
+from core.constants.generic import GST_RATE
 
 def filterWorkOrderRoute(dfResults: pd.DataFrame, dfAddedPlans: pd.DataFrame, ignore: str|None):
     addPlansMask = dfResults['ProductionPlan'].isin(dfAddedPlans['ProductionPlan'])
@@ -22,6 +25,28 @@ def filterWorkOrderRoute(dfResults: pd.DataFrame, dfAddedPlans: pd.DataFrame, ig
     dfResults = dfResults[mask]
 
     return dfResults
+
+def summarizeVariants(dfVariants: pd.DataFrame, varFilter: str):
+    dfVariants['Name'] = dfVariants['Name'].astype(str)
+
+    dfVariants[['Variant1', 'Variant2']] = dfVariants['Name'].str.split('-', n=1, expand=True)
+    dfVariants.drop(inplace=True, columns=['Name'])
+
+    aggDict = {
+        'Quantity': 'sum',
+    }
+
+    if varFilter == 'V1':
+        dfVariants = dfVariants.groupby(['OrderNumber', 'Variant1']).agg(aggDict).reset_index()
+        dfVariants.rename(inplace=True, columns={'Variant1': 'Variant'})
+    elif varFilter == 'V2':
+        dfVariants = dfVariants.groupby(['OrderNumber', 'Variant2']).agg(aggDict).reset_index()
+        dfVariants.rename(inplace=True, columns={'Variant2': 'Variant'})
+    else:
+        dfVariants = dfVariants.groupby(['OrderNumber']).agg(aggDict).reset_index()
+        dfVariants['Variant'] = ''
+
+    return dfVariants
 
 def GetOutsourceContracts(workOrder: str, source: str, contractNumber: str, approvalStr: str):
     filters = Q()
@@ -167,6 +192,9 @@ def AddContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
         return contract.id
     
 def ProcessContractData(contract: models.OutSourceJobContract):
+    if contract.Approval is not None:
+        raise PermissionError('This resource is already closed')
+
     fields = ['id', 'ProductionPlan', 'Price']
     details = models.OutSourceJobContractDetails.objects.filter(OutSourceJobContract=contract).values(*fields)
     dfDetails = pd.DataFrame(details) if details else pd.DataFrame(columns=fields)
@@ -278,3 +306,106 @@ def UpdateContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
         
         for details in detailsToDelete:
             details.delete()
+
+def GetDataForContractApproval(contract: models.OutSourceJobContract):
+    fields = [
+        'ProductionPlan__WorkOrder', 'ProductionPlan__Source__Source', 'ProductionPlan__StyleRoute__Stage',
+        'ProductionPlan__StyleRoute__Style', 'Price'
+    ]
+    contractDetails = models.OutSourceJobContractDetails.objects.filter(OutSourceJobContract=contract).values(*fields)
+    dfContractDetails = pd.DataFrame(contractDetails) if contractDetails else pd.DataFrame(columns=fields)
+    del contractDetails, fields
+    
+    dfContractDetails.rename(inplace=True, columns={
+        'ProductionPlan__WorkOrder': 'WorkOrder',
+        'ProductionPlan__Source__Source': 'Source',
+        'ProductionPlan__StyleRoute__Stage': 'Stage',
+        'ProductionPlan__StyleRoute__Style': 'Style',
+    })
+
+    return dfToListOfDicts(dfContractDetails)
+
+def ApproveContract(user: User, contract: models.OutSourceJobContract, approvalStr: str, comments: str):
+    contract.Approval = convertTextToBool(approvalStr)
+    contract.ApprovedBy = user
+    contract.Comments = comments
+
+    contract.save()
+
+def PrintContract(contract: models.OutSourceJobContract, varFilter: str):
+    '''
+    Get the data to print the contract.
+    '''
+    fields = ['ProductionPlan', 'Price']
+    contractDetails = models.OutSourceJobContractDetails.objects.filter(OutSourceJobContract=contract).values(*fields)
+    dfContractDetails = pd.DataFrame(contractDetails) if contractDetails else pd.DataFrame(columns=fields)
+    del contractDetails
+    
+    fields = ['id', 'WorkOrder', 'StyleRoute', 'Source']
+    productionPlans = models.ProductionPlan.objects.filter(id__in=dfContractDetails['ProductionPlan'].to_list()).values(*fields)
+    dfProductionPlans = pd.DataFrame(productionPlans) if productionPlans else pd.DataFrame(columns=fields)
+    del productionPlans
+
+    sourceId = dfProductionPlans['Source'].iloc[0]
+    source = models.Capacity.objects.get(id=sourceId).Source
+    del sourceId
+
+    approvedBy = (contract.ApprovedBy.first_name)+' '+(contract.ApprovedBy.last_name)
+
+    fields = ['id', 'Style', 'Stage']
+    styleRoutes = models.StyleRoute.objects.filter(id__in=dfProductionPlans['StyleRoute'].to_list()).values(*fields)
+    dfStyleRoutes = pd.DataFrame(styleRoutes) if styleRoutes else pd.DataFrame(columns=fields)
+    del styleRoutes
+
+    fields = ['OrderNumber','Name', 'Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber__in=dfProductionPlans['WorkOrder'].to_list()).values(*fields)
+    dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)    
+    del variants
+
+    fields = ['OrderNumber', 'ExcessCut']
+    workOrders = models.WorkOrder.objects.filter(OrderNumber__in=dfProductionPlans['WorkOrder'].to_list()).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders, fields
+
+    dfVariants = pd.merge(left=dfVariants, right=dfWorkOrders, on='OrderNumber', how='left')
+    del dfWorkOrders
+    dfVariants['ExcessCut'] = 1 + (dfVariants['ExcessCut'] / 100)
+    dfVariants['Quantity'] = (dfVariants['Quantity'] * dfVariants['ExcessCut']).apply(np.ceil).astype(int)
+    dfVariants.drop(inplace=True, columns=['ExcessCut'])
+    
+    dfVariants = summarizeVariants(dfVariants, varFilter)
+
+    dfVariants.rename(inplace=True, columns={'OrderNumber':'WorkOrder'})
+
+    dfProductionPlans.rename(inplace=True, columns={'id': 'ProductionPlan'})
+
+    dfProductionPlans = pd.merge(left=dfProductionPlans, right=dfVariants, on='WorkOrder', how='left')
+    del dfVariants
+    
+    dfProductionPlans = pd.merge(left=dfProductionPlans, right=dfStyleRoutes, left_on=['StyleRoute'], right_on=['id'], how='left')
+    del dfStyleRoutes
+    dfProductionPlans.drop(inplace=True, columns=['StyleRoute', 'id', 'Source'])
+
+    dfContractDetails = pd.merge(left=dfContractDetails, right=dfProductionPlans, on='ProductionPlan', how='left')
+    del dfProductionPlans
+    dfContractDetails.drop(inplace=True, columns=['ProductionPlan'])
+
+    dfContractDetails['Value'] = dfContractDetails['Price'] * dfContractDetails['Quantity']
+
+    heading = model_to_dict(contract)
+    heading['ApprovedBy'] = approvedBy
+    heading['Source'] = source
+    heading['GSTRate'] = GST_RATE
+
+    summary = {}
+    summary['ValueBeforeTax'] = dfContractDetails['Value'].astype(float).sum().round(0).astype(int)
+    summary['TaxAmount'] = int(summary['ValueBeforeTax'] * (GST_RATE/100))
+    summary['GrandTotal'] = summary['ValueBeforeTax'] + summary['TaxAmount']
+
+    for key,value in summary.items():
+        summary[key] = formatCurrencyAmount(value)
+    
+    dfContractDetails['Value'] = dfContractDetails['Value'].apply(formatCurrencyAmount)
+    dfContractDetails['Price'] = dfContractDetails['Price'].apply(formatCurrencyAmount)
+    
+    return heading, dfToListOfDicts(dfContractDetails), summary
