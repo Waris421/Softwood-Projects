@@ -9,6 +9,7 @@ from core.constants.theme import theme
 from core.services import auth_service, generic_services
 from core.constants.generic import TODAY
 from .services import capacity_service, planning_service
+from . import models
 
 @login_required(login_url='/login')
 def Home(request: HttpRequest):
@@ -72,11 +73,17 @@ def SetSource(request: HttpRequest):
 
         if startingDD:
             startingDD = generic_services.convertStrToDateTime(startingDD, '%Y-%m-%d').date()
+        elif orderFilter:
+            startingDD = models.WorkOrder.objects.get(OrderNumber=orderFilter).DeliveryDate
         else:
             startingDD = TODAY.date()
         
+        print(startingDD)
+        
         if endingDD:
             endingDD = generic_services.convertStrToDateTime(endingDD, '%Y-%m-%d').date()
+        elif orderFilter:
+            endingDD = models.WorkOrder.objects.get(OrderNumber=orderFilter).DeliveryDate
         else:
             endingDD = startingDD + timedelta(days=14)
         

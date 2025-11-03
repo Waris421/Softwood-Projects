@@ -76,7 +76,9 @@
                 <label tabindex="0" class="cursor-pointer">{{ group.groupName }}</label>
                 <ul tabindex="0" class="{{theme.navigationDropdown}}">
                   {% for item in group.views %}
-                    <li><a href="{% url item.viewName %}">{{item.displayName}}</a></li>
+                    <li><a href="{% url item.viewName %}{% if item.searchParams %}?{{item.searchParams}}{% endif %}">
+                      {{item.displayName}}
+                    </a></li>
                   {% endfor %}
                 </ul>
               {% else %}
@@ -414,7 +416,7 @@
     </script>
 
     <script> //This function shows searchbox for a select element
-      async function showSearchBox(source, url, nextFunction=null, addBlank=false) {
+      async function showSearchBox(source, url=null, nextFunction=null, addBlank=false, reuseOptions=false) {
         const rect = source.getBoundingClientRect();
 
         source.style.display = 'none';
@@ -438,7 +440,69 @@
         listContainer.classList.add('menu');
         searchContainer.appendChild(listContainer);
 
+        function renderOptions(optionsData) {
+          listContainer.innerHTML = '';
+          source.innerHTML = '';
+
+          if (addBlank) {
+            const newRow = { "value": null, "text": "-----------" };
+            data.unshift(newRow);
+          }
+
+          if (optionsData && optionsData.length > 0) {
+            for (const option of optionsData) {
+              const listItem = document.createElement('li');
+              const button = document.createElement('button');
+              button.classList.add('w-full', 'text-left', 'hover:bg-base-200', 'dark:hover:bg-gray-800', 'focus:outline-none');
+              button.textContent = option.text;
+              button.value = option.value;
+              button.type = 'button';
+
+              const newOption = document.createElement('option');
+              newOption.value = option.value;
+              newOption.text = option.text;
+              source.appendChild(newOption);
+
+              listItem.appendChild(button);
+              listContainer.appendChild(listItem);
+
+              button.onclick = function () {
+                source.value = this.value;
+                source.style.display = '';
+                searchContainer.remove();
+                document.removeEventListener('click', handleClickOutside);
+
+                if (nextFunction) {
+                  nextFunction(source);
+                }
+              };
+            }
+          } else {
+            const listItem = document.createElement('li');
+            listItem.classList.add('disabled');
+            listItem.textContent = 'No matching options';
+            listContainer.appendChild(listItem);
+          }
+        }
+        
         async function fetchOptons(searchTerm = '') {
+          if (reuseOptions) {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+
+            const currentOptions = Array.from(source.children).map(option => ({
+                value: option.value,
+                text: option.text,
+            }));
+
+            let filteredOptions = [];
+            currentOptions.forEach(option => {
+              const flag = String(option.text).toLowerCase().includes(lowerSearchTerm) || String(option.value).toLowerCase().includes(lowerSearchTerm);
+              if (flag) filteredOptions.push(option);
+            });
+            renderOptions(filteredOptions);
+
+            return;
+          }
           try{
             showLoadingIcon();
             let response;
@@ -461,43 +525,8 @@
               const newRow = { "value": null, "text": "-----------" };
               data.unshift(newRow);
             }
-            listContainer.innerHTML = ''; // Clear previous options from search container
-            source.innerHTML = ''; // Clear previous options from original dropdown
 
-            if (data && data.length > 0) {
-              for (const option of data) {
-                const listItem = document.createElement('li');
-                const button = document.createElement('button');
-                button.classList.add('w-full', 'text-left', 'hover:bg-base-200', 'dark:hover:bg-gray-800', 'focus:outline-none');
-                button.textContent = option.text;
-                button.value = option.value;
-                button.type = 'button';
-
-                const newOption = document.createElement('option');
-                newOption.value = option.value;
-                newOption.text = option.text;
-                source.appendChild(newOption);
-
-                listItem.appendChild(button);
-                listContainer.appendChild(listItem);
-                
-                button.onclick = function () {
-                  source.value = this.value;
-                  source.style.display = '';
-                  searchContainer.remove();
-                  document.removeEventListener('click', handleClickOutside);
-
-                  if (nextFunction) {
-                    nextFunction(source);
-                  }
-                };
-              }
-            } else {
-              const listItem = document.createElement('li');
-              listItem.classList.add('disabled');
-              listItem.textContent = 'No matching options';
-              listContainer.appendChild(listItem);
-            }
+            renderOptions(data);
             hideLoadingIcon();
           } catch (error) {
             console.error(`Error fetching Options: ${error}`);
@@ -593,8 +622,34 @@
       }
 
       function extractValuefromCol(col) {
+        const fileInput = col.querySelector('input[type="file"]');
+        if (fileInput) {;
+          return [fileInput.name, fileInput.files[0]];
+        }
+        
+        const simpleInput = col.querySelector('input.input-bordered');
+        if (simpleInput) {function extractValuefromCol(col) {
         const simpleInput = col.querySelector('input.input-bordered');
         if (simpleInput) {
+            return [simpleInput.name,simpleInput.value];
+        }
+        
+        const selectInput = col.querySelector('select.select-bordered');
+        if (selectInput) {
+            return [selectInput.name, selectInput.value];
+        
+        }
+        const multiSelectDiv = col.querySelector('div.dropdown');
+        if (multiSelectDiv) {
+            const selectedItems = multiSelectDiv.querySelectorAll('ul.dropdown-content li input[type="checkbox"]:checked');
+            values = Array.from(selectedItems).map(item => item.value);
+            
+            name = multiSelectDiv.getAttribute('inputName');
+            
+            return [name, values];
+        }
+        return ['','']
+      }
             return [simpleInput.name,simpleInput.value];
         }
         

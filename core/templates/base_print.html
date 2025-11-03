@@ -25,6 +25,7 @@
                     content: counter(page) " / " counter(pages);
                     font-size: 10pt;
                 }
+
             }
             @media print {
                 body {
@@ -36,14 +37,11 @@
                     print-color-adjust: exact;
                 }
                 footer {
-                    position: fixed;
-                    bottom: 0;
                     width: calc(100% - 1cm);
                     text-align: center;
+                    page-break-before: avoid;
+                    page-break-after: avoid;
                     page-break-inside: avoid;
-                }
-                .print-full-width {
-                    padding-bottom: 150px;
                 }
             }
         </style>

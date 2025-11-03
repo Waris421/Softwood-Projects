@@ -150,6 +150,76 @@ def refineJson(jsonData: Dict[str, Any]) -> pd.DataFrame | List[pd.DataFrame]:
     else:
         return dfs
 
+def refineFormData(request: HttpRequest) -> pd.DataFrame | List[pd.DataFrame]:
+    #Create a default dict, so if any keys are missing, they'll be created.
+    groupedData = defaultdict(dict)
+
+    files = request.FILES
+    postData = request.POST
+
+    #Separate the data of each groups, based on the first part of key
+    for key in postData.keys():
+        value = postData.getlist(key)
+
+        value = value[0] if len(value)==1 else value
+
+        prefix = key.split('_')[0]
+        groupedData[prefix][key] = value
+    del postData
+
+    #Separate the data of each groups, based on the first part of key
+    for key, value in files.items():
+        prefix = key.split('_')[0]
+        groupedData[prefix][key] = value
+    del files
+
+    #Define an empty list of tables that would contain each table's data separately
+    dfs = []
+
+    for _, groupData in groupedData.items(): 
+        #Create a default dict for the data rows, so if any keys are missing, they'll be created.
+        dataRows = defaultdict(dict)  
+
+        for key, value in groupData.items():
+            #Split the name of the key, to group, column and row
+            nameParts = str(key).split('_')
+
+            #Key must have at least table and column name
+            if len(nameParts) < 2:
+                raise KeyError('Invalid Format')
+
+            if nameParts[-1].isdigit():
+                if nameParts[1] == '':
+                    continue
+                #Last part of the name is a number, meaning that a row number is provided
+                rowNum = int(nameParts[-1])
+                colName = '_'.join(nameParts[1:-1])
+            else:
+                #Last part of name is text, meaning that only column name is provided.
+                #This must only be done for single row entries, otherwise it'll ignore all but last row
+                rowNum = 1
+                colName = '_'.join(nameParts[1:])
+            
+            #Set the value in the given row and col
+            dataRows[rowNum][colName] = value
+        
+        #Create a dataframe from the dict of the group's data
+        df = pd.DataFrame.from_dict(dataRows, orient='index')
+
+        #Reset the rows, so that they start from 0
+        df = df.reset_index(drop=True)
+
+        #Replace any null values with None
+        df = df.replace('null',None)
+        
+        #Append the dataframe to the list of dataframes
+        dfs.append(df)
+        
+    if len(dfs) == 1:
+        return dfs[0]
+    else:
+        return dfs
+
 def convertTexttoObject (model: Model, column: pd.Series, fieldName: str) -> pd.Series:
     '''
     Converts a pandas Series of values to a Series of corresponding Django model objects.

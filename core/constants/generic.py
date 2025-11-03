@@ -74,8 +74,10 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         {'groupName': 'Stitching', 'appName': 'prodManagement', 'modelName': 'Serial', 'views': [
             {'displayName': 'Scan Report', 'viewName': 'PM:serials'},
         ]},
-        {'groupName': 'Outsource', 'appName': 'prodManagement', 'modelName': 'Operation', 'views': [
+        {'groupName': 'Outsource', 'appName': 'prodManagement', 'modelName': 'OutSourceJobContract', 'views': [
             {'displayName': 'Contract List', 'viewName': 'PM:outSourceContracts'},
+            {'displayName': 'Add Contract', 'viewName': 'PM:addoutsourceContracts'},
+            {'displayName': 'Print Contracts', 'viewName': 'PM:outSourceContracts', 'searchParams':'approval=approved'},
         ]},
     ],
     'QC': [

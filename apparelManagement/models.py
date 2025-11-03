@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 
 from core.services.generic_services import stringValidator as string_validator
 
@@ -203,6 +205,7 @@ class StyleCard (models.Model):
     Customer = models.ForeignKey (Customer, null=True, blank=True, on_delete=models.SET_NULL)
     Category = models.CharField (max_length=15, choices=Categories)
     Notes = models.CharField (max_length = 40)
+    Attachments = GenericRelation('Attachment', content_type_field='ContentType', object_id_field='ObjectId')
 
 class StyleVariant (models.Model):
     """Data model for a style's variants."""
@@ -244,7 +247,7 @@ class StyleRoute (models.Model):
     Stage = models.CharField (max_length=50, choices = Routes, blank=True, null=True)
     Cost = models.FloatField (null=True)
 
-    PreReqs = models.ManyToManyField('self', blank=True, symmetrical=False)
+    PreReqs = models.ManyToManyField('self', blank=True,symmetrical=False)
 
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.
@@ -550,3 +553,16 @@ class IssueAllocation (models.Model):
         indexes = [
             models.Index(fields=['IssueInventory','WorkOrder']),
         ]
+
+class Attachment(models.Model):
+    """
+    A model to hold file attachments, linked generically to any other model.
+    """
+
+    id = models.AutoField(primary_key=True)
+    File = models.FileField(upload_to='documents/%Y/%m/%d/')
+    Description = models.CharField(max_length=255, blank=True, null=True)
+    AddedAt = models.DateTimeField(auto_now_add=True)
+    ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    ObjectId = models.CharField(max_length=50, db_index=True)
+    Content = GenericForeignKey('ContentType', 'ObjectId')

@@ -114,11 +114,11 @@
     <script>    //To print the contract
         function showContractPrintOptions(contractNumber) {
             const options = [
-                {'value':`ALL_${contractNumber}`, 'text':'For Supplier - All Variants'},
+                {'value':`ALL_${contractNumber}`, 'text':'For Supplier'},
                 {'value':`V1_${contractNumber}`, 'text':'For Supplier - Variant 1'},
                 {'value':`V2_${contractNumber}`, 'text':'For Supplier - Variant 2'},
             ];
-            const selectedOption = `V2_${contractNumber}`;
+            const selectedOption = `ALL_${contractNumber}`;
 
             showDropDown(options, printContract, selectedOption, false);
         }

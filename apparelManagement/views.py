@@ -332,25 +332,28 @@ def UpdateStyle (request: HttpRequest, pk: str):
     except:
         return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
     if request.method == 'POST':
-        #Convert the json to a dict
-        data = json.loads(request.body.decode('utf-8'))
         
-        dfStyle, dfVariants, dfConsumption, dfRoute = generic_services.refineJson(data)
-        del data
-
+        dfStyle, dfVariants, dfConsumption, dfRoute, dfAttachments = generic_services.refineFormData(request)
+        
         try:
-            style_card_service.UpdateStyleCard(dfStyle, dfVariants, dfConsumption, dfRoute)
+            style_card_service.UpdateStyleCard(dfStyle, dfVariants, dfConsumption, dfRoute, dfAttachments)
             return HttpResponse('OK', status=200)
         except Exception as e:
             print(e)
-            return generic_services.showMessageResponse(request, str(e)) 
+            return HttpResponse(str(e), status=400)
     else:
-        style, variants, consumption, route = style_card_service.ProcessStyleData(style)
+        try:
+            style, variants, consumption, route, attachments = style_card_service.ProcessStyleData(style)
+        except Exception as e:
+            print(e)
+            return generic_services.showMessageResponse(request, str(e))
+        
         context = {'style':style,
-                   'var':variants,
-                   'cons':consumption, 'consJson': json.dumps(list(consumption)),
-                   'route':route, 'routeJson':json.dumps(list(route)),
-                   'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+                'var':variants,
+                'cons':consumption, 'consJson': json.dumps(list(consumption)),
+                'route':route, 'routeJson':json.dumps(list(route)),
+                'attachments': attachments, 'attachmentsJson': json.dumps(attachments),
+                'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/edit.html', context)
 
 @login_required(login_url='/login')

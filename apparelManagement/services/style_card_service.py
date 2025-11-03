@@ -42,6 +42,18 @@ def getStyleCard (customer:str):
 
     return dfToListOfDicts(dfStyles)
 
+def normalizePreReqs(value):
+    if isinstance(value, list):
+        return value
+    
+    if isinstance(value, str):
+        return [value]
+    
+    if pd.isna(value):
+        return []
+    
+    return []
+
 def calculateFinalConsumption(dfConsumption: pd.DataFrame) -> pd.Series:
     inventories = models.Inventory.objects.filter(Code__in=dfConsumption['InventoryCode'].to_list())
     inventories = inventories.values('Code','Unit')
@@ -200,13 +212,16 @@ def UpdateStyleCard(
         dfVariants: pd.DataFrame,
         dfConsumption: pd.DataFrame,
         dfRoute: pd.DataFrame,
+        dfAttachments: pd.DataFrame,
         ) -> None:
     '''Edit the style card based on the updated data'''
+    dfAttachments = dfAttachments[dfAttachments['File'] != 'undefined']
+    
     #Return error is style code is blank
     if(dfStyle['StyleCode'][0] == ''):
         raise ValueError ('No Style Code is Provided')
     dfStyle['Customer'] = convertTexttoObject(models.Customer, dfStyle['Customer'], 'Name')
-
+    
     #Create dict from the provided data, to be able to save in database
     styleCard = dfStyle.iloc[0].to_dict()
     del dfStyle
@@ -237,6 +252,11 @@ def UpdateStyleCard(
     else:
         dfPreviousRoute = pd.DataFrame(columns=fields)
     del previoiusRoute
+
+    fields = ['id']
+    previousAttachments = styleCard.Attachments.all().values(*fields)
+    dfPreviousAttachments = pd.DataFrame(previousAttachments) if previousAttachments else pd.DataFrame(columns=fields)
+    del previousAttachments
     
     dfVariants.rename(inplace=True, columns={'Variant':'VariantCode'})
     dfVariants = pd.merge(left=dfVariants, right=dfPreviousVariants, left_on='VariantCode', right_on='VariantCode', how='left')
@@ -317,11 +337,16 @@ def UpdateStyleCard(
     #Create a mapping dict to map stage names with id for object mapping
     stageToId = dfRoute.set_index('Stage')['id'].to_dict()
 
+    #print(dfRoute)
+    dfRoute['NewPreReqs'] = dfRoute['NewPreReqs'].apply(normalizePreReqs)
+    dfRoute['OldPresReqs'] = dfRoute['OldPresReqs'].apply(normalizePreReqs)
+
     #Map stage names to ids.
     dfRoute['NewPreReqs'] = dfRoute['NewPreReqs'].apply(lambda stages: [stageToId.get(s, None) for s in stages])
     dfRoute['OldPresReqs'] = dfRoute['OldPresReqs'].apply(lambda stages: [stageToId.get(s, None) for s in stages])
 
     dfRoute.drop(inplace=True, columns=['Stage'])
+    
 
     for _, row in dfRoute.iterrows():
         styleRoute = models.StyleRoute.objects.get(id=row['id'])
@@ -331,6 +356,19 @@ def UpdateStyleCard(
         
         if row['NewPreReqs']:
             styleRoute.PreReqs.add(*row['NewPreReqs'])
+    
+    dfAttachments['Content'] = styleCard
+    for _, row in dfAttachments.iterrows():
+        if row['id']:
+            rowDict = row.to_dict()
+            attachment = models.Attachment.objects.get(id=rowDict.pop('id'))
+
+            for key, value in rowDict.items():
+                setattr(attachment, key, value)
+        else:
+            attachment = models.Attachment(**row)
+        
+        attachment.save()
  
 def ProcessStyleData(styleCard: models.StyleCard):   
     variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
@@ -350,6 +388,8 @@ def ProcessStyleData(styleCard: models.StyleCard):
     else:
         dfInventories = pd.DataFrame(columns=fields)
     del inventories, fields
+
+    styleAttachments = styleCard.Attachments.all()
     
     dfConsumption = pd.merge(left=dfConsumption, right=dfInventories, left_on='InventoryCode', right_on='Code', how='left')
     del dfInventories
@@ -379,5 +419,14 @@ def ProcessStyleData(styleCard: models.StyleCard):
     dfRoute = dfRoute.groupby(['id', 'Stage']).agg(
         PreReqs=('PreReqs', lambda x: list(x.dropna()))
     ).reset_index()
+
+    serializedAttachments = []
+    for attachment in styleAttachments:
+        serializedAttachments.append({
+            'id': attachment.id,
+            'FileUrl': attachment.File.url,
+            'FileName': attachment.File.name.split('/')[-1],
+            'Description': attachment.Description,
+        })
     
-    return model_to_dict(styleCard), variants, consumption, dfToListOfDicts(dfRoute)
+    return model_to_dict(styleCard), variants, consumption, dfToListOfDicts(dfRoute), serializedAttachments

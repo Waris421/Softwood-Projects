@@ -24,6 +24,14 @@ class CurrencyAdmin(admin.ModelAdmin):
     list_display = ('Code', 'Name') """
 
 
+@admin.register(models.Attachment)
+class AttachmentAdmin(admin.ModelAdmin):
+    '''Admin View for Attachment'''
+
+    list_display = ('id', 'Description')
+    list_filter = ('ContentType',)
+    ordering = ('AddedAt',)
+
 @admin.register(models.Supplier)
 class SupplierAdmin(admin.ModelAdmin):
     '''Admin View for Supplier'''

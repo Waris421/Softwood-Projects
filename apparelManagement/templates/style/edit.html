@@ -45,6 +45,7 @@
                 <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
                 <button id="btn_consumptionForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consumptionForm')">Consumption</button>
                 <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+                <button id="btn_attachmentForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('attachmentForm')">Attachments</button>
             </div>
         </div>
     </div>
@@ -85,7 +86,7 @@
     <!--Consumption Table-->
     <form method="POST" id="consumptionForm" autocomplete="off" hidden>
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-12 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+            <div class="grid grid-cols-12 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
                 <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Inventory
@@ -124,7 +125,7 @@
             </div>
         </div>
         {% for data in cons %}
-            <div class="grid grid-cols-12 px-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+            <div class="grid grid-cols-12 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
                 <div>
                     <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
                 </div>
@@ -212,6 +213,60 @@
         </div>
     </form>
 
+    <!--Attachment Form Table-->
+    <form method="POST" id="attachmentForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Description
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Current File
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Revised File
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            {% for data in attachments %}
+                <div class="grid grid-cols-5 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                    </div>
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Description}}" name="Description">
+                    </div>
+                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                        <a href="{{ data.FileUrl }}" class="{{theme.hyperLink}}" target="_blank">
+                            Open in new tab
+                        </a>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="file" class="{{theme.textInput}}" name="File">
+                    </div>
+                    <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
+                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                            <span>+</span>
+                        </button>
+                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                            <span>-</span>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
     <!--Inventory search dialog box-->
     <input type="checkbox" id="invSearchTableToggle" class="modal-toggle" />
     <div class="modal" id="invSearchTable">
@@ -266,7 +321,7 @@
     </div>
 
     <script> //To change view based on selected button
-        const formIds = ['consumptionForm', 'variantsForm','routeForm'];
+        const formIds = ['consumptionForm', 'variantsForm','routeForm', 'attachmentForm'];
 
         function changeView(formId){
             let forms = [];
@@ -514,6 +569,7 @@
             const variantsForm = allForms['variantsForm'];
             const consumptionForm = allForms['consumptionForm'];
             const routeForm = allForms['routeForm'];
+            const attachmentForm = allForms['attachmentForm'];
 
             const style = styleForm.elements;
 
@@ -531,6 +587,7 @@
             data = formToTable('variant', variantsForm, data);
             data = formToTable('cosumption', consumptionForm, data);
             data = formToTable('route', routeForm, data);
+            data = formToTable('attachment', attachmentForm, data);
             
             const response = await submitData(data);
 
@@ -548,12 +605,24 @@
         async function submitData(obj) {
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
             
-            const data = JSON.stringify(obj);
+            const formData = new FormData();
+            for (const key in obj) {
+                const value = obj[key];
+
+                if (value instanceof File || value instanceof Blob) {
+                    formData.append(key, value, value.name);
+                } else if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        formData.append(key, item);
+                    });
+                } else {
+                    formData.append(key, value);
+                }
+            }
             
-            //console.log (csrf);
             const response = await fetch('', {
               method: 'POST',
-              body: data,
+              body: formData,
               headers: { "X-CSRFToken": csrf},
             });
 

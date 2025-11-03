@@ -741,7 +741,8 @@ def ApproveOuteSourceContract(request: HttpRequest, pk: int):
 
         try:
             outsource_service.ApproveContract(request.user, contract, approval, comments)
-            return redirect('PM:outSourceContracts')
+            url = f"{reverse('PM:outSourceContracts')}?approval=approved&contractNumber={pk}"
+            return redirect(url)
         except Exception as e:
             print(e)
             data = outsource_service.GetDataForContractApproval(contract)

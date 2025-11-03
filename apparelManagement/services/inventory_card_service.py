@@ -6,7 +6,7 @@ from django.db.models import Q
 from typing import Dict
 
 from .. import models
-from core.services.generic_services import dfToListOfDicts
+from core.services.generic_services import dfToListOfDicts, formatCurrencyAmount
 
 def calculateReceivedFreeStock (dfReceivings: pd.DataFrame):
     dfReceiptWiseQty = dfReceivings.groupby(['InventoryCode', 'Variant', 'ReceiptNumber'])['TotalReceivedQty'].first().reset_index()
@@ -14,12 +14,12 @@ def calculateReceivedFreeStock (dfReceivings: pd.DataFrame):
     dfReceiptsQty = dfReceiptWiseQty.groupby(['InventoryCode', 'Variant'])['TotalReceivedQty'].sum().reset_index(name='TotalReceivedInventoryQty')
     
     dfAllocatedQty = dfReceivings.groupby(['InventoryCode', 'Variant', 'Approval'])['AllocatedQty'].sum().reset_index(name='TotalAllocatedQty')
-    
+
     dfResults = pd.merge(dfAllocatedQty, dfReceiptsQty, on=['InventoryCode', 'Variant'])
 
     dfResults['FreeQty'] = dfResults['TotalReceivedInventoryQty'] - dfResults['TotalAllocatedQty']
     dfResults.drop(inplace=True, columns=['TotalReceivedInventoryQty', 'TotalAllocatedQty'])
-
+    
     return dfResults
 
 def calculateIssueFreeStock(dfRecevings: pd.DataFrame, dfIssuances: pd.DataFrame):
@@ -34,6 +34,8 @@ def calculateIssueFreeStock(dfRecevings: pd.DataFrame, dfIssuances: pd.DataFrame
     dfResults['FreeQty'] = dfResults['AllocatedQty_received'] - dfResults['AllocatedQty_issued']
 
     dfResults.drop(inplace=True, columns=['AllocatedQty_received', 'AllocatedQty_issued', 'WorkOrder'])
+
+    dfResults = dfResults.groupby(['InventoryCode', 'Variant'])['FreeQty'].sum().reset_index()
 
     return dfResults
 
@@ -305,6 +307,11 @@ def GetFreeStockHistory(inventory: models.Inventory):
     dfInvReceipts = pd.DataFrame(invReceipts) if invReceipts else pd.DataFrame(columns=fields)
     del invReceipts
 
+    fields = ['RecInvId', 'Quantity']
+    recAllocations = models.RecAllocation.objects.filter(RecInvId__in=dfRecInventories['id']).values(*fields)
+    dfRecAllocations = pd.DataFrame(recAllocations) if recAllocations else pd.DataFrame(columns=fields)
+    del recAllocations
+
     fields = ['PONumber', 'Inventory', 'Variant', 'Price', 'Quantity']
     purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfInvReceipts['PONumber'].to_list())
     poInventories = models.POInventory.objects.filter(PONumber__in=purchaseOrders).values(*fields)
@@ -351,6 +358,19 @@ def GetFreeStockHistory(inventory: models.Inventory):
     # If the last entry is without price, take the 2nd last value
     dfRecInventories['Price'] = dfRecInventories['Price'].ffill()
 
-    print(dfRecInventories)
+    dfRecAllocations = dfRecAllocations.groupby('RecInvId')['Quantity'].sum().reset_index()
+    dfRecInventories = pd.merge(left=dfRecInventories, right=dfRecAllocations, on='RecInvId', how='left')
+    del dfRecAllocations
+    dfRecInventories.rename(inplace=True, columns={'Quantity_x':'ReceivedQty','Quantity_y':'AllocatedQty'})
+    dfRecInventories['AllocatedQty'] = (dfRecInventories['AllocatedQty'].fillna(0)).round(0)
+    
+    dfFreeAtReceipt = dfRecInventories.drop(columns=['InventoryCode', 'Variant'])
+    dfFreeAtReceipt['FreeQty'] = dfFreeAtReceipt['ReceivedQty'] - dfFreeAtReceipt['AllocatedQty']
+    dfFreeAtReceipt['Value'] = (dfFreeAtReceipt['FreeQty'] * dfFreeAtReceipt['Price']).apply(formatCurrencyAmount)
+    dfFreeAtReceipt.drop(inplace=True, columns=['ReceivedQty', 'AllocatedQty', 'Price'])
+    dfFreeAtReceipt = dfFreeAtReceipt[dfFreeAtReceipt['FreeQty']>0]
+    print(dfFreeAtReceipt)
+
+    #dfRecInventories['Value'] = dfRecInventories['Quantity'] * dfRecInventories['Price']
 
     return []

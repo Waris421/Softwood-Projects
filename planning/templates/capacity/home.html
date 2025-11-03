@@ -51,8 +51,8 @@
                     <div>
                         <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden> 
                     </div>
-                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
-                        <select class="{{theme.dropdown}}" id="id_Source_{{forloop.counter}}" name="Source" required></select>
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}} relative">
+                        <select class="{{theme.dropdown}}" id="id_Source_{{forloop.counter}}" name="Source" onclick="showSearchBox(this, '', null, false, true)" required></select>
                     </div>
                     <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
                         <input type="number" step="any" class="{{theme.textInput}}" value="{{data.Capacity}}" name="Capacity" required>

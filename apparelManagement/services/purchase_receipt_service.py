@@ -131,7 +131,7 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame):
     '''
     Add the receipt from new receipt Form
     '''
-    dfRecInventories = dfRecInventories[dfRecInventories['Quantity'].str.len()>0]
+    dfRecInventories['Quantity'] = np.where(dfRecInventories['Quantity'].str.len()>0, dfRecInventories['Quantity'], 0.0)
     dfRecInventories['Quantity'] = dfRecInventories['Quantity'].astype(float)
     if dfRecInventories.empty:
         raise ValueError('No Inventory provided')
@@ -348,18 +348,15 @@ def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: s
     inventory = recInventory.InventoryCode
     variant = recInventory.Variant
 
-    try:
-        poInventory = models.POInventory.objects.get(
-            PONumber=purchaseOrder,
-            Inventory=inventory,
-            Variant=variant
-        )
-    except:
-        raise ValueError('Bad Inventory value in PO')
+    poInventories = models.POInventory.objects.filter(
+        PONumber=purchaseOrder,
+        Inventory=inventory,
+        Variant=variant
+    )
     del purchaseOrder, inventory, variant
     
     fields = ['WorkOrder','Quantity']
-    poAllocations = models.POAllocation.objects.filter(POInvId=poInventory).values(*fields)
+    poAllocations = models.POAllocation.objects.filter(POInvId__in=poInventories).values(*fields)
     dfAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
     del poAllocations
     
