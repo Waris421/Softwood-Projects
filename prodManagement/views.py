@@ -684,7 +684,7 @@ def AddOutSourceContract(request: HttpRequest):
         try:
             contractNumebr = outsource_service.AddContract(dfContract, dfDetails)        
         except Exception as e:
-            print(e)
+            generic_services.printExceptionInDetail(e)
             return HttpResponse(e, status=400)
         
         return HttpResponse(contractNumebr, status=200)
@@ -803,9 +803,9 @@ def GetWorkOrderRoute(request: HttpRequest):
         return HttpResponse('Missing Work Order', status=400)
    
     try:
-        styleCard = models.WorkOrder.objects.get(OrderNumber=workOrder).StyleCode
+        workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
     except:
         return HttpResponse('Invalid Work Order', status=400)
     
-    route = outsource_service.GetWorkOrderRoute(styleCard, source, ignore)
+    route = outsource_service.GetWorkOrderRoute(workOrder, source, ignore)
     return JsonResponse(route, safe=False)

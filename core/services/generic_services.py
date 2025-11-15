@@ -5,6 +5,7 @@ Contains generic functions
 import pandas as pd
 import numpy as np
 import json
+import traceback
 
 from datetime import datetime
 import calendar
@@ -564,3 +565,7 @@ def stringValidator (key: str):
 
     if not key:
         raise ValidationError ('You are entering an empty Code')
+
+def printExceptionInDetail(e: Exception):
+    print(f"Error: {e}")
+    traceback.print_exc()

@@ -68,7 +68,7 @@ def GetOutsourceContracts(workOrder: str, source: str, contractNumber: str, appr
     if source:
         filters &= Q(ProductionPlan__Source=source)
     
-    fields = ['OutSourceJobContract', 'ProductionPlan__WorkOrder', 'ProductionPlan__Source__Source', 'ProductionPlan__StyleRoute__Stage']
+    fields = ['OutSourceJobContract', 'ProductionPlan__WorkOrder', 'ProductionPlan__Source__Source', 'ProductionPlan__RoutePresetStage__Stage']
     contractDetails = models.OutSourceJobContractDetails.objects.filter(filters).values(*fields)
     dfContractDetails = pd.DataFrame(contractDetails) if contractDetails else pd.DataFrame(columns=fields)
     del contractDetails
@@ -80,7 +80,7 @@ def GetOutsourceContracts(workOrder: str, source: str, contractNumber: str, appr
     dfContractDetails.rename(inplace=True, columns={
         'ProductionPlan__WorkOrder': 'WorkOrder',
         'ProductionPlan__Source__Source': 'Source',
-        'ProductionPlan__StyleRoute__Stage': 'Stage',
+        'ProductionPlan__RoutePresetStage__Stage': 'Stage',
         'OutSourceJobContract': 'id',
     })
 
@@ -98,13 +98,16 @@ def GetOutsourceContracts(workOrder: str, source: str, contractNumber: str, appr
         dfContracts['Approval'] == False,
     ]
 
+    approvalComment = np.where(dfContracts['Comments'].str.len() != 0, '. Note to follow ' + dfContracts['Comments'], '')
+    rejectionComment = np.where(dfContracts['Comments'].str.len() != 0, ' due to ' + dfContracts['Comments'],'')
+    
     choices = [
-        'Approved by ' + dfContracts['ApprovedBy'] + '. Note to follow ' + dfContracts['Comments'],
-        'Rejected by ' + dfContracts['ApprovedBy'] + ' due to ' + dfContracts['Comments'],
+        'Approved by ' + dfContracts['ApprovedBy'] + approvalComment,
+        'Rejected by ' + dfContracts['ApprovedBy'] + rejectionComment,
     ]
 
     dfContracts['ApprovalText'] = np.select(conditions, choices, default='Pending')
-    del conditions, choices
+    del conditions, choices, approvalComment, rejectionComment
     dfContracts.drop(inplace=True, columns=['ApprovedBy', 'Comments'])
 
     dfContracts = pd.merge(left=dfContracts, right=dfContractDetails, on='id', how='left')
@@ -112,33 +115,33 @@ def GetOutsourceContracts(workOrder: str, source: str, contractNumber: str, appr
     
     return dfToListOfDicts(dfContracts)
 
-def GetWorkOrderRoute(styleCard: models.StyleCard, source: str, ignore: str|None):
-    routes = models.StyleRoute.objects.filter(Style=styleCard)
+def GetWorkOrderRoute(workOrder: models.WorkOrder, source: str, ignore: str|None):
+    routes = models.RoutePresetStage.objects.filter(RoutePreset=workOrder.StyleCode.RoutePreset)
 
     fields = ['id', 'Stage']
     route = routes.values(*fields)
     dfRoute = pd.DataFrame(route) if route else pd.DataFrame(columns=fields)
     del route
 
-    filters = Q(Source = source) & Q(StyleRoute__in=routes)
-    fields = ['id', 'StyleRoute']
+    filters = Q(Source = source) & Q(RoutePresetStage__in=routes) & Q(WorkOrder=workOrder)
+    fields = ['id', 'RoutePresetStage']
     productionPlans = models.ProductionPlan.objects.filter(filters).values(*fields)
     dfProductionPlans = pd.DataFrame(productionPlans) if productionPlans else pd.DataFrame(columns=fields)
     del productionPlans, routes
     
-    fields = ['ProductionPlan', 'ProductionPlan__StyleRoute']
+    fields = ['ProductionPlan', 'ProductionPlan__RoutePresetStage']
     addedPlans = models.OutSourceJobContractDetails.objects.filter(ProductionPlan__in=dfProductionPlans['id'].to_list()).values(*fields)
     dfAddedPlans = pd.DataFrame(addedPlans) if addedPlans else pd.DataFrame(columns=fields)
     del addedPlans, fields
 
-    dfResults = pd.merge(left=dfProductionPlans, right=dfRoute, left_on='StyleRoute', right_on='id', how='left')
+    dfResults = pd.merge(left=dfProductionPlans, right=dfRoute, left_on='RoutePresetStage', right_on='id', how='left')
     del dfProductionPlans, dfRoute
     dfResults.drop(inplace=True, columns=['id_y'])
     dfResults.rename(inplace=True, columns={'id_x': 'ProductionPlan'})
 
     dfResults = filterWorkOrderRoute(dfResults, dfAddedPlans, ignore)
 
-    dfResults.rename(inplace=True, columns={'StyleRoute':'value', 'Stage':'text'})    
+    dfResults.rename(inplace=True, columns={'RoutePresetStage':'value', 'Stage':'text'})    
     return dfToListOfDicts(dfResults)
 
 def AddContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
@@ -147,7 +150,7 @@ def AddContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
     for key, value in heading.items():
         if not value:
             raise ValueError(f'Missing {key}')
-    
+
     source = heading.pop('Source')
     contract = models.OutSourceJobContract(**heading)
     
@@ -157,12 +160,12 @@ def AddContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
 
     productionPlans = models.ProductionPlan.objects.filter(
         WorkOrder__in=[k[0] for k in lookupKeys],
-        StyleRoute__in=[k[1] for k in lookupKeys],
+        RoutePresetStage__in=[k[1] for k in lookupKeys],
         Source=source
-    ).select_related('StyleRoute')
+    ).select_related('RoutePresetStage')
 
     planMapping = {
-        (plan.WorkOrder.OrderNumber, plan.StyleRoute_id): plan for plan in productionPlans
+        (plan.WorkOrder.OrderNumber, plan.RoutePresetStage_id): plan for plan in productionPlans
     }
     
     #This ensures atomicity in saving the data. If there is an error in any specific part,
@@ -200,7 +203,7 @@ def ProcessContractData(contract: models.OutSourceJobContract):
     dfDetails = pd.DataFrame(details) if details else pd.DataFrame(columns=fields)
     del details
 
-    fields = ['id', 'WorkOrder', 'StyleRoute', 'Source']
+    fields = ['id', 'WorkOrder', 'RoutePresetStage', 'Source']
     productionPlans = models.ProductionPlan.objects.filter(id__in=dfDetails['ProductionPlan'].to_list()).values(*fields)
     dfProductionPlans = pd.DataFrame(productionPlans) if productionPlans else pd.DataFrame(columns=fields)
     del productionPlans
@@ -246,18 +249,18 @@ def UpdateContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
     lookupKeys = dfDetails[['WorkOrder', 'Operation']].to_records(index=False).tolist()
     productionPlans = models.ProductionPlan.objects.filter(
         WorkOrder__in=[k[0] for k in lookupKeys],
-        StyleRoute__in=[k[1] for k in lookupKeys],
+        RoutePresetStage__in=[k[1] for k in lookupKeys],
         Source=source
-    ).select_related('StyleRoute')
+    ).select_related('RoutePresetStage')
 
     planMapping = {
-        (plan.WorkOrder.OrderNumber, plan.StyleRoute_id): plan for plan in productionPlans
+        (plan.WorkOrder.OrderNumber, plan.RoutePresetStage.id): plan for plan in productionPlans
     }
 
     existingContractDetails = models.OutSourceJobContractDetails.objects.filter(OutSourceJobContract=contract)
 
     #This ensures atomicity in saving the data. If there is an error in any specific part,
-    #all db transactions are reversed
+    #all db transactions in this request are reversed
     with transaction.atomic():
         contract.save()
         detailsToUpdate = []
@@ -309,8 +312,8 @@ def UpdateContract(dfHeading: pd.DataFrame, dfDetails: pd.DataFrame):
 
 def GetDataForContractApproval(contract: models.OutSourceJobContract):
     fields = [
-        'ProductionPlan__WorkOrder', 'ProductionPlan__Source__Source', 'ProductionPlan__StyleRoute__Stage',
-        'ProductionPlan__StyleRoute__Style', 'Price'
+        'ProductionPlan__WorkOrder', 'ProductionPlan__Source__Source', 'ProductionPlan__RoutePresetStage__Stage',
+        'ProductionPlan__WorkOrder__StyleCode', 'Price'
     ]
     contractDetails = models.OutSourceJobContractDetails.objects.filter(OutSourceJobContract=contract).values(*fields)
     dfContractDetails = pd.DataFrame(contractDetails) if contractDetails else pd.DataFrame(columns=fields)
@@ -319,8 +322,8 @@ def GetDataForContractApproval(contract: models.OutSourceJobContract):
     dfContractDetails.rename(inplace=True, columns={
         'ProductionPlan__WorkOrder': 'WorkOrder',
         'ProductionPlan__Source__Source': 'Source',
-        'ProductionPlan__StyleRoute__Stage': 'Stage',
-        'ProductionPlan__StyleRoute__Style': 'Style',
+        'ProductionPlan__RoutePresetStage__Stage': 'Stage',
+        'ProductionPlan__WorkOrder__StyleCode': 'Style',
     })
 
     return dfToListOfDicts(dfContractDetails)
@@ -341,7 +344,7 @@ def PrintContract(contract: models.OutSourceJobContract, varFilter: str):
     dfContractDetails = pd.DataFrame(contractDetails) if contractDetails else pd.DataFrame(columns=fields)
     del contractDetails
     
-    fields = ['id', 'WorkOrder', 'StyleRoute', 'Source']
+    fields = ['id', 'WorkOrder', 'WorkOrder__StyleCode', 'RoutePresetStage', 'Source']
     productionPlans = models.ProductionPlan.objects.filter(id__in=dfContractDetails['ProductionPlan'].to_list()).values(*fields)
     dfProductionPlans = pd.DataFrame(productionPlans) if productionPlans else pd.DataFrame(columns=fields)
     del productionPlans
@@ -350,12 +353,10 @@ def PrintContract(contract: models.OutSourceJobContract, varFilter: str):
     source = models.Capacity.objects.get(id=sourceId).Source
     del sourceId
 
-    approvedBy = (contract.ApprovedBy.first_name)+' '+(contract.ApprovedBy.last_name)
-
-    fields = ['id', 'Style', 'Stage']
-    styleRoutes = models.StyleRoute.objects.filter(id__in=dfProductionPlans['StyleRoute'].to_list()).values(*fields)
-    dfStyleRoutes = pd.DataFrame(styleRoutes) if styleRoutes else pd.DataFrame(columns=fields)
-    del styleRoutes
+    fields = ['id', 'Stage']
+    routePresetStages = models.RoutePresetStage.objects.filter(id__in=dfProductionPlans['RoutePresetStage'].to_list()).values(*fields)
+    dfRouteStages = pd.DataFrame(routePresetStages) if routePresetStages else pd.DataFrame(columns=fields)
+    del routePresetStages
 
     fields = ['OrderNumber','Name', 'Quantity']
     variants = models.OrderVariant.objects.filter(OrderNumber__in=dfProductionPlans['WorkOrder'].to_list()).values(*fields)
@@ -367,6 +368,8 @@ def PrintContract(contract: models.OutSourceJobContract, varFilter: str):
     dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
     del workOrders, fields
 
+    approvedBy = (contract.ApprovedBy.first_name)+' '+(contract.ApprovedBy.last_name)
+    
     dfVariants = pd.merge(left=dfVariants, right=dfWorkOrders, on='OrderNumber', how='left')
     del dfWorkOrders
     dfVariants['ExcessCut'] = 1 + (dfVariants['ExcessCut'] / 100)
@@ -377,14 +380,14 @@ def PrintContract(contract: models.OutSourceJobContract, varFilter: str):
 
     dfVariants.rename(inplace=True, columns={'OrderNumber':'WorkOrder'})
 
-    dfProductionPlans.rename(inplace=True, columns={'id': 'ProductionPlan'})
+    dfProductionPlans.rename(inplace=True, columns={'id': 'ProductionPlan', 'WorkOrder__StyleCode': 'Style'})
 
     dfProductionPlans = pd.merge(left=dfProductionPlans, right=dfVariants, on='WorkOrder', how='left')
     del dfVariants
     
-    dfProductionPlans = pd.merge(left=dfProductionPlans, right=dfStyleRoutes, left_on=['StyleRoute'], right_on=['id'], how='left')
-    del dfStyleRoutes
-    dfProductionPlans.drop(inplace=True, columns=['StyleRoute', 'id', 'Source'])
+    dfProductionPlans = pd.merge(left=dfProductionPlans, right=dfRouteStages, left_on=['RoutePresetStage'], right_on=['id'], how='left')
+    del dfRouteStages
+    dfProductionPlans.drop(inplace=True, columns=['RoutePresetStage', 'id', 'Source'])
 
     dfContractDetails = pd.merge(left=dfContractDetails, right=dfProductionPlans, on='ProductionPlan', how='left')
     del dfProductionPlans

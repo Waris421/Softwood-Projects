@@ -51,23 +51,25 @@ def CustomerData (request: HttpRequest):
 def ExportData (request: HttpRequest):
     if request.method != 'GET':
         return showMessageResponse(request, 'Not Allowed', 403)
-    
+
     countries = request.GET.getlist('countries[]', [])
     importers = request.GET.getlist('importers[]', [])
     exporters = request.GET.getlist('exporters[]', [])
     categories = request.GET.getlist('categories[]', [])
+    months = request.GET.getlist('months[]')
     
-    minQty = request.GET.get('minQty')
-    maxQty = request.GET.get('maxQty')
-    minPrice = request.GET.get('minPrice')
-    maxPrice = request.GET.get('maxPrice')
-
     try:
-        months = export_data_serivce.GetMonthWiseQty()
+        months = export_data_serivce.GetMonthWiseQty(months)
     except Exception as e:
         print(f'Main Page: {e}')
         return showMessageResponse(request, 'An Error Occured', 400)
-
+    
+    try:
+        checks = export_data_serivce.CalculateChecks(months, importers, exporters, categories, countries)
+    except Exception as e:
+        print(f'Main Page: {e}')
+        return showMessageResponse(request, 'An Error Occured', 400)
+    
     context = {
         'settingsIconViewName': 'marketing:exportDataSettings',
         'countries': countries, 'countriesJson': json.dumps(countries),
@@ -75,7 +77,7 @@ def ExportData (request: HttpRequest):
         'exporters': exporters, 'exportersJson': json.dumps(exporters),
         'categories': categories, 'categoriesJson': json.dumps(categories),
         'months': months, 'monthsJson': json.dumps(months),
-        'minQty': minQty, 'maxQty': maxQty, 'minPrice': minPrice, 'maxPrice': maxPrice,
+        'checks': checks,
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
     }
     return render (request, 'export_data/home.html', context)

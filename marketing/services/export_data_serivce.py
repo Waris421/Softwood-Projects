@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 from collections import Counter
 from typing import List
 from math import ceil
@@ -149,7 +149,7 @@ def ConfirmPendingUploads(approval: str):
                 models.ExportData.objects.bulk_create(dataToAdd)
         pendingUploads.delete()
 
-def GetMonthWiseQty():
+def GetMonthWiseQty(selectedMonths: List[str]):    
     fields = ['Month', 'Quantity', 'Checked']
     exportData = models.ExportData.objects.annotate(
         Month=TruncMonth('ShipDate')
@@ -159,13 +159,37 @@ def GetMonthWiseQty():
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData, fields
 
-    last12Months = TODAY - timedelta(days=365)
-    dfExportData['Checked'] = dfExportData['Month'] >= last12Months.date()
+    if selectedMonths:
+        selectedMonthDates = set()
+        for monthStr in selectedMonths:
+            try:
+                dateObj = datetime.strptime(monthStr, '%b-%Y').date()
+                selectedMonthDates.add(dateObj)
+            except ValueError:
+                continue
+        
+        dfExportData['Checked'] = dfExportData['Month'].isin(selectedMonthDates)
+    else:
+        last12Months = TODAY - timedelta(days=365)
+        dfExportData['Checked'] = dfExportData['Month'] >= last12Months.date()
 
     dfExportData['Quantity'] = dfExportData['Quantity'].apply(formatNumbers)
     dfExportData['Month'] = pd.to_datetime(dfExportData['Month']).dt.strftime('%b-%Y')
 
     return dfToListOfDicts(dfExportData)
+
+def CalculateChecks(
+        months: List[str], importers: List[str], exporters: List[str], categories: List[str], countries: List[str]
+):
+    checks = {
+        'month': 'checked' if months else '',
+        'importer': 'checked' if importers else '',
+        'exporter': 'checked' if exporters else '',
+        'category': 'checked' if categories else '',
+        'country': 'checked' if countries else '',
+    }
+
+    return checks
 
 def GetCountrySummary(
         months: List[str], importerAliases: List[str], exporters: List[str], categories: List[str], countries: List[str], search: str|None,

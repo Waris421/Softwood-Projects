@@ -32,6 +32,22 @@ class AttachmentAdmin(admin.ModelAdmin):
     list_filter = ('ContentType',)
     ordering = ('AddedAt',)
 
+@admin.register(models.RoutePreset)
+class RoutePresetAdmin(admin.ModelAdmin):
+    '''Admin View for RoutePreset'''
+
+    list_display = ('Name',)
+    list_filter = ('Name',)
+    ordering = ('id',)
+
+@admin.register(models.RoutePresetStage)
+class RoutePresetStageAdmin(admin.ModelAdmin):
+    '''Admin View for RoutePresetStage'''
+
+    list_display = ('Stage','RoutePreset')
+    list_filter = ('RoutePreset',)
+    ordering = ('id',)
+
 @admin.register(models.Supplier)
 class SupplierAdmin(admin.ModelAdmin):
     '''Admin View for Supplier'''

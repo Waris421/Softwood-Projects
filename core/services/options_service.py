@@ -779,6 +779,31 @@ def GetCapacities(request: HttpRequest):
 
     return JsonResponse(dfToListOfDicts(dfCapacities), safe=False)
 
+@login_required(login_url='/login')
+def GetPresetRoutes(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)   
+
+    search = request.GET.get('search', '') 
+
+    searchFilter = Q()
+    if search and search != 'None' and search !='null':
+        searchFilter &= Q(Name__icontains=search)
+
+    fields = ['id', 'Name']
+    data = appModels.RoutePreset.objects.filter(searchFilter).values(*fields)
+
+    dfData = pd.DataFrame(data) if data else pd.DataFrame(columns=fields)
+
+    dfData.sort_values(inplace=True, by='id', ascending=True)
+
+    dfData.rename(inplace=True, columns={'id': 'value', 'Name': 'text'})
+
+    dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+
+    data = dfToListOfDicts(dfData)
+    return JsonResponse(data, safe=False)
+
 class AppOptions(APIView):
     permission_classes = [AllowAny]
 

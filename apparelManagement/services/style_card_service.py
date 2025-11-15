@@ -112,6 +112,20 @@ def flagColGroupMismatch(df: pd.DataFrame) -> bool:
 
     return flag.any()
 
+def GetRoutePresetStages(routePreset: models.RoutePreset):
+    fields = ['id', 'Stage', 'PreReqs__Stage']
+    stages = models.RoutePresetStage.objects.filter(RoutePreset=routePreset).values(*fields)
+    dfStages = pd.DataFrame(stages) if stages else pd.DataFrame(columns=fields)
+    del stages
+
+    dfStages.rename(inplace=True, columns={'PreReqs__Stage':'PreReqs'})
+    dfStages = dfStages.groupby(['id', 'Stage']).agg(
+        PreReqs=('PreReqs', lambda x: list(x.dropna()))
+    ).reset_index()
+    dfStages.drop(inplace=True, columns=['id'])
+    
+    return dfToListOfDicts(dfStages)
+
 def AddStyleCard(
         dfStyle: pd.DataFrame,
         dfVariants: pd.DataFrame,
@@ -220,12 +234,21 @@ def UpdateStyleCard(
     #Return error is style code is blank
     if(dfStyle['StyleCode'][0] == ''):
         raise ValueError ('No Style Code is Provided')
+    
+    try:
+        presetId = int(dfRoute['RoutePreset'].iloc[0])
+        routePreset = models.RoutePreset.objects.get(id=presetId)
+        
+    except:
+        raise ValueError('Invalid Route Selected')
+    
     dfStyle['Customer'] = convertTexttoObject(models.Customer, dfStyle['Customer'], 'Name')
     
     #Create dict from the provided data, to be able to save in database
     styleCard = dfStyle.iloc[0].to_dict()
     del dfStyle
     
+    styleCard['RoutePreset'] = routePreset
     styleCard = models.StyleCard(**styleCard)
     styleCard.save()
 
@@ -306,56 +329,6 @@ def UpdateStyleCard(
         else:
             consumption = models.StyleConsumption(**row)
         consumption.save()
-
-    dfRoute.rename(inplace=True, columns={'type':'Stage'})
-    dfRoute = dfRoute[dfRoute['Stage'].str.len()>0]
-    
-    dfRoute['id'] = dfRoute['id'].replace(['', 'None'], pd.NA).astype('Int64')
-
-    dfRoute['Style'] = styleCard
-    try:
-        updateModelWithDF(models.StyleRoute, dfRoute[['id','Stage', 'Style']], dfPreviousRoute)
-    except Exception as e:
-        raise ValueError(f'Error Saving Route: {e}')
-
-    #Get the freshly saved ids for each stage.
-    fields = ['id','Stage','PreReqs__Stage']
-    routePreReqs = models.StyleRoute.objects.filter(Style=styleCard).values(*fields)
-    dfSavedRoute = pd.DataFrame(routePreReqs) if routePreReqs else pd.DataFrame(columns=fields)
-    del routePreReqs, fields
-    
-    dfRoute.drop(inplace=True, columns=['id', 'Style'])
-    dfSavedRoute = dfSavedRoute.groupby(['id', 'Stage']).agg(
-        PreReqs=('PreReqs__Stage', lambda x: list(x.dropna()))
-    ).reset_index()
-    dfRoute = pd.merge(left=dfRoute, right=dfSavedRoute, on='Stage', how='left')
-    del dfSavedRoute
-
-    #Set names of old and new preseqs
-    dfRoute.rename(inplace=True, columns={'PreReqs_x':'NewPreReqs', 'PreReqs_y':'OldPresReqs'})
-
-    #Create a mapping dict to map stage names with id for object mapping
-    stageToId = dfRoute.set_index('Stage')['id'].to_dict()
-
-    #print(dfRoute)
-    dfRoute['NewPreReqs'] = dfRoute['NewPreReqs'].apply(normalizePreReqs)
-    dfRoute['OldPresReqs'] = dfRoute['OldPresReqs'].apply(normalizePreReqs)
-
-    #Map stage names to ids.
-    dfRoute['NewPreReqs'] = dfRoute['NewPreReqs'].apply(lambda stages: [stageToId.get(s, None) for s in stages])
-    dfRoute['OldPresReqs'] = dfRoute['OldPresReqs'].apply(lambda stages: [stageToId.get(s, None) for s in stages])
-
-    dfRoute.drop(inplace=True, columns=['Stage'])
-    
-
-    for _, row in dfRoute.iterrows():
-        styleRoute = models.StyleRoute.objects.get(id=row['id'])
-        
-        if row['OldPresReqs']:
-            styleRoute.PreReqs.remove(*row['OldPresReqs'])
-        
-        if row['NewPreReqs']:
-            styleRoute.PreReqs.add(*row['NewPreReqs'])
     
     dfAttachments['Content'] = styleCard
     for _, row in dfAttachments.iterrows():
@@ -366,6 +339,7 @@ def UpdateStyleCard(
             for key, value in rowDict.items():
                 setattr(attachment, key, value)
         else:
+            row['id'] = None
             attachment = models.Attachment(**row)
         
         attachment.save()
@@ -427,6 +401,13 @@ def ProcessStyleData(styleCard: models.StyleCard):
             'FileUrl': attachment.File.url,
             'FileName': attachment.File.name.split('/')[-1],
             'Description': attachment.Description,
+        })
+    if not serializedAttachments:
+        serializedAttachments.append({
+            'id': '',
+            'FileUrl': '',
+            'FileName': '',
+            'Description': '',
         })
     
     return model_to_dict(styleCard), variants, consumption, dfToListOfDicts(dfRoute), serializedAttachments

@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 
 from apparelManagement.models import Department, StyleCard, WorkOrder, OrderVariant
-from apparelManagement.models import StyleRoute, Currency
+from apparelManagement.models import StyleRoute, Currency, RoutePresetStage
 from planning.models import ProductionPlan, Capacity
 
 class Operation(models.Model):

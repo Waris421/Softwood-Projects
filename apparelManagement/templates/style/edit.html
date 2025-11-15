@@ -44,7 +44,7 @@
             <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
                 <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
                 <button id="btn_consumptionForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consumptionForm')">Consumption</button>
-                <button id="btn_routeForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeForm')">Route</button>
+                <button id="btn_routeBox" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeBox')">Route</button>
                 <button id="btn_attachmentForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('attachmentForm')">Attachments</button>
             </div>
         </div>
@@ -165,9 +165,19 @@
     </form>
 
     <!--Production Route Table-->
-    <form method="POST" id="routeForm" autocomplete="off" hidden>
+    <div id="routeBox" hidden>
+        <form method="POST" id="routeForm" autocomplete="off">
+            <div class="{{theme.border}}">
+                <div class="grid grid-cols-1 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+                    <div class="flex col-[1/2] items-center relative">
+                        <label class="mx-2 whitespace-nowrap">Route Type:&nbsp; </label>
+                        <select id="routePreset" class="{{theme.dropdown}}" name="RoutePreset" onclick="showSearchBox(this, '/options/preset-routes', resetRoute)"> </select>
+                    </div>
+                </div>
+            </div>
+        </form>
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+            <div class="grid grid-cols-4 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Stage
@@ -178,45 +188,14 @@
                         Pre-Requisites
                     </div>
                 </div>
-                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Actions
-                    </div>
-                </div>
             </div>
-            {% for data in route %}
-                <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
-                    <div>
-                        <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
-                    </div>
-                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
-                        <select class="{{theme.dropdown}}" id="id_RouteType_{{forloop.counter}}" name="type"></select>
-                    </div>
-                    <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
-                        <div class="dropdown w-full" id="id_ReqReq_{{forloop.counter}}" inputName="PreReqs">
-                            <div tabindex="0" role="button" class="{{theme.emptyButton}} w-full">
-                                Select options
-                            </div>
-                            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full"></ul>
-                        </div>
-                    </div>
-                    <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
-                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this, updateOptions)">
-                            <span>+</span>
-                        </button>
-                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
-                            <span>-</span>
-                        </button>
-                    </div>
-                </div>
-            {% endfor %}
         </div>
-    </form>
+    </div>
 
     <!--Attachment Form Table-->
     <form method="POST" id="attachmentForm" autocomplete="off" hidden>
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-5 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+            <div class="grid grid-cols-4 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
                 <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Description
@@ -224,37 +203,28 @@
                 </div>
                 <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Current File
+                        Add/Modify
                     </div>
                 </div>
                 <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
-                        Revised File
-                    </div>
-                </div>
-                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
                     <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
                         Actions
                     </div>
                 </div>
             </div>
             {% for data in attachments %}
-                <div class="grid grid-cols-5 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+                <div class="grid grid-cols-4 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
                     <div>
                         <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
                     </div>
                     <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
                         <input type="text" class="{{theme.textInput}}" value="{{data.Description}}" name="Description">
+                        <button type="button" class="material-symbols-outlined {{theme.hyperLink}}" onclick="window.open('{{ data.FileUrl }}');">open_in_new</button>
                     </div>
                     <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
-                        <a href="{{ data.FileUrl }}" class="{{theme.hyperLink}}" target="_blank">
-                            Open in new tab
-                        </a>
+                        <input type="file" class="{{theme.fileInput}}" name="File">
                     </div>
-                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
-                        <input type="file" class="{{theme.textInput}}" name="File">
-                    </div>
-                    <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <div class="flex col-[4/5] space-x-1 {{theme.align}} {{theme.justify}}">
                         <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                             <span>+</span>
                         </button>
@@ -321,7 +291,7 @@
     </div>
 
     <script> //To change view based on selected button
-        const formIds = ['consumptionForm', 'variantsForm','routeForm', 'attachmentForm'];
+        const formIds = ['consumptionForm', 'variantsForm','routeBox', 'attachmentForm'];
 
         function changeView(formId){
             let forms = [];
@@ -337,6 +307,48 @@
                     button.className = `{{theme.buttonBasic}}`;
                 }
             }
+        }
+    </script>
+
+    <script>    //To reset the route based on selected preset
+        async function resetRoute(source) {
+            showLoadingIcon();
+            const selectedPreset = source.value;
+            const response = await fetch(`/style/route-preset/details?id=${selectedPreset}`);
+
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage,`{{theme.errorBox}}`);
+
+                hideLoadingIcon();
+                return ;
+            }
+
+            const stages = await response.json();
+            const routeTable = document.getElementById('routeBox').children[1];
+            
+            while (routeTable.children.length > 1) {
+                routeTable.removeChild(routeTable.children[1]);
+            }
+            
+            const fragment = document.createDocumentFragment();
+            for (const stage of stages) {
+                const row = document.createElement('div');
+                row.innerHTML = `
+                    <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                        <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                            <input type="text" class="{{theme.textInput}}" value="${stage.Stage}" name="Stage" readonly>
+                        </div>
+                        <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                            <input type="text" class="{{theme.textInput}}" value="${stage.PreReqs.join(', ')}" name="PreReqs" readonly>
+                        </div>
+                    </div>
+                `
+                fragment.appendChild(row);
+            }
+            routeTable.appendChild(fragment);
+
+            hideLoadingIcon();
         }
     </script>
 
@@ -417,20 +429,11 @@
                 await appendOptions(`id_HasVariant_${index+1}`, yesOrNo, data.HasVariant);
             }
 
-            //Route data that was passed as JSON
-            const routeData = {{ routeJson|safe}};
+            response = await fetch('/options/preset-routes');
+            const routePresets = await response.json();
+            appendOptions('routePreset', routePresets, "{{style.RoutePreset}}");
 
-            //Production stages dropdown
-            response = await fetch('/options/prodstages');
-            const routeTypes = await response.json();
-            
-            //Apply the relevant dropdowns on all rows of route
-            for (const [index, data] of routeData.entries()) {
-                await appendOptions(`id_RouteType_${index+1}`, routeTypes, data.Stage);
-            }
-
-            const routeRow = document.getElementById('id_RouteType_1').parentElement.parentElement;
-            updateOptions(routeRow, routeData);
+            await resetRoute(document.getElementById('routePreset'));
 
             changeView ('consumptionForm');
 
@@ -572,6 +575,7 @@
             const attachmentForm = allForms['attachmentForm'];
 
             const style = styleForm.elements;
+            const route = routeForm.elements;
 
             let data = {};
              
@@ -582,11 +586,16 @@
                     data[group+'_'+element.name] = element.value;
                 }   
             }
+            group = 'route';
+            for (const element of route) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }  
+            }
 
             //Prepare the data for each Group
             data = formToTable('variant', variantsForm, data);
             data = formToTable('cosumption', consumptionForm, data);
-            data = formToTable('route', routeForm, data);
             data = formToTable('attachment', attachmentForm, data);
             
             const response = await submitData(data);

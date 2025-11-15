@@ -333,8 +333,8 @@ def UpdateStyle (request: HttpRequest, pk: str):
         return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
     if request.method == 'POST':
         
-        dfStyle, dfVariants, dfConsumption, dfRoute, dfAttachments = generic_services.refineFormData(request)
-        
+        dfStyle, dfRoute, dfVariants, dfConsumption, dfAttachments = generic_services.refineFormData(request)
+
         try:
             style_card_service.UpdateStyleCard(dfStyle, dfVariants, dfConsumption, dfRoute, dfAttachments)
             return HttpResponse('OK', status=200)
@@ -438,6 +438,25 @@ def CopyStyle(request: HttpRequest, pk: str):
         return render(request, 'style/copy.html', context)
 
 @login_required(login_url='/login')
+def StyleRoutePrssetDetails(request: HttpRequest):
+    if request.method != 'GET':
+        return generic_services.showMessageResponse(request, 'Not allowed', 403)
+    
+    id = request.GET.get('id', None)
+
+    if id:
+        try:
+            routePreset = models.RoutePreset.objects.get(id=id)
+        except:
+            return HttpResponse('Invalid Preset', status=400)
+
+        data = style_card_service.GetRoutePresetStages(routePreset)
+    else:
+        data = []
+
+    return JsonResponse(data, safe=False)
+
+@login_required(login_url='/login')
 def WorkOrder (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='view'):
         return generic_services.showMessageResponse(request, 'Access Denied', 403)
@@ -500,15 +519,11 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
     if request.method == 'POST':
         if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='change'):
             return generic_services.showMessageResponse(request, 'Access Denied', 403)
-        
-        #Convert the json to a dict
-        jsonData = json.loads(request.body.decode('utf-8'))
 
-        dfOrder, dfVariants, dfRequirement = generic_services.refineJson(jsonData)
-        del jsonData
+        dfOrder, dfVariants, dfRequirement, dfAttachments = generic_services.refineFormData(request)
 
         try:
-            work_order_service.UpdateWorkOrder(orderObject, dfOrder, dfVariants, dfRequirement)
+            work_order_service.UpdateWorkOrder(orderObject, dfOrder, dfVariants, dfRequirement, dfAttachments)
             return HttpResponse('OK', status=200)
         except Exception as e:
             print(e)
@@ -517,10 +532,11 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='view'):
             return generic_services.showMessageResponse(request, 'Access Denied', 403)
         
-        order, variants, requirement = work_order_service.ProcessOrderData(orderObject)
+        order, variants, requirement, attachments = work_order_service.ProcessOrderData(orderObject)
         context = {'order':order,
                    'var':variants,
                    'req':requirement, 'reqJson':json.dumps(list(requirement)),
+                   'attachments': attachments, 'attachmentsJson': json.dumps(attachments),
                    'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'work_order/edit.html', context)

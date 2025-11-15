@@ -78,8 +78,6 @@ def SetSource(request: HttpRequest):
         else:
             startingDD = TODAY.date()
         
-        print(startingDD)
-        
         if endingDD:
             endingDD = generic_services.convertStrToDateTime(endingDD, '%Y-%m-%d').date()
         elif orderFilter:

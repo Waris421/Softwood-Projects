@@ -26,6 +26,7 @@ urlpatterns = [
     path('style/<str:pk>/edit/', views.UpdateStyle, name='editStyle'),
     path('style/<str:pk>/delete/', views.DeleteStyle, name='deleteStyle'),
     path('style/<str:pk>/copy/', views.CopyStyle, name='copyStyle'),
+    path('style/route-preset/details', views.StyleRoutePrssetDetails, name='getRoutepresetDetails'),
 
     path('workorder', views.WorkOrder, name='WOs'),
     path('workorder/add', views.AddWorkOrder, name='addWO'),
@@ -93,4 +94,5 @@ urlpatterns = [
     path('options/unit/<str:group>', options_service.getUnitsForGroup, name='unitsForGroup'),
     path('options/workorders', options_service.getWorkOrders, name='workOrders'),
     path('options/purchaseorders/open', options_service.getOpenPOs, name='openPOs'),
+    path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 ]

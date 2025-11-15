@@ -40,6 +40,8 @@ theme = {
     'textInputTransparent': 'input input-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700',
     'textInputLarge': 'textarea textarea-bordered w-full text-center dark:bg-gray-800 dark:border-gray-700 dark:text-white',
 
+    'fileInput': 'file-input file-input-bordered file-input-primary w-full text-center cursor-pointer',
+
     'checkbox': 'checkbox',
     'radio': 'radio',
     'range': 'range',

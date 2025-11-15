@@ -50,6 +50,7 @@ Routes = [
     ('Embelishment','Embelishment'),
     ('Embossing','Embossing'),
     ('Final Audit','Final Audit'),
+    ('Testing','Testing'),
 ]
 
 OrderTypes = [
@@ -206,6 +207,7 @@ class StyleCard (models.Model):
     Category = models.CharField (max_length=15, choices=Categories)
     Notes = models.CharField (max_length = 40)
     Attachments = GenericRelation('Attachment', content_type_field='ContentType', object_id_field='ObjectId')
+    RoutePreset = models.ForeignKey('RoutePreset', on_delete=models.PROTECT)
 
 class StyleVariant (models.Model):
     """Data model for a style's variants."""
@@ -255,6 +257,32 @@ class StyleRoute (models.Model):
             models.Index(fields=['Style']),
         ]
 
+class RoutePreset(models.Model):
+    """Model definition for RoutePrest."""
+
+    id = models.AutoField(primary_key=True)
+    Name = models.CharField(max_length=100, unique=True)
+    class Meta:
+        """Meta definition for RoutePrest."""
+
+        indexes = [
+            models.Index(fields=['Name']),
+        ]
+
+class RoutePresetStage(models.Model):
+    """Model definition for RoutePresetStage."""
+
+    id = models.AutoField(primary_key=True)
+    RoutePreset = models.ForeignKey(RoutePreset, on_delete=models.CASCADE)
+    Stage = models.CharField (max_length=50, choices = Routes, blank=True, null=True) 
+    PreReqs = models.ManyToManyField('self', blank=True,symmetrical=False)   
+
+    class Meta:
+        """Meta definition for RoutePresetStages."""
+        indexes = [
+            models.Index(fields=['RoutePreset']),
+        ]
+
 class WorkOrder (models.Model):
     """Data model for a Work Order's main data."""
 
@@ -270,6 +298,7 @@ class WorkOrder (models.Model):
     Agent = models.CharField (max_length=50, blank=True, null=True)
     Commission = models.FloatField (null=True, blank=True, default=0.0)
     ExcessCut = models.FloatField (blank=True, null=True, default=3.0)
+    Attachments = GenericRelation('Attachment', content_type_field='ContentType', object_id_field='ObjectId')
 
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.

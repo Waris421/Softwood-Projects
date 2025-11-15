@@ -10,7 +10,9 @@
         <form action="{% url 'marketing:exportData' %}" id="filtersForm" method="get" autocomplete="off">
             <div id="monthsFilterDiv" hidden>
                 {% for month in months %}
-                    <input name="months[]" type="text" data-month-name="{{month.Month}}" value="{{month.Month}}">
+                    {% if month.Checked %}
+                        <input name="months[]" type="text" data-month-name="{{month.Month}}" value="{{month.Month}}">
+                    {% endif %}
                 {% endfor %}
             </div>
             <div id="cateforiesFilterDiv" hidden>
@@ -41,23 +43,32 @@
         <div class="grid grid-cols-4 {{theme.justify}} {{theme.align}}">
             <div class="flex flex-col col-[1/2] items-center">
                 <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
-                    <h2 class="card-title text-xl font-bold mb-4">Country</h2>
-                    <input id="countrySearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
+                    <div id="countriesHeading" tabindex="0" class="btn w-full justify-center">
+                        <h2 class="card-title font-bold flex-grow text-left">Country</h2>
+                        <input id="selectAllCountries" type="checkbox" class="{{theme.checkbox}}" {{checks.country}}>  
+                    </div>
+                    <input id="countrySearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4">                        
                     <ul id="countrySelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
                 
             </div>
             <div class="flex flex-col col-[2/3] items-center">
                 <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
-                    <h2 class="card-title text-xl font-bold mb-4">Importer (First 50)</h2>
-                    <input id="importerSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
+                    <div id="importersHeading" tabindex="0" class="btn w-full justify-center">
+                        <h2 class="card-title font-bold flex-grow text-left">Importers (First 50)</h2>
+                        <input id="selectAllImporters" type="checkbox" class="{{theme.checkbox}}" {{checks.importer}}>  
+                    </div>
+                    <input id="importerSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4">
                     <ul id="importerSelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
             </div>
             <div class="flex flex-col col-[3/4] items-center">
                 <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
-                    <h2 class="card-title text-xl font-bold mb-4">Exporter (First 50)</h2>
-                    <input id="exporterSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4" />
+                    <div id="exportersHeading" tabindex="0" class="btn w-full justify-center">
+                        <h2 class="card-title font-bold flex-grow text-left">Exporters (First 50)</h2>
+                        <input id="selectAllExporters" type="checkbox" class="{{theme.checkbox}}" {{checks.exporter}}>  
+                    </div>
+                    <input id="exporterSearch" type="text" placeholder="Type to search" class="input text-xs input-bordered w-full mb-4">
                     <ul id="exporterSelector" class="menu bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto"></ul>
                 </div>
             </div>
@@ -67,7 +78,8 @@
                         <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
                             <div class="dropdown w-full">
                                 <div id="monthDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
-                                    Month
+                                    <span class="flex-grow text-left">Month</span>
+                                    <input type="checkbox" id="selectAllMonths" class="{{theme.checkbox}}" {{checks.month}}>
                                 </div>
                                 <ul tabindex="0" id="monthSelector" class="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
                                     {% for data in months %}
@@ -92,8 +104,9 @@
                     <div class="flex flex-col col-[1/2] items-center">
                         <div class="card w-full max-w-xs bg-base-100 shadow-xl rounded-lg p-6 {{theme.border}}">
                             <div class="dropdown w-full">
-                                <div id="monthDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
-                                    Category
+                                <div id="categoryDropdown" tabindex="0" class="btn w-full justify-start border-gray-300">
+                                    <span class="flex-grow text-left">Category</span>
+                                    <input type="checkbox" id="selectAllCategories" class="{{theme.checkbox}}" {{checks.category}}>
                                 </div>
                                 <ul tabindex="0" id="categorySelector" class="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-full max-h-[15rem] overflow-y-auto mt-2">
                                 </ul>
@@ -172,12 +185,30 @@
     <script>    //To handle the months selector
         const monthSelector = document.getElementById('monthSelector');
         const monthsFilterDiv = document.getElementById('monthsFilterDiv');
+        const monthDropdown = document.getElementById('monthDropdown');
         
         monthSelector.addEventListener('change', (event) => {
             if (event.target.type === 'checkbox') {
                 const selectedMonthName = event.target.value;
                 const isChecked = event.target.checked;
                 changeMonthFilter(selectedMonthName, isChecked);
+            }
+        });
+
+        monthDropdown.addEventListener('change', (event) => {
+            if (event.target.type === 'checkbox') {
+                const isChecked = event.target.checked;
+                
+                const dropdownOptions = monthDropdown.nextElementSibling.children;
+                
+                for (const option of dropdownOptions) {
+                    const checkBok = option.children[0].children[1];
+
+                    checkBok.checked = isChecked;
+                    const selectedMonthName = checkBok.value;
+                    
+                    changeMonthFilter(selectedMonthName, isChecked);
+                }
             }
         });
 
@@ -197,12 +228,12 @@
                 monthsFilterDiv.removeChild(inputToRemove);
             }
         }
-
     </script>
     
     <script>    //To handle the category selector
         const categorySelector = document.getElementById('categorySelector');
         const categoryFilterDiv = document.getElementById('cateforiesFilterDiv');
+        const categoryDropdown = document.getElementById('categoryDropdown');
 
         let allCategoriesData = [];
 
@@ -226,6 +257,23 @@
                     const isChecked = event.target.checked;
 
                     changeCategoryFilter(selectedCategory, isChecked);
+                }
+            });
+
+            categoryDropdown.addEventListener('change', (event) => {
+                if (event.target.type === 'checkbox') {
+                    const isChecked = event.target.checked;
+
+                    const dropdownOptions = categoryDropdown.nextElementSibling.children;
+                    
+                    for (const option of dropdownOptions) {
+                        const checkBok = option.children[0].children[1];
+
+                        checkBok.checked = isChecked;
+                        const selectedCategory = checkBok.value;
+
+                        changeCategoryFilter(selectedCategory, isChecked);
+                    }
                 }
             });
         }
@@ -280,6 +328,7 @@
         const countrySelector = document.getElementById('countrySelector');
         const countrySearch = document.getElementById('countrySearch');
         const countriesFilterDiv = document.getElementById('countriesFilterDiv');
+        const countriesHeading = document.getElementById('countriesHeading');
 
         let allCountriesData = [];
         let searchTimer;
@@ -309,6 +358,24 @@
                 searchTimer = setTimeout(() => {
                     applySearch(searchTerm, params, getCountries, renderCountries, selectedCountries);
                 }, 500);
+            });
+
+            countriesHeading.addEventListener('change', (event) => {
+                if (event.target.type === 'checkbox') {
+                    const isChecked = event.target.checked;
+
+                    const countries = countrySelector.children;
+
+                    for (const country of countries) {
+                        const checkbox = country.children[0].children[1];
+
+                        checkbox.checked = isChecked;
+
+                        const selectedCountryCode = checkbox.value;
+
+                        changeCountryFilter(selectedCountryCode, isChecked);
+                    }
+                }
             });
         }
 
@@ -399,6 +466,7 @@
         const importerSelector = document.getElementById('importerSelector');
         const importerSearch = document.getElementById('importerSearch');
         const importersFilterDiv = document.getElementById('importersFilterDiv');
+        const importersHeading = document.getElementById('importersHeading');
 
         let allImportersData = [];
 
@@ -427,6 +495,23 @@
                 searchTimer = setTimeout(() => {
                     applySearch(searchTerm, params, getImporters, renderImporters, selectedImporters);
                 }, 500);
+            });
+
+            importersHeading.addEventListener('change', (event) => {
+                if (event.target.type === 'checkbox') {
+                    const isChecked = event.target.checked;
+
+                    const importers = importerSelector.children;
+
+                    for (const importer of importers) {
+                        const checkbox = importer.children[0].children[1];
+
+                        checkbox.checked = isChecked;
+                        const selectedImporterName = checkbox.value;
+
+                        changeImporterFilter(selectedImporterName, isChecked);
+                    }
+                }
             });
         }
 
@@ -495,6 +580,7 @@
         const exporterSelector = document.getElementById('exporterSelector');
         const exporterSearch = document.getElementById('exporterSearch');
         const exportersFilterDiv = document.getElementById('exportersFilterDiv');
+        const exportersHeading = document.getElementById('exportersHeading');
 
         let allExportersData = [];
 
@@ -510,9 +596,9 @@
 
             exporterSelector.addEventListener('change', (event) => {
                 if (event.target.type === 'checkbox') {
-                    const selectedImporterName = event.target.value;
+                    const selectedExporterName = event.target.value;
                     const isChecked = event.target.checked;
-                    changeExporterFilter(selectedImporterName, isChecked);
+                    changeExporterFilter(selectedExporterName, isChecked);
                 }
             });
 
@@ -523,6 +609,23 @@
                 searchTimer = setTimeout(() => {
                     applySearch(searchTerm, params, getExporters, renderExporters, selectedExporters);
                 }, 500);
+            });
+
+            exportersHeading.addEventListener('change', (event) => {
+                if (event.target.type === 'checkbox') {
+                    const isChecked = event.target.checked;
+
+                    const exporters = exporterSelector.children;
+
+                    for (const exporter of exporters) {
+                        const checkbox = exporter.children[0].children[1];
+
+                        checkbox.checked = isChecked;
+                        const selectedExporterName = checkbox.value;
+
+                        changeExporterFilter(selectedExporterName, isChecked);
+                    }
+                }
             });
         }
 
