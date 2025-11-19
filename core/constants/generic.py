@@ -113,6 +113,7 @@ APP_OPTIONS = [
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')
 GST_RATE = 18.0
+GST_RATE_FOR_SERVICES = 16.0
 LOCAL_CURRENCY = 'PKR'
 
 NOW = datetime.now()

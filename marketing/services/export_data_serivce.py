@@ -37,6 +37,19 @@ def convertCategoryToHSCodeStart(categories: List[str]) -> List[str]:
 
     return list(set(hsCodes))
 
+def CalculateChecks(
+        months: List[str], importers: List[str], exporters: List[str], categories: List[str], countries: List[str]
+):
+    checks = {
+        'month': 'checked' if months else '',
+        'importer': 'checked' if importers else '',
+        'exporter': 'checked' if exporters else '',
+        'category': 'checked' if categories else '',
+        'country': 'checked' if countries else '',
+    }
+
+    return checks
+
 def ExtractUploadedData(dataFile):
     if str(dataFile.name).endswith(('.xls', '.xlsx')):
         dfUploadedData = pd.read_excel(dataFile)
@@ -149,9 +162,24 @@ def ConfirmPendingUploads(approval: str):
                 models.ExportData.objects.bulk_create(dataToAdd)
         pendingUploads.delete()
 
-def GetMonthWiseQty(selectedMonths: List[str]):    
-    fields = ['Month', 'Quantity', 'Checked']
-    exportData = models.ExportData.objects.annotate(
+def GetMonthWiseQty(
+        selectedMonths: List[str], countries: List[str], importerAliases: List[str],
+        exporterAliases: List[str],
+):    
+    filters = Q()
+    if countries:
+        filters &= Q(Country__in=countries)
+    
+    if importerAliases:
+        importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
+        filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
+    
+    if exporterAliases:
+        ExporterNames = models.ExporterAlias.objects.filter(Alias__in=exporterAliases).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=ExporterNames) | Q(Exporter__in=exporterAliases)
+    
+    fields = ['Month', 'Quantity', 'Checked']    
+    exportData = models.ExportData.objects.filter(filters).annotate(
         Month=TruncMonth('ShipDate')
     ).values('Month').annotate(
         Quantity=Sum('Quantity')
@@ -178,21 +206,8 @@ def GetMonthWiseQty(selectedMonths: List[str]):
 
     return dfToListOfDicts(dfExportData)
 
-def CalculateChecks(
-        months: List[str], importers: List[str], exporters: List[str], categories: List[str], countries: List[str]
-):
-    checks = {
-        'month': 'checked' if months else '',
-        'importer': 'checked' if importers else '',
-        'exporter': 'checked' if exporters else '',
-        'category': 'checked' if categories else '',
-        'country': 'checked' if countries else '',
-    }
-
-    return checks
-
 def GetCountrySummary(
-        months: List[str], importerAliases: List[str], exporters: List[str], categories: List[str], countries: List[str], search: str|None,
+        months: List[str], importerAliases: List[str], exporterAliases: List[str], categories: List[str], countries: List[str], search: str|None,
         minQty: str|None, maxQty:str|None, minPrice:str|None, maxPrice:str|None
 ):
     startDate, endDate = convertMonthstoStrtEndDates(months)
@@ -202,8 +217,9 @@ def GetCountrySummary(
         importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
         filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
     
-    if exporters:
-        filters &= Q(Exporter__in=exporters)
+    if exporterAliases:
+        ExporterNames = models.ExporterAlias.objects.filter(Alias__in=exporterAliases).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=ExporterNames) | Q(Exporter__in=exporterAliases)
     
     if categories:
         HSCodes = convertCategoryToHSCodeStart(categories)
@@ -249,7 +265,7 @@ def GetCountrySummary(
     return dfToListOfDicts(dfExportData)
 
 def GetCategorySummary(
-        months: List[str], importerAliases: List[str], exporters: List[str], countries: List[str],
+        months: List[str], importerAliases: List[str], exporterAliases: List[str], countries: List[str],
         minQty: str|None, maxQty:str|None, minPrice:str|None, maxPrice:str|None
 ):
     startDate, endDate = convertMonthstoStrtEndDates(months)  
@@ -262,8 +278,9 @@ def GetCategorySummary(
         importerNames = models.ImporterAlias.objects.filter(Alias__in=importerAliases).values_list('Name', flat=True)
         filters &= Q(Importer__in=importerNames) | Q(Importer__in=importerAliases)
     
-    if exporters:
-        filters &= Q(Exporter__in=exporters)
+    if exporterAliases:
+        ExporterNames = models.ExporterAlias.objects.filter(Alias__in=exporterAliases).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=ExporterNames) | Q(Exporter__in=exporterAliases)
     
     if minQty:
         filters &= Q(Quantity__gte=minQty)
@@ -289,7 +306,7 @@ def GetCategorySummary(
     return dfToListOfDicts(dfExportData)
 
 def GetImporterSummary(
-        months: List[str], countries: List[str], exporters: List[str], categories: List[str], importers: List[str], search: str|None,
+        months: List[str], countries: List[str], exporterAliases: List[str], categories: List[str], importers: List[str], search: str|None,
         minQty: str|None, maxQty:str|None, minPrice:str|None, maxPrice:str|None
 ):
     startDate, endDate = convertMonthstoStrtEndDates(months)    
@@ -298,8 +315,9 @@ def GetImporterSummary(
     if countries:
         filters &= Q(Country__in=countries)
     
-    if exporters:
-        filters &= Q(Exporter__in=exporters)
+    if exporterAliases:
+        ExporterNames = models.ExporterAlias.objects.filter(Alias__in=exporterAliases).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=ExporterNames) | Q(Exporter__in=exporterAliases)
     
     if categories:
         HSCodes = convertCategoryToHSCodeStart(categories)
@@ -379,7 +397,8 @@ def GetExporterSummary(
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
     if search:
-        filters &= Q(Exporter__icontains = search)
+        exporterNames = models.ExporterAlias.objects.filter(Name__icontains=search).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=exporterNames) | Q(Exporter__icontains=search)
     
     if minQty:
         filters &= Q(Quantity__gte=minQty)
@@ -394,6 +413,20 @@ def GetExporterSummary(
     exportData = models.ExportData.objects.filter(filters).values('Exporter').annotate(Quantity=Sum('Quantity'))
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData,fields
+
+    fields = ['Name', 'Alias']
+    exporterAliases = models.ExporterAlias.objects.filter(Name__in=dfExportData['Exporter'].to_list()).values(*fields)
+    dfExporterAliases = pd.DataFrame(exporterAliases) if exporterAliases else pd.DataFrame(columns=fields)
+    del exporterAliases, fields
+    
+    dfExportData = pd.merge(left=dfExportData, right=dfExporterAliases, left_on='Exporter', right_on='Name', how='left')
+    del dfExporterAliases
+    dfExportData.drop(inplace=True, columns='Name')
+
+    dfExportData['Exporter'] = np.where(dfExportData['Alias'].isna(), dfExportData['Exporter'], dfExportData['Alias'])
+    dfExportData.drop(inplace=True, columns=['Alias'])
+
+    dfExportData = dfExportData.groupby('Exporter').agg({'Quantity': 'sum'}).reset_index()
 
     #sort w.r.t. country first
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
@@ -410,7 +443,7 @@ def GetExporterSummary(
     return dfToListOfDicts(dfExportData)
 
 def GetDetailsTable(
-        months: List[str], countries: List[str], exporters: List[str], importerAliases: List[str], categories: List[str], page: str,
+        months: List[str], countries: List[str], exporterAliases: List[str], importerAliases: List[str], categories: List[str], page: str,
         minQty: str|None, maxQty:str|None, minPrice:str|None, maxPrice:str|None
 ):
     startDate, endDate = convertMonthstoStrtEndDates(months)
@@ -428,8 +461,9 @@ def GetDetailsTable(
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
 
-    if exporters:
-        filters &= Q(Exporter__in=exporters)
+    if exporterAliases:
+        ExporterNames = models.ExporterAlias.objects.filter(Alias__in=exporterAliases).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=ExporterNames) | Q(Exporter__in=exporterAliases)
     
     if minQty:
         filters &= Q(Quantity__gte=minQty)
@@ -464,7 +498,7 @@ def GetDetailsTable(
     return dfToListOfDicts(dfExportData), numberOfPages
 
 def GetStats(
-        months: List[str], countries: List[str], exporters: List[str], importerAliases: List[str], categories: List[str],
+        months: List[str], countries: List[str], exporterAliases: List[str], importerAliases: List[str], categories: List[str],
         minQty: str|None, maxQty:str|None, minPrice:str|None, maxPrice:str|None
 ):
     startDate, endDate = convertMonthstoStrtEndDates(months)
@@ -482,8 +516,9 @@ def GetStats(
         for HSCode in HSCodes:
             filters &= Q(HSCode__startswith=HSCode)
 
-    if exporters:
-        filters &= Q(Exporter__in=exporters)
+    if exporterAliases:
+        ExporterNames = models.ExporterAlias.objects.filter(Alias__in=exporterAliases).values_list('Name', flat=True)
+        filters &= Q(Exporter__in=ExporterNames) | Q(Exporter__in=exporterAliases)
     
     if minQty:
         filters &= Q(Quantity__gte=minQty)
@@ -686,6 +721,100 @@ def GetImportersForRefinement(filterMethod: str|None, search: str|None):
 
     return dfToListOfDicts(dfImporterNames), numberOfSamples, totalDataLength
 
+def GetExportersForRefinement(filterMethod: str|None, search: str|None):
+    QUERY_LIMIT = 20
+    
+    hasFilters = False
+    filters = Q()
+
+    aliases = models.ExporterAlias.objects.values_list('Name', flat=True)
+    if filterMethod == 'pending':
+        filters &= ~Q(Exporter__in=Subquery((aliases)))
+        hasFilters = True
+    elif filterMethod == 'previous':
+        filters &= Q(Exporter__in=Subquery((aliases)))
+        hasFilters = True
+    
+    if search:
+        filters &= Q(Exporter__icontains=search)
+        hasFilters = True
+    
+    if not hasFilters:
+        return [], None, None
+    del hasFilters
+
+    fields = ['Exporter']
+    exporterNames = models.ExportData.objects.filter(filters).values(*fields).distinct()
+    dfExporterNames = pd.DataFrame(exporterNames) if exporterNames else pd.DataFrame(columns=fields)
+    del exporterNames, filters
+
+    fields = ['Name','Alias']
+    aliases = models.ExporterAlias.objects.all().values(*fields)
+    dfExporterAliases = pd.DataFrame(aliases) if aliases else pd.DataFrame(columns=fields)
+    del aliases, fields
+
+    addedAliases = dfExporterAliases['Alias'].to_list()
+
+    dfExporterNames = pd.merge(left=dfExporterNames, right=dfExporterAliases, left_on='Exporter', right_on='Name', how='left')
+    del dfExporterAliases
+    dfExporterNames.drop(inplace=True, columns=['Name'])
+    
+    totalDataLength = len(dfExporterNames)
+    
+    numberOfSamples = min(QUERY_LIMIT, totalDataLength)
+    dfExporterNames = dfExporterNames.sample(n=numberOfSamples).reset_index(drop=True)
+
+    unAliasedExporters = dfExporterNames[dfExporterNames['Alias'].isna()]['Exporter'].to_list()
+    
+    if unAliasedExporters:
+        prompt = f"""
+                Given the following company names, provide a single, standardized name.
+
+                **Existing Aliases to Use:**
+                {addedAliases}
+
+                **Instructions:**
+                1. Check if any of the provided company names are a direct match or a clear alias of a name in the "Existing Aliases to Use" list.
+                2. If a match is found, use the corresponding alias from the list as the "SimplifiedName."
+                3. If no match is found, create a new "SimplifiedName." For this new name, ensure only the first letter of each word is capitalized,
+                and remove common legal suffixes like Ltd, LLC, Inc, GmbH, Co., corp etc.
+                4. If the "Existing Aliases to Use" list is empty, always follow Instruction #3.
+                5. Be concise and respond only with the name.
+
+                **Company Names to Standardize:**
+                {unAliasedExporters}
+                """
+
+        del unAliasedExporters, addedAliases
+
+        responseSchema = {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "Exporter": {"type": "STRING"},
+                    "SimplifiedName": {"type": "STRING"}
+                },
+                "required": ["Exporter", "SimplifiedName"]
+            }
+        }
+        try:
+            suggestions = askAI(prompt, responseSchema)
+        except Exception as e:
+            raise ValueError(e)
+        del prompt, responseSchema
+        
+        dfSuggestions = pd.DataFrame(suggestions) if suggestions else pd.DataFrame(columns=['Importer', 'SimplifiedName'])
+        del suggestions
+
+        dfExporterNames = pd.merge(left=dfExporterNames, right=dfSuggestions, on='Exporter', how='left')
+        del dfSuggestions
+
+        dfExporterNames['Alias'] = np.where(dfExporterNames['Alias'].isna(), dfExporterNames['SimplifiedName'], dfExporterNames['Alias'])
+        dfExporterNames.drop(inplace=True, columns=['SimplifiedName'])
+
+    return dfToListOfDicts(dfExporterNames), numberOfSamples, totalDataLength
+
 def SaveImportersAlias(dfAliases: pd.DataFrame):
     fields = ['id', 'Name']
     previousData = models.ImporterAlias.objects.filter(Name__in=dfAliases['Importer'].to_list()).values(*fields)
@@ -698,5 +827,20 @@ def SaveImportersAlias(dfAliases: pd.DataFrame):
     
     try:
         updateModelWithDF(models.ImporterAlias, dfAliases, dfPreviousData)
+    except Exception as e:
+        raise ValueError(e)
+
+def SaveExportersAlias(dfAliases: pd.DataFrame):
+    fields = ['id', 'Name']
+    previousData = models.ExporterAlias.objects.filter(Name__in=dfAliases['Exporter'].to_list()).values(*fields)
+    dfPreviousData = pd.DataFrame(previousData) if previousData else pd.DataFrame(columns=fields)
+    del previousData, fields
+
+    dfAliases.rename(inplace=True, columns={'Exporter':'Name'})
+
+    dfAliases = pd.merge(left=dfAliases, right=dfPreviousData, on='Name', how='left')
+    
+    try:
+        updateModelWithDF(models.ExporterAlias, dfAliases, dfPreviousData)
     except Exception as e:
         raise ValueError(e)

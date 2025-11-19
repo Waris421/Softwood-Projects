@@ -9,7 +9,7 @@ from django.db import transaction
 from .. import models
 
 from core.services.generic_services import dfToListOfDicts, dfToJSON, convertTextToBool, concatenateValues, formatCurrencyAmount
-from core.constants.generic import GST_RATE
+from core.constants.generic import GST_RATE_FOR_SERVICES
 
 def filterWorkOrderRoute(dfResults: pd.DataFrame, dfAddedPlans: pd.DataFrame, ignore: str|None):
     addPlansMask = dfResults['ProductionPlan'].isin(dfAddedPlans['ProductionPlan'])
@@ -398,11 +398,11 @@ def PrintContract(contract: models.OutSourceJobContract, varFilter: str):
     heading = model_to_dict(contract)
     heading['ApprovedBy'] = approvedBy
     heading['Source'] = source
-    heading['GSTRate'] = GST_RATE
+    heading['GSTRate'] = GST_RATE_FOR_SERVICES
 
     summary = {}
     summary['ValueBeforeTax'] = dfContractDetails['Value'].astype(float).sum().round(0).astype(int)
-    summary['TaxAmount'] = int(summary['ValueBeforeTax'] * (GST_RATE/100))
+    summary['TaxAmount'] = int(summary['ValueBeforeTax'] * (GST_RATE_FOR_SERVICES/100))
     summary['GrandTotal'] = summary['ValueBeforeTax'] + summary['TaxAmount']
 
     for key,value in summary.items():

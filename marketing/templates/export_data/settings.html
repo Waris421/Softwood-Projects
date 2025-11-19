@@ -12,7 +12,7 @@
         </div>
         <div class="flex btn-group gap-2 {{theme.align}} {{theme.justify}} mt-2">
             <a class="{{theme.buttonBasic}}" href="{% url 'marketing:refineImporters' %}" role="button">Customer Alias</a>
-            <a class="{{theme.buttonBasic}}" href="#" role="button">Supplier Alias</a>
+            <a class="{{theme.buttonBasic}}" href="{% url 'marketing:refineExporters' %}" role="button">Supplier Alias</a>
         </div>
     </div>
 {% endblock content %}

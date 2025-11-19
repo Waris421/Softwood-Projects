@@ -94,6 +94,31 @@
         </div>
     </form>
 
+    <!--Inventory history box-->
+    <div id="historyContainer" class="card bg-base-200 shadow-xl absolute hidden">
+        <div class="card-body p-4 pt-10 pr-10 relative">
+            <button id="historyCloseButton" class="btn btn-sm btn-circle absolute right-2 top-2">✕</button>
+
+            <h2  class="card-title text-sm">Stock History</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th class="text-center">PO Number</th>
+                            <th class="text-center">Receipt Number</th>
+                            <th class="text-center">Receipt Date</th>
+                            <th class="text-center">Supplier</th>
+                            <th class="text-center">Free Qty</th>
+                            <th class="text-center">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historytData" >
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>    //To select all visible boxes
         function selectAll(box) {
             const checkStatus = box.checked;
@@ -112,10 +137,11 @@
             
             const source = event.target;
             const inventoryCode = source.parentElement.parentElement.children[1].children[0].value;
+            const variant = source.parentElement.parentElement.children[3].children[0].value;
             
             const url = "{% url 'apparelManagement:inventoryFreeStockHistory' %}";
 
-            const response = await fetch(`${url}?code=${inventoryCode}`);
+            const response = await fetch(`${url}?code=${inventoryCode}&variant=${variant}`);
 
             if (!response.ok) {
                 errorMessage = await response.text();
@@ -125,9 +151,69 @@
                 return ;
             }
 
-            showMessage('This feature is under construction');
+            const history = await response.json();
+
+            renderHistoryBox(event, history);
 
             hideLoadingIcon();
+        }
+
+        function renderHistoryBox(event, data) {
+            const container = document.getElementById('historyContainer');
+            const dataList = document.getElementById('historytData');
+            const historyCloseButton = document.getElementById('historyCloseButton');
+
+            dataList.innerHTML = '';
+
+            const tableCellHelper = (content, isLink=false, url = '') => {
+                const td = document.createElement('td');
+
+                td.classList.add('text-center');
+
+                if (isLink) {
+                    const link = document.createElement('a');
+                    link.classList.add(...'{{theme.hyperLink}}'.split(' '));
+                    link.href = url;
+                    link.textContent = content;
+                    link.target = '_blank';
+                    td.appendChild(link);
+                } else {
+                    td.textContent = content;
+                }
+                return td;
+            };
+
+            const fragment = document.createDocumentFragment();
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                const columns = [
+                    { key: 'PONumber', isLink: true, url: row['POUrl'] },
+                    { key: 'ReceiptNumber', isLink: true, url: row['ReceiptUrl'] },
+                    { key: 'ReceiptDate' },
+                    { key: 'Supplier' },
+                    { key: 'FreeQty' },
+                    { key: 'Value' },
+                ];
+                columns.forEach(column => {
+                    const cell = tableCellHelper(row[column.key], column.isLink, column.url);
+                    tr.appendChild(cell);
+                });
+                fragment.appendChild(tr);
+            });
+            dataList.appendChild(fragment);
+
+            const left = event.pageX;
+            const top = event.pageY;
+            
+            container.style.left = `${left}px`;
+            container.style.top = `${top}px`;
+            
+            container.classList.remove('hidden');
+
+            historyCloseButton.addEventListener('click', () => {
+                container.classList.add('hidden');
+            });
         }
     </script>
 

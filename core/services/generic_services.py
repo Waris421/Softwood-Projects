@@ -21,9 +21,10 @@ from django.db.models import Model
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.template.loader import render_to_string
 from django.http import HttpRequest, HttpResponse
+from django.urls import reverse
 from django.shortcuts import render
-from django_countries import countries
 from django.core.exceptions import ValidationError
+from django_countries import countries
 
 from core.constants.generic import API_KEY_FOR_AI, LOCAL_CURRENCY
 from core.services.auth_service import getNavLinks
@@ -495,6 +496,29 @@ def roundFloatCols(df: pd.DataFrame):
         )
     
     return df
+
+def generateUrlfromPk(pkSeries: pd.Series, appName: str, pathName: str):
+    """
+    Generates a Series of URLs from a Series of primary keys.
+
+    Args:
+        pkSeries (pd.Series): The column containing primary keys.
+        appName (str): The Django application namespace.
+        pathName (str): The name defined in the path.
+
+    Returns:
+        pd.Series: A Series containing the generated relative URL paths.
+    """
+    fullUrlName = f"{appName}:{pathName}"
+
+    urls = [
+        reverse(fullUrlName, kwargs={'pk': pk})
+        if pd.notna(pk)
+        else None
+        for pk in pkSeries
+    ]
+
+    return pd.Series(urls, index=pkSeries.index)
 
 def convertMonthstoStrtEndDates(months: List[str], format='%b-%Y'):
     dates = [datetime.strptime(m, format) for m in months]

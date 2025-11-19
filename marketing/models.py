@@ -64,7 +64,7 @@ class ExporterAlias(models.Model):
     '''Model definition for Exporter Aliasing.'''
     id = models.AutoField(primary_key=True)
     Name = models.CharField(max_length=255, unique=True)
-    Alias = models.CharField(max_length=255, unique=True)
+    Alias = models.CharField(max_length=255)
 
     class Meta:
         indexes = [

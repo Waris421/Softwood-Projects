@@ -158,6 +158,14 @@
 
             handleInventorySelection();
 
+            const issuanceNumber = new URLSearchParams(window.location.search).get('issuance');
+
+            if (issuanceNumber) {
+                const message = `Added Successfully. Issuance Number: ${issuanceNumber}`;
+
+                showMessage(message, 5, '{{theme.successBox}}');
+            }
+
             hideLoadingIcon();
         });
     </script>
@@ -312,7 +320,14 @@
             });
 
             if (response.ok) {
-                window.location.reload();
+                const issuanceNumber = await response.text();
+                const urlObj = new URL(window.location.href);
+
+                urlObj.searchParams.set('issuance', issuanceNumber);
+
+                const newPath = urlObj.pathname + urlObj.search;
+
+                window.location.href = newPath;
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);

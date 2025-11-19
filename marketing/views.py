@@ -59,7 +59,7 @@ def ExportData (request: HttpRequest):
     months = request.GET.getlist('months[]')
     
     try:
-        months = export_data_serivce.GetMonthWiseQty(months)
+        months = export_data_serivce.GetMonthWiseQty(months, countries, importers, exporters)
     except Exception as e:
         print(f'Main Page: {e}')
         return showMessageResponse(request, 'An Error Occured', 400)
@@ -406,6 +406,43 @@ def RefineImporters(request: HttpRequest):
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'export_data/importer_alias.html', context)
+
+@login_required(login_url='/login')
+def RefineExporters(request: HttpRequest):
+    if not hasPermission(request.user, 'marketing', 'ExporterAlias', 'change'):
+        return showMessageResponse(request, 'Access Denied', statusCode=403)
+    
+    if request.method == 'POST':
+        jsonData = json.loads(request.body.decode('utf-8'))
+
+        dfAliases = refineJson(jsonData)
+
+        try:
+            export_data_serivce.SaveExportersAlias(dfAliases)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+
+        return HttpResponse('Ok', status=200)
+    else:
+        filterMethod = request.GET.get('filterMethod', None)
+        search = request.GET.get('search', '')
+
+        try:
+            exportersData, currentCount, totalCount  = export_data_serivce.GetExportersForRefinement(filterMethod, search)
+        except Exception as e:
+            print(e)
+            return showMessageResponse(request, str(e), 400)
+
+        context = {
+            'exportersData': exportersData,
+            'currentCount': currentCount, 'totalCount': totalCount,
+            'filterMethod': filterMethod, 'search': search,
+            'settingsIconViewName': 'marketing:exportDataSettings',
+            'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
+        }
+
+        return render(request, 'export_data/exporter_alias.html', context)
 
 @login_required(login_url='/login')
 def UploadExportReport(request:HttpRequest):

@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
+from django.db import transaction
 
 import json
 
@@ -257,7 +258,11 @@ def InventoryFreeStockHistory(request: HttpRequest):
         return HttpResponse('Not allowed', status=403)
 
     inventoryCode = request.GET.get('code', None)
+    variant = request.GET.get('variant', None)
     if not inventoryCode:
+        return HttpResponse('Invalid Input', status=400)
+    
+    if variant is None:
         return HttpResponse('Invalid Input', status=400)
     
     try:
@@ -267,7 +272,7 @@ def InventoryFreeStockHistory(request: HttpRequest):
         return HttpResponse('Invalid Inventory Code', status=400)
 
     try:
-        history = inventory_card_service.GetFreeStockHistory(inventory)
+        history = inventory_card_service.GetFreeStockHistory(inventory, variant)
     except Exception as e:
         print(e)
         return HttpResponse(e, status=400)
@@ -397,42 +402,56 @@ def CopyStyle(request: HttpRequest, pk: str):
         targetCode = request.POST.get('target')
 
         if not targetCode:
+            print('No target code provided')
             context = {'message': 'No Code provided','theme': theme, 'source':style.StyleCode, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
-            return render(request, 'style/copy.html', context)
+            return render(request, 'style/copy.html', context, status=400)
 
         try:
             models.StyleCard.objects.get(StyleCode=targetCode)
-            context = {'message': 'Code Already Exsits','theme': theme, 'source':style.StyleCode, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
-            return render(request, 'style/copy.html', context)
+            print('Code already exisits')
+            context = {'message': 'Code Already Exists','theme': theme, 'source':style.StyleCode, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+            return render(request, 'style/copy.html', context, status=400)
         except models.StyleCard.DoesNotExist:
-            styleObj = models.StyleCard.objects.get(StyleCode=sourceCode)
-            styleObj.StyleCode = targetCode
-            styleObj.save()
+            with transaction.atomic():
+                styleObj = models.StyleCard.objects.get(StyleCode=sourceCode)
+                styleObj.StyleCode = targetCode
+                styleObj.save()
 
-            styleObj = models.StyleCard.objects.get(StyleCode=targetCode)
+                styleObj = models.StyleCard.objects.get(StyleCode=targetCode)
 
-            sourceVariants = models.StyleVariant.objects.filter(Style=sourceCode)
-            for variant in sourceVariants:
-                variant.pk = None
-                variant.Style = styleObj
-                variant.save()
-            
-            sourceConsumptions = models.StyleConsumption.objects.filter(Style=sourceCode)
-            for consumption in sourceConsumptions:
-                consumption.pk = None
-                consumption.Style = styleObj
-                consumption.save()
-            
-            sourceRoutes = models.StyleRoute.objects.filter(Style=sourceCode)
-            for route in sourceRoutes:
-                route.pk = None
-                route.Style = styleObj
-                route.save()
-            
-            return redirect(f'/style/{targetCode}/edit')
+                sourceVariants = models.StyleVariant.objects.filter(Style=sourceCode)
+                targetVariants = []
+                for variant in sourceVariants:
+                    variant.pk = None
+                    variant.Style = styleObj
+                    targetVariants.append(variant)
+                
+                sourceConsumptions = models.StyleConsumption.objects.filter(Style=sourceCode)
+                targetConsumptions = []
+                for consumption in sourceConsumptions:
+                    consumption.pk = None
+                    consumption.Style = styleObj
+                    targetConsumptions.append(consumption)
+                
+                sourceAttachments = models.StyleCard.objects.get(StyleCode=sourceCode).Attachments.all()
+                targetAttachments = []
+                for attachment in sourceAttachments:
+                    newAttachment = models.Attachment(
+                        File=attachment.File,
+                        Description=attachment.Description,
+                        Content = styleObj
+                    )
+                    targetAttachments.append(newAttachment)
+                
+                models.StyleVariant.objects.bulk_create(targetVariants)
+                models.StyleConsumption.objects.bulk_create(targetConsumptions)
+                models.Attachment.objects.bulk_create(targetAttachments)
+
+                return redirect(f'/style/{targetCode}/edit')   
         except Exception as e:
+            print(e)
             context = {'message': f'Error: {e}', 'theme': theme}
-            return render(request, 'style/copy.html', context)
+            return render(request, 'style/copy.html', context, status=400)
     else:
         context = {'source':style.StyleCode, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/copy.html', context)
@@ -1583,11 +1602,12 @@ def AddIssuanceForOrder(request: HttpRequest):
         dfInventory, dfWorkOrder = generic_services.refineJson(data)
 
         try:
-            issuance_service.AddIsuanceForOrder(dfInventory, dfWorkOrder)
-            return HttpResponse('OK', status=200)
+            issuanceNumber = issuance_service.AddIsuanceForOrder(dfInventory, dfWorkOrder)
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
+
+        return HttpResponse(issuanceNumber, status=200)
     else:
         order = request.GET.get('order',None)
         inventories = request.GET.getlist('inventories[]', [])

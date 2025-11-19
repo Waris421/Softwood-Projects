@@ -96,6 +96,8 @@ def AddIsuanceForOrder(dfIssuance: pd.DataFrame, dfWorkOrder: pd.DataFrame):
             WorkOrder=workOrder,
             Quantity=row['Quantity']
         ).save()
+    
+    return issuance.id
 
 def GetDataForOrderIssuance(orderNumber: str|None, type: str|None, selectedInvs: List[str]):
     try:
