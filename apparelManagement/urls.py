@@ -18,7 +18,9 @@ urlpatterns = [
     path('inv/<str:pk>/check/', views.CheckInventoryCodeExists, name='checkInvcode'),
     path('inv/code/gen/', views.GenerateInventoryCode, name='genInvCode'),
     path('inv/reports', views.InventoryReports, name='inventoryReportsHome'),
+    
     path('inv/reports/free-stock', views.InventoryFreeStockReport, name='inventoryReportFreeStock'),
+    path('inv/reports/un-ordered', views.UnOrderedInventory, name='inventoryReportUnOrdered'),
     path('inv/free-stock/history', views.InventoryFreeStockHistory, name='inventoryFreeStockHistory'),
 
     path ('style',views.Style, name='Style'),
@@ -65,7 +67,7 @@ urlpatterns = [
     path('purchasedemand/<int:pk>/copy', views.CopyPurchaseDemand, name='copyPD'),
     path('purchasedemand/<int:pk>/delete', views.DeletePurchaseDemand, name='deletePD'),
     path('purchasedemand/<int:pk>/approve', views.ApprovePurchaseDemand, name='approvePD'),
-    path('purchasedemand/makepo', views.ConvertPDtoPO, name='PDtoPO'),
+    path('purchasedemand/<int:pk>/makepo', views.ConvertPDtoPO, name='PDtoPO'),
 
     path('requisition', views.Requisition, name='requisition'),
     path('requisition/add/order', views.AddRequisitionForOrder, name='addRequisitionForOrder'),

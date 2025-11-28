@@ -485,6 +485,7 @@ class PDInventory (models.Model):
     Currency = models.ForeignKey (Currency, null=True, on_delete=models.SET_NULL)
     Forex = models.FloatField (blank=True, null=True
                                , validators=[MinValueValidator(0.0000001, "Forex can't be less than 0")])
+    PONumber = models.ForeignKey(PurchaseOrder,null=True, on_delete=models.SET_NULL)
     
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.

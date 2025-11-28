@@ -62,7 +62,7 @@ def hasPermission (
 
 def canApprovePD (user: User):    
     #Users are maunally allowed to approve PD
-    authorizedUsers = ['tanveer', 'firasat']
+    authorizedUsers = ['tanveer.hassan', 'firasat']
     if user.username in authorizedUsers:
         return True
     

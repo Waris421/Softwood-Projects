@@ -6,7 +6,8 @@ from django.db.models import Q
 from typing import Dict
 
 from .. import models
-from core.services.generic_services import dfToListOfDicts, formatCurrencyAmount, generateUrlfromPk
+from core.services.generic_services import dfToListOfDicts, formatCurrencyAmount, generateUrlfromPk, convertStrToDateTime
+from core.constants.generic import TODAY
 
 def calculateReceivedFreeStockForAllInvs (dfReceivings: pd.DataFrame):
     dfReceiptWiseQty = dfReceivings.groupby(['InventoryCode', 'Variant', 'ReceiptNumber'])['TotalReceivedQty'].first().reset_index()
@@ -426,3 +427,66 @@ def GetFreeStockHistory(inventory: models.Inventory, variant: str):
     #dfFreeAtReceipt['ReceiptDate'] = dfFreeAtReceipt['ReceiptDate'].dt.strftime('%d-%b-%Y')
 
     return dfToListOfDicts(dfFreeAtReceipt)
+
+def GetUnorderedInventories(
+        merchandiser:str, customer:str, type:str, startDateStr:str|None, endDateStr:str|None, inventory: str
+):
+    orderFilters = Q()
+    styleFilters = Q()
+    if merchandiser:
+        orderFilters &= Q(Merchandiser=merchandiser)
+    
+    if customer:
+        orderFilters &= Q(Customer=customer)
+    
+    if startDateStr:
+        startDate = convertStrToDateTime(startDateStr, '%Y-%m-%d')
+        orderFilters &= Q(DeliveryDate__gte=startDate)
+    
+    if endDateStr:
+        endDate = convertStrToDateTime(endDateStr, '%Y-%m-%d')
+        orderFilters &= Q(DeliveryDate__lte=endDate)
+    
+    if type:
+        styleFilters &= Q(Type=type)
+
+    fields = ['OrderNumber', 'StyleCode', 'Customer']
+    workOrders = models.WorkOrder.objects.filter(orderFilters).values(*fields)
+    dfWorkOrders = pd.DataFrame(workOrders) if workOrders else pd.DataFrame(columns=fields)
+    del workOrders, orderFilters
+
+    styleFilters &= Q(Style__in=dfWorkOrders['StyleCode'].to_list())
+    
+    fields = ['InventoryCode']
+    invCodes = list(models.StyleConsumption.objects.filter(styleFilters).values_list(*fields))
+    reqFilter = Q(OrderNumber__in=dfWorkOrders['OrderNumber'].to_list()) & Q(InventoryCode__in=invCodes)
+    
+    fields = ['OrderNumber', 'InventoryCode', 'Variant', 'Quantity']
+    invRequirement = models.InvRequirement.objects.filter(reqFilter).values(*fields)
+    dfInvRequirement = pd.DataFrame(invRequirement) if invRequirement else pd.DataFrame(columns=fields)
+    del invRequirement, reqFilter, invCodes
+
+    fields = ['POInvId', 'WorkOrder', 'Quantity']
+    poAllocations = models.POAllocation.objects.filter(WorkOrder__in=dfWorkOrders['OrderNumber'].to_list()).values(*fields)
+    dfPOAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
+    del poAllocations
+
+    poInvFilter = Q(id__in=dfPOAllocations['POInvId'].to_list())
+    fields = ['id', 'Inventory', 'Variant']
+    poInventories = models.POInventory.objects.filter(poInvFilter).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories, poInvFilter, fields
+    
+    dfInvRequirement = pd.merge(left=dfWorkOrders, right=dfInvRequirement, on=['OrderNumber'], how='left')
+    del dfWorkOrders
+    dfInvRequirement.rename(inplace=True, columns={'OrderNumber':'WorkOrder', 'InventoryCode':'Inventory', 'Quantity':'RequiredQty'})
+    
+    dfInvOrdered = pd.merge(left=dfPOInventories, right=dfPOAllocations, left_on='id', right_on='POInvId', how='right')
+    del dfPOInventories, dfPOAllocations
+    dfInvOrdered.drop(inplace=True, columns=['id', 'POInvId'])
+    dfInvOrdered.rename(inplace=True, columns={'Quantity': 'OrderedQty'})
+    
+    dfInvRequirement = pd.merge(left=dfInvRequirement, right=dfInvOrdered, on=['WorkOrder', 'Inventory', 'Variant'], how='left')
+    del dfInvOrdered
+
+    print(dfInvRequirement)

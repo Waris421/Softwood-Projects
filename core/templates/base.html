@@ -600,12 +600,10 @@
 
         for (const row of rows) {
             let rowNum = row.getAttribute('row');
-
             let cols = row.children;
             //Remove unnecessary columns
             cols = dropElements(cols, cols.length-1, cols.length-1);
             cols.forEach(col => {
-
               const arr = extractValuefromCol(col);
               data[`${group}_${arr[0]}_${rowNum}`] = arr[1]; 
             });

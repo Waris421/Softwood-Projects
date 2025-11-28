@@ -350,6 +350,7 @@ def ProcessOrderData(workOrder: models.WorkOrder):
     dfOrderedQty.drop(inplace=True, columns=['id','POInvId'])
     dfOrderedQty.rename(inplace=True, columns={'Quantity':'Ordered'})
 
+    #print(dfOrderedQty[dfOrderedQty['Inventory']=='THRNB202000DTM'])
     dfRequirement = pd.merge(left=dfRequirement, right=dfOrderedQty, left_on=['InventoryCode','Variant'],
                              right_on=['Inventory','Variant'], how='outer')
     del dfOrderedQty
@@ -914,8 +915,6 @@ def PrintWO (order: models.WorkOrder):
     dfVariants[['Variant1', 'Variant2']] = dfVariants['Name'].str.split('-', n=1, expand=True)
     dfVariants.drop(inplace=True, columns=['Name'])
 
-    dfVariants = dfVariants.groupby(by='Variant1')
-
     dfConsumption = dfConsumption.groupby('InventoryCode').agg(
         FinalCons = ('FinalCons', 'sum'),
         HasVariant = ('HasVariant','first'),
@@ -985,11 +984,37 @@ def PrintWO (order: models.WorkOrder):
 
     dfRequirement = roundFloatCols(dfRequirement)
 
+    dfVariants[['POQuantity', 'CutQuantity']] = dfVariants[['POQuantity', 'CutQuantity']].astype(int).astype(str)
+    dfVariants.rename(inplace=True, columns={'POQuantity':'PO Quantity', 'CutQuantity':'Will Cut', 'ActualCut':'Actual Cut'})
     cutting = {}
-    variantsColList = [['PO Qty', 'Will Cut', 'Actual Cut', 'Variant1', 'Variant']]
-    for name, group in dfVariants:
-        headerRow = pd.DataFrame(variantsColList, columns=group.columns)
-        dfTemp = pd.concat([headerRow, group], ignore_index=True)
-        cutting[name] = dfTemp.to_dict(orient='records')
+    allVar1s = sorted(dfVariants['Variant1'].unique())
+    allVar2s = sorted(dfVariants['Variant2'].unique())
+    tableHeadings = ['PO Quantity', 'Will Cut', 'Actual Cut']
+    
+    for heading in tableHeadings:
+        pivotedDF = dfVariants.pivot_table(
+            index = 'Variant1',
+            columns = 'Variant2',
+            values = heading,
+            aggfunc = 'sum',
+        ).fillna('-')
+
+        pivotedDF = pivotedDF.reindex(columns=allVar2s, fill_value='-')
+
+        var1Rows = []
+        for var1 in allVar1s:
+            if var1 in pivotedDF.index:
+                quantities = pivotedDF.loc[var1].tolist()
+            else:
+                quantities = ['-'] * len(allVar2s)
+            
+            var1Rows.append({
+                'Name': var1,
+                'Quantities': quantities,
+            })
+        cutting[heading] = {
+            'Variant2s': allVar2s,
+            'Variant1s': var1Rows
+        }
 
     return order, cutting, cuttingSummary, dfToListOfDicts(dfRequirement), None

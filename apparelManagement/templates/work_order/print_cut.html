@@ -59,25 +59,29 @@
     </div>
 
     <div id="cuttingTable" class="w-full">      
-        {% for var1, details in cut.items %}
-            <div class="{{theme.border}}">
-                <div class="grid grid-cols-1 my-2">
-                    <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
-                        <div class="{{theme.headingBold}}">{{var1}}</div>
-                    </div>
-                </div>
-                <div class="flex flex-wrap my-0 {{theme.justify}} {{theme.align}} w-full">
-                    {% for data in details %}
-                        <div class="flex flex-col min-w-[8rem]">
-                            <div class="p-1 {{theme.align}} {{theme.justify}}">
-                                <div class="{{theme.headingBold}}">{{data.Variant2}}</div>
-                                <div class="{{theme.headingNormal}}">{{data.POQuantity}}</div>
-                                <div class="{{theme.headingNormal}}">{{data.CutQuantity}}</div>
-                                <div class="{{theme.headingNormal}}">{{data.ActualCut}}</div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
+        {% for heading, tableData in cut.items %}
+            <div class="{{theme.border}} my-2">
+                <h2 class="{{theme.headingBold}}"">{{ heading }}</h2>
+                <table class="{{theme.table}}">
+                    <thead>
+                        <tr class="{{theme.tableHead}} {{theme.border}}">
+                            <th scope="col">Variants</th>
+                            {% for variant2 in tableData.Variant2s %}
+                                <th scope="col">{{variant2}}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="{{theme.tableBody}}">
+                        {% for variant1Row in tableData.Variant1s %}
+                            <tr class="{{theme.tableBodyRow}} {{theme.border}}">
+                                <td><strong>{{ variant1Row.Name }}</strong></td>
+                                {% for quantity in variant1Row.Quantities %}
+                                    <td>{{ quantity }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>    
         {% endfor %}
     </div>

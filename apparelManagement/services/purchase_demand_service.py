@@ -315,48 +315,62 @@ def ApprovePD (request: HttpRequest, demand: models.PurchaseDemand, approval: st
     demand.save()
     return
 
-def ConvertPDtoPO (demand: models.PurchaseDemand, supplier: str) -> int:
+def ConvertPDtoPO (demand: models.PurchaseDemand, dfDemand: pd.DataFrame, dfPOInventory: pd.DataFrame):
     '''
     Convert a PD to PO and return the PO Number
     '''
-    if not supplier:
-        raise ValueError('No Supplier is selected')  
-
-    if (demand.PONumber):
-        raise ValueError('This demand is already closed')
-    
-    if (not demand.Approval):
-        raise ValueError('Approval is awaited')
-
-    print(demand.Approval)
 
     try:
+        supplier = dfDemand['Supplier'].iloc[0]
         supplier = models.Supplier.objects.get(Name=supplier)
-    except Exception as e:
-        raise LookupError(e)
+    except:
+        raise LookupError('Invalid Supplier')
+        
+    fields = ['id', 'Inventory', 'Variant','Quantity','Price', 'Currency', 'Forex']
+    pdInventories = models.PDInventory.objects.filter(PDNumber=demand).values(*fields)
+    if pdInventories:
+        dfPDInventories = pd.DataFrame(pdInventories)
+    else:
+        dfPDInventories = pd.DataFrame(columns=fields)
+    del pdInventories
+
+    dfPOInventory[['id']] = dfPOInventory[['id']].astype(int)
+    dfPOInventory[['Quantity', 'Price']] = dfPOInventory[['Quantity', 'Price']].astype('float64')
+    #make sure the price and quatity is not more than approved values.
+    dfApprovals = dfPDInventories[['id','Quantity','Price']]
+    dfTemp = pd.merge(left=dfPOInventory, right=dfApprovals, on='id', suffixes=('Requested', 'Approved'))
     
-    inventories = models.PDInventory.objects.filter(PDNumber = demand).values('Inventory','Variant','Quantity','Price','Currency','Forex')
-    dfInventories = pd.DataFrame(inventories)
-    del inventories
+    qtyMismatchFlag = dfTemp['QuantityRequested'] > dfTemp['QuantityApproved']
+    if qtyMismatchFlag.any():
+        raise PermissionError('PO Quantity is more than approved quantity')
+    
+    priceMismatchFlag = dfTemp['PriceRequested'] > dfTemp['PriceApproved']
+    if priceMismatchFlag.any():
+        raise PermissionError('PO Price is more than approved price')
+    del dfTemp, qtyMismatchFlag, priceMismatchFlag, dfApprovals
 
     orderCard = {
         'DeliveryDate': demand.DemandDate,
         'Supplier': supplier,
         'Tax': 0.0
     }
-
     orderCard = models.PurchaseOrder (**orderCard)
     orderCard.save()
-    
-    dfInventories['Inventory'] = convertTexttoObject(models.Inventory, dfInventories['Inventory'], 'Code')
-    dfInventories['Currency'] = convertTexttoObject(models.Currency, dfInventories['Currency'], 'Code')
 
-    dfInventories['PONumber'] = orderCard
+    dfPOInventory = pd.merge(left=dfPOInventory, right=dfPDInventories, on='id', how='left')
+    del dfPDInventories
+    dfPOInventory.drop(inplace=True, columns=['Quantity_y', 'Price_y'])
+    dfPOInventory.rename(inplace=True, columns={'Quantity_x':'Quantity', 'Price_x': 'Price'})
 
-    for _, row in dfInventories.iterrows():
+    dfPOInventory['Inventory'] = convertTexttoObject(models.Inventory, dfPOInventory['Inventory'], 'Code')
+    dfPOInventory['Currency'] = convertTexttoObject(models.Currency, dfPOInventory['Currency'], 'Code')
+
+    dfPOInventory['PONumber'] = orderCard
+
+    for _, row in dfPOInventory.iterrows():
         newEntry = models.POInventory(**row.to_dict())
         newEntry.save()
-    
+
     demand.PONumber = orderCard
     demand.save()
 

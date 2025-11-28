@@ -223,6 +223,30 @@ def InventoryReports(request: HttpRequest):
     return render(request, 'inventory/reports_home.html', context)
 
 @login_required(login_url='/login')
+def UnOrderedInventory(request: HttpRequest):
+    if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    if request.method == 'POST':
+        return HttpResponse('Under Construction', status=503)
+    else:
+        merchandiser = request.GET.get('merchandiser', '')
+        inventory = request.GET.get('inventory', '')
+        customer = request.GET.get('customer', '')
+        type = request.GET.get('type', '')
+        startDate = request.GET.get('startDate', None)
+        endDate = request.GET.get('endDate', None)
+
+        inventory_card_service.GetUnorderedInventories(merchandiser, customer, type, startDate, endDate, inventory)
+
+        context = {
+            'merchandiser': merchandiser, 'inventory': inventory, 'customer': customer,
+            'type': type, 'startDate':startDate, 'endDate': endDate,
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'inventory/report_unordered.html', context)
+
+@login_required(login_url='/login')
 def InventoryFreeStockReport(request: HttpRequest):
     if request.method != 'GET':
         return generic_services.showMessageResponse(request, 'Not allowed', 405)
@@ -1375,11 +1399,7 @@ def EditPurchaseDemand (request: HttpRequest, pk: int):
         return generic_services.showMessageResponse(request, 'This demand is closed.', 405)
     
     if request.method == 'POST':
-        #convert json data to a dict.
-        data = json.loads(request.body.decode('utf-8'))
-
-        dfDemand, dfInventory = generic_services.refineJson(data)
-
+        dfDemand, dfInventory = generic_services.refineFormData(request)
         try:
             purchase_demand_service.EditPurchaseDemand(demand, dfDemand, dfInventory)
             return HttpResponse('OK', status=200)
@@ -1496,25 +1516,33 @@ def ApprovePurchaseDemand (request: HttpRequest, pk: int):
             return generic_services.showMessageResponse(request, str(e), 400)
 
 @login_required(login_url='/login')
-def ConvertPDtoPO (request: HttpRequest):
-    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='add'):
-        return generic_services.showMessageResponse(request, 'Access Denied', 403)
-
-    if request.method != 'POST':
-        return generic_services.showMessageResponse(request, 'Not Allowed', 405)
-    
-    data = json.loads(request.body.decode('utf-8'))
+def ConvertPDtoPO (request: HttpRequest, pk: int):
     try:
-        demand = models.PurchaseDemand.objects.get(id=data['pdNumber'])
+        demand = models.PurchaseDemand.objects.get(id=pk)
     except:
         return generic_services.showMessageResponse(request, 'Demand not found', 400)
 
-    try:
-        poNumber = purchase_demand_service.ConvertPDtoPO(demand, data['supplier'])
-        return HttpResponse(poNumber, status=200)
-    except Exception as e:
-        print(e)
-        return HttpResponse(e, status=400)
+    if not hasPermission(request.user, 'apparelManagement', 'PurchaseDemand', type='add'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+
+    if demand.Approval != True:
+        return generic_services.showMessageResponse(request, 'Demand not approved', 403)
+
+    if request.method == 'POST':
+        dfInventory, dfDemand = generic_services.refineFormData(request)
+
+        try:
+            poNumber = purchase_demand_service.ConvertPDtoPO(demand, dfDemand, dfInventory)
+            return HttpResponse(poNumber, status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        demand, inventories = purchase_demand_service.ProcessDemandData(demand)
+        context = {'demand':demand,
+                   'inv':inventories, 'invJson': json.dumps(list(inventories)),
+                   'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
+        return render(request, 'purchase_demand/make_po.html', context)
 
 @login_required(login_url='/login')
 def Requisition (request: HttpRequest):

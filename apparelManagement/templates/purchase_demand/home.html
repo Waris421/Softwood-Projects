@@ -42,7 +42,7 @@
                     <a id="copyDemandButton" class="{{theme.buttonBasic}}" role="button">Copy</a>
                     <a id="editDemandButton" class="{{theme.buttonBasic}}" role="button">Edit</a>
                     <a id="deleteDemandButton" class="{{theme.buttonBasic}}" role="button">Delete</a>
-                    <a id="makePOButton" class="{{theme.buttonBasic}}" role="button" onclick="makePO()">Make PO</a>
+                    <a id="makePOButton" class="{{theme.buttonBasic}}" role="button">Make PO</a>
                     <a id="approveDemandButton" class="{{theme.buttonBasic}}" role="button">Approve</a>
                 </div>
             </div>
@@ -95,55 +95,10 @@
 
             button = document.getElementById("approveDemandButton");
             button.href = "/purchasedemand/" + selectedCode + "/approve";
+
+            button = document.getElementById('makePOButton');
+            button.href = "/purchasedemand/" + selectedCode + "/makepo";
         });
-    </script>
-
-    <script> //To convert PD to PO
-        async function makePO() {
-            showDropDown('/options/suppliers', convertToPO, null, true);
-        }
-
-        async function convertToPO(supplier) {
-            const table = document.getElementById('purchaseDemandTable').querySelector('table');
-            const radios = table.querySelectorAll('input[name="item_checkbox"]');
-
-            let pdNumber = null;
-            for (const radio of radios) {
-                if (radio.checked) {
-                    pdNumber = radio.closest("tr").children[1].textContent;
-                    break;
-                }
-            }
-            
-            if (!pdNumber) {
-                showMessage('No demand is selected');
-                return
-            }
-
-            const obj = {
-                'supplier': supplier,
-                'pdNumber': pdNumber,
-            }
-
-            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
-            const data = JSON.stringify(obj);
-
-            const response = await fetch('/purchasedemand/makepo', {
-                method: 'POST',
-                body: data,
-                headers: { "X-CSRFToken": csrf},
-            });
-
-            if (response.status == 200) {
-                const poNumber = await response.text();
-                window.location.href ='/purchaseorder/'+poNumber+'/edit';
-            } else {
-                const errorMessage = await response.text();
-                showMessage(errorMessage);
-                return
-            }
-        }
     </script>
 
     <script>//To run when the page loads
