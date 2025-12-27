@@ -1,12 +1,69 @@
 import pandas as pd
 import numpy as np
 
+from typing import List
+
 from django.forms import model_to_dict
 from django.http import HttpRequest
+from django.db.models import Window, F
+from django.db.models.functions import RowNumber
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
 from core.services.auth_service import canApprovePD
+
+def getContextForPDApproval(inventoryCodes: List[str]):
+    fields = ['PONumber', 'Inventory', 'Quantity', 'Price', 'Forex']
+    poInventories = models.POInventory.objects.filter(Inventory__in=inventoryCodes).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories
+
+    fields = ['id', 'OrderDate', 'Supplier']
+    purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfPOInventories['PONumber'].to_list()).values(*fields)
+    dfPurchaseOrders = pd.DataFrame(purchaseOrders) if purchaseOrders else pd.DataFrame(columns=fields)
+    del purchaseOrders
+
+    fields = ['Code', 'Name', 'Unit', 'StandardPrice']  
+    inventories = models.Inventory.objects.filter(Code__in=inventoryCodes).values(*fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
+    del inventories
+
+    dfPurchaseOrders = pd.merge(left=dfPurchaseOrders, right=dfPOInventories, left_on='id', right_on='PONumber', how='left')
+    del dfPOInventories
+    dfPurchaseOrders.drop(inplace=True, columns=['id'])
+
+    dfPurchaseOrders['Price'] = dfPurchaseOrders['Price'] * dfPurchaseOrders['Forex']
+    dfPurchaseOrders.drop(inplace=True, columns=['Forex'])
+
+    dfPurchaseOrders = pd.merge(left=dfPurchaseOrders, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
+    del dfInventories
+    dfPurchaseOrders.drop(inplace=True, columns=['Code', 'Inventory'])
+
+    dfPurchaseOrders['Quantity'] = dfPurchaseOrders['Quantity'].astype(int).astype(str) + ' ' + dfPurchaseOrders['Unit']
+    dfPurchaseOrders.drop(inplace=True, columns=['Unit'])
+
+    dfPurchaseOrders['OrderDate'] = pd.to_datetime(dfPurchaseOrders['OrderDate'])
+    dfPurchaseOrders = dfPurchaseOrders.sort_values(by='OrderDate', ascending=False)
+
+    noOfInventories = dfPurchaseOrders['Name'].nunique()
+
+    if noOfInventories == 1:
+        dfPurchaseOrders = dfPurchaseOrders.head(3)
+    
+    elif noOfInventories == 2:
+        dfTop3 = dfPurchaseOrders.head(3)
+
+        if dfTop3['Name'].nunique() < 2:
+            firstInv = dfTop3['Name'].iloc[0]
+            otherInvLatest = dfPurchaseOrders[dfPurchaseOrders['Name'] != firstInv].head(1)
+
+            dfPurchaseOrders = pd.concat([dfPurchaseOrders[dfPurchaseOrders['Name'] == firstInv].head(2), otherInvLatest])
+        else:
+            dfPurchaseOrders = dfTop3
+    else:
+        dfPurchaseOrders = dfPurchaseOrders.groupby('Name').head(1)
+
+    return dfToListOfDicts(dfPurchaseOrders)
 
 def GetPurchaseDemandList (
     searchTerm: str,
@@ -136,7 +193,6 @@ def AddPurchaseDemand(
     except Exception as e:
         raise ValueError(e)
 
-    print(dfInventory)
     dfInventory['Inventory'] = convertTexttoObject(models.Inventory, dfInventory['InventoryCode'], 'Code')
     dfInventory.drop(inplace=True, columns=['InventoryCode', 'InventoryName'])
     dfInventory.rename(inplace=True, columns={'VariantCode':'Variant'})
@@ -270,6 +326,8 @@ def GetDataForPDApproval (demand: models.PurchaseDemand):
     dfDemand = pd.DataFrame(demandDict, index=[0])
     del demandDict
 
+    inventoriesForContext = dfInventories['Inventory'].to_list()
+
     dfInventories = pd.merge(left=dfInventories, right=dfInventoryCards, left_on='Inventory', right_on='Code', how='left')
     dfInventories.drop(inplace=True, columns=['Inventory','Code'])
 
@@ -294,9 +352,9 @@ def GetDataForPDApproval (demand: models.PurchaseDemand):
 
     data['Description'] = f"Request by {data['Demandee']} from {data['Department']} for {data['Details']} with value of {data['Value']}"
 
-    #Get context for the PD and return it
+    context = getContextForPDApproval(inventoriesForContext)
 
-    return data, None
+    return data, context
 
 def ApprovePD (request: HttpRequest, demand: models.PurchaseDemand, approval: str):
     if not canApprovePD(request.user):
@@ -369,6 +427,7 @@ def ConvertPDtoPO (demand: models.PurchaseDemand, dfDemand: pd.DataFrame, dfPOIn
 
     for _, row in dfPOInventory.iterrows():
         newEntry = models.POInventory(**row.to_dict())
+        newEntry.PONumber = orderCard
         newEntry.save()
 
     demand.PONumber = orderCard

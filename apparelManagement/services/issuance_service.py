@@ -68,14 +68,20 @@ def AddIsuanceForOrder(dfIssuance: pd.DataFrame, dfWorkOrder: pd.DataFrame):
     
     try:
         department = models.Department.objects.get(Name = dfWorkOrder['Department'][0])
+        supplier = None
     except:
-        raise ValueError('Invalid Department')
+        department = None
+        try:
+            supplier = models.Supplier.objects.get(Name=dfWorkOrder['Department'][0])
+        except:
+            raise ValueError('Invalid Department')
     
     requisition = models.Requisition.objects.all().first()
 
     issuance = {
         'Department': department,
-        'ReceivedBy': department,
+        'Supplier': supplier,
+        'ReceivedBy': department if department else supplier,
         'InventoryRequisition': requisition
     }
     try:

@@ -2,10 +2,12 @@ import pandas as pd
 import numpy as np
 
 from django.forms.models import model_to_dict
+from django.db import transaction
 from django.db.models import Q
+from django.contrib.auth.models import User
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts, convertTextToBool
 
 def getStyleCard (customer:str):
     filters = Q()
@@ -141,7 +143,11 @@ def AddStyleCard(
     if '/' in styleCode:
         raise ValueError('No Slashes are allowed in Style Code')
 
-    dfRoute = dfRoute[dfRoute['type'].str.len() > 0]
+    try:
+        presetId = int(dfRoute['RoutePreset'].iloc[0])
+        routePreset = models.RoutePreset.objects.get(id=presetId) 
+    except:
+        raise ValueError('Invalid Route Selected')
 
     #Replace any blank variants with Nan
     dfVariants = dfVariants.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
@@ -160,6 +166,7 @@ def AddStyleCard(
     dfStyle['Customer'] = convertTexttoObject(models.Customer, dfStyle['Customer'],'Name')
     
     styleCard = dfStyle.iloc[0].to_dict()
+    styleCard['RoutePreset'] = routePreset
     
     try:
         #Try to fetch style and if found, raise error
@@ -196,29 +203,6 @@ def AddStyleCard(
         newEntry = models.StyleVariant(**row.to_dict())
         newEntry.save()
 
-    dfRoute['Style'] = styleCard
-    dfRoute['Cost'] = 0.0
-    
-    dfRoute.rename(inplace=True, columns={'type':'Stage'})
-
-    #save entries without pre-requisites first to create db entries
-    stylePreReqMapping = {}
-    for _, row in dfRoute[['Style','Stage', 'Cost']].iterrows():
-        newEntry = models.StyleRoute(**row.to_dict())
-        newEntry.save()
-        stylePreReqMapping[newEntry.Stage] = newEntry
-    
-    #Now assign the pre-reqs to each of the style route.
-    for _, row in dfRoute.iterrows():
-        currentStage = row['Stage']
-        preReqs = row['PreReqs']
-
-        styleRoute = stylePreReqMapping[currentStage]
-
-        for preReq in preReqs:
-            preReqStyleRoute = stylePreReqMapping[preReq]
-            styleRoute.PreReqs.add(preReqStyleRoute)
-
     return styleCard.StyleCode
 
 def UpdateStyleCard(
@@ -237,8 +221,7 @@ def UpdateStyleCard(
     
     try:
         presetId = int(dfRoute['RoutePreset'].iloc[0])
-        routePreset = models.RoutePreset.objects.get(id=presetId)
-        
+        routePreset = models.RoutePreset.objects.get(id=presetId) 
     except:
         raise ValueError('Invalid Route Selected')
     
@@ -267,14 +250,6 @@ def UpdateStyleCard(
     else:
         dfPreviousConsumption = pd.DataFrame(columns=fields)
     del previousConsumption
-
-    fields = ['id','Stage']
-    previoiusRoute = models.StyleRoute.objects.filter(Style=styleCard).values(*fields)
-    if previoiusRoute:
-        dfPreviousRoute = pd.DataFrame(previoiusRoute)
-    else:
-        dfPreviousRoute = pd.DataFrame(columns=fields)
-    del previoiusRoute
 
     fields = ['id']
     previousAttachments = styleCard.Attachments.all().values(*fields)
@@ -411,3 +386,133 @@ def ProcessStyleData(styleCard: models.StyleCard):
         })
     
     return model_to_dict(styleCard), variants, consumption, dfToListOfDicts(dfRoute), serializedAttachments
+
+def GetThreadConsRequests(statusStr:str):
+    isClosed = convertTextToBool(statusStr)
+
+    fields = ['id','RequestDate', 'RequestBy', 'IsClosed']
+    requests = models.ThreadConsumptionRequest.objects.filter(IsClosed=isClosed).values(*fields)
+    dfRequests = pd.DataFrame(requests) if requests else pd.DataFrame(columns=fields)
+    del requests
+
+    fields = ['id', 'first_name', 'last_name']
+    users = User.objects.filter(id__in=dfRequests['RequestBy'].to_list()).values(*fields)
+    dfUsers = pd.DataFrame(users) if users else pd.DataFrame(columns=fields)
+    del users
+
+    fields = ['Request', 'Style']
+    styles = models.ThreadConsumptionRequestStyles.objects.filter(Request__in=dfRequests['id'].to_list()).values(*fields)
+    dfStyles = pd.DataFrame(styles) if styles else pd.DataFrame(columns=fields)
+    del styles
+
+    dfUsers['FullName'] = dfUsers['first_name']+' '+dfUsers['last_name']
+    dfUsers.drop(inplace=True, columns=['first_name', 'last_name'])
+
+    dfRequests.rename(inplace=True, columns={'id': 'RequestNumber'})
+
+    dfRequests = pd.merge(left=dfRequests, right=dfUsers, left_on='RequestBy', right_on='id', how='left')
+    del dfUsers
+    dfRequests.drop(inplace=True, columns=['id', 'RequestBy'])
+    
+    dfRequests = pd.merge(left=dfRequests, right=dfStyles, left_on='RequestNumber', right_on='Request', how='left')
+    del dfStyles
+    dfRequests.drop(inplace=True, columns=['Request'])
+
+    dfRequests = dfRequests.groupby('RequestNumber').agg({
+        'RequestDate': 'first',
+        'IsClosed': 'first',
+        'FullName': 'first',
+        'Style': lambda x: ', '.join(x.astype(str))
+    }).reset_index()
+
+    dfRequests['Status'] = dfRequests['IsClosed'].map({True: 'Closed', False: 'Pending'})
+    dfRequests.drop(inplace=True, columns=['IsClosed'])
+    
+    return dfToListOfDicts(dfRequests)
+
+def AddRequestForThreadCons(dfRequest: pd.DataFrame, user: User):   
+    dfRequest['Style'] = dfRequest['Style'].str.strip().replace('', np.nan).dropna()
+    dfRequest['Style'] = convertTexttoObject(models.StyleCard, dfRequest['Style'], 'StyleCode')
+
+    dfRequest['Thread'] = dfRequest['Thread'].str.strip().replace('', np.nan).dropna()
+    
+    stylesList = dfRequest['Style'].dropna().to_list()
+    threadList = dfRequest['Thread'].dropna().to_list()
+   
+    if not stylesList:
+        raise ValueError('No Styles Provided')
+    if not threadList:
+        raise ValueError('No Threads Provided')
+
+    with transaction.atomic():
+        request = models.ThreadConsumptionRequest(RequestBy=user)
+        request.save()
+
+        styleEntries = [
+            models.ThreadConsumptionRequestStyles(Style=style, Request=request)
+            for style in stylesList
+        ]
+        models.ThreadConsumptionRequestStyles.objects.bulk_create(styleEntries)
+        
+        
+        threadEntries = [
+            models.ThreadConsumptionRequestThreads(Thread=thread, Request=request)
+            for thread in threadList
+        ]
+        models.ThreadConsumptionRequestThreads.objects.bulk_create(threadEntries)
+
+    return request.id
+
+def ProcessConsRequestData(request: models.ThreadConsumptionRequest):
+    fields = ['id', 'Style']
+    styles = models.ThreadConsumptionRequestStyles.objects.filter(Request=request).values(*fields)
+    dfStyles = pd.DataFrame(styles) if styles else pd.DataFrame(columns=fields)
+
+    fields = ['id', 'Thread']
+    threads = models.ThreadConsumptionRequestThreads.objects.filter(Request=request).values(*fields)
+    dfThreads = pd.DataFrame(threads) if threads else pd.DataFrame(columns=fields)
+
+    dfStyles.rename(inplace=True, columns={'id': 'StyleId'})
+    dfThreads.rename(inplace=True, columns={'id': 'ThreadId'})
+
+    dfCombined = pd.concat([dfStyles, dfThreads], axis=1).fillna('')
+
+    return dfToListOfDicts(dfCombined)
+
+def UpdateRequestForThreadCons(request: models.ThreadConsumptionRequest, dfRequest: pd.DataFrame):
+    dfStyles = dfRequest[['StyleId', 'Style']].replace('', np.nan).dropna()
+    dfThreads = dfRequest[['ThreadId', 'Thread']].replace('', np.nan).dropna()
+    del dfRequest
+
+    fields = ['id']
+    previousStyles = models.ThreadConsumptionRequestStyles.objects.filter(Request=request).values(*fields)
+    dfPreviousStyles = pd.DataFrame(previousStyles) if previousStyles else pd.DataFrame(columns=fields)
+    del previousStyles
+
+    fields = ['id']
+    previousThreads = models.ThreadConsumptionRequestThreads.objects.filter(Request=request).values(*fields)
+    dfPreviousThreads = pd.DataFrame(previousThreads) if previousThreads else pd.DataFrame(columns=fields)
+    del previousThreads
+    
+    dfStyles.rename(inplace=True, columns={'StyleId': 'id'})
+    dfStyles['Style'] = convertTexttoObject(models.StyleCard, dfStyles['Style'], 'StyleCode')
+
+    try:
+        updateModelWithDF(models.ThreadConsumptionRequestStyles, dfStyles, dfPreviousStyles)
+    except Exception as e:
+        raise ValueError(f'Error saving Styles: {e}')
+    
+    dfThreads.rename(inplace=True, columns={'ThreadId': 'id'})
+
+    try:
+        updateModelWithDF(models.ThreadConsumptionRequestThreads, dfThreads, dfPreviousThreads)
+    except Exception as e:
+        raise ValueError(f'Error saving Styles: {e}')
+
+def ProcessThreadConsumptionData(request: models.ThreadConsumptionRequest):
+    fields = ['id', 'Thread']
+    threads = models.ThreadConsumptionRequestThreads.objects.filter(Request=request).values(*fields)
+
+    #Get the data for when the consumption is already added and return it
+
+    return model_to_dict(request), threads, []

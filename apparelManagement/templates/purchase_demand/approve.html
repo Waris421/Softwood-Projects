@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    Pending Approvals
+    Demand Approval Form
 {% endblock %} 
 
 {% block content %}
@@ -23,12 +23,12 @@
                             </div>
                             <div class="flex col-[1/2] items-center mt-2">
                                 <label class="mx-2 whitespace-nowrap">Details:&nbsp; </label>
-                                <textarea class="{{theme.textInputLarge}} mx-2" roww="2" readonly>
+                                <textarea class="{{theme.textInputLarge}} mx-2" readonly>
                                     {{demand.Description}}
                                 </textarea>
                             </div>
                             <div class="flex col-[1/2] items-center mt-2">
-                                <button type="submit" class="{{theme.buttonBasic}} mx-2" >Save</button>
+                                <button type="submit" class="{{theme.buttonBasic}} mx-2">Save</button>
                             </div>
                         </div>
                     </div>
@@ -36,6 +36,23 @@
                 <div class="flex col-[3/4] items-center">
                     <div class="card-body">
                         <h5 class="card-title {{theme.justify}}">Background Data</h5>
+                        <div class="p-6">
+                            <ul class="list-disc list-outside space-y-3">
+                                {% for item in context %}
+                                <li class="text-base-content leading-relaxed">
+                                    <span class="font-semibold text-primary">{{ item.Name }}</span> 
+                                    from <span class="font-medium italic">{{ item.Supplier }}</span> 
+                                    dated <span class="badge badge-ghost">{{ item.OrderDate|date:"d-M-Y" }}</span> 
+                                    (PO# {{ item.PONumber }}), quantity of 
+                                    <span class="font-medium">{{ item.Quantity }}</span> 
+                                    at a price of <span class="text-success">{{ item.Price }}</span> 
+                                    against a standard price of <span class="text-info">{{ item.StandardPrice }}</span>.
+                                </li>
+                                {% empty %}
+                                <li class="text-gray-500 italic">No data found.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>

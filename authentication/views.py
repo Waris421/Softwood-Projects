@@ -18,6 +18,8 @@ from rest_framework.request import Request
 import rest_framework
 
 from core.constants.theme import theme
+from core.constants.generic import BROWSER_OPTIONS
+from core.services.auth_service import authenticateUser, hasPermission
 from core.services.generic_services import showMessageResponse
 
 def Login(request: HttpRequest):
@@ -84,6 +86,34 @@ class APILogin(APIView):
                 status = rest_framework.status.HTTP_401_UNAUTHORIZED
             
             return Response (data=response, status=status)
+
+class GetNavBarOptions(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            user = authenticateUser(request, None, None, None)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+        
+        pageName = request.GET.get('pageName', '')
+        options = BROWSER_OPTIONS.get(pageName, [])
+
+        finalOptions = []
+        for option in options:
+            appName = option.get('appName')   
+            modelName = option.get('modelName') 
+            
+            if hasPermission(user, appName, modelName, type='view'):
+                filteredOption = option.copy()
+                filteredOption.pop('appName', None)
+                filteredOption.pop('modelName', None)
+                finalOptions.append(filteredOption)
+
+        return Response(data=finalOptions, status=rest_framework.status.HTTP_200_OK)
 
 def Logout(request: HttpRequest):
     if request.method != 'GET':

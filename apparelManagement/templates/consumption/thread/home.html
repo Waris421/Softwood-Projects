@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Thread Consumption Requests
+{% endblock title %}
+
+{% block content %}
+    <div class="{{theme.border}} {{theme.formHeading}}">
+        <form action="{% url 'apparelManagement:threadConsRequests' %}" method="get">
+            <div class="grid grid-cols-5 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/2] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="search" value="{{search}}">
+                </div>
+                <div class="flex flex-col col-[2/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Status:</span>
+                    <select name="status" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="false" {% if status == 'false' %}selected{% endif %}>Open</option>
+                        <option value="true" {% if status == 'true' %}selected{% endif %}>Closed</option>
+                    </select>
+                </div>
+                <div class="flex col-[3/4] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                </div>
+                <div class="flex col-[4/6] btn-group {{theme.align}} justify-end ml-1">
+                    <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:addThreadConsRequest' %}" role="button">Add Request</a>
+                    <a id="editRequestButton" class="{{theme.buttonBasic}}" role="button">Edit Request</a>
+                    <a id="convertRquestButton" class="{{theme.buttonBasic}}" role="button">Finalise Consumption</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id ="requestTable" class="mt-6">
+        <table class="{{theme.table}}">
+            <tr class = "{{theme.tableHead}}">
+                <th scope="col">Select</th>
+                <th scope="col">Request #</th>
+                <th scope="col">Request Date</th>
+                <th scope="col">Request By</th>
+                <th scope="col">Styles</th>
+                <th scope="col">Status</th>
+            </tr>
+            <tbody id="tableData" class="{{theme.tableBody}}">
+                {% for data in requests %}
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
+                        <td class="id">{{ data.RequestNumber }}</td>
+                        <td>{{ data.RequestDate }}</td>
+                        <td>{{ data.FullName }}</td>
+                        <td>{{ data.Style }}</td>
+                        <td>{{ data.Status }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="{{ theme.pagination }}">
+        <div class="btn-group">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&search={{ search }}" class="btn btn-sm">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}" class="btn btn-sm">Previous</a>
+        {% else %}
+            <button class="btn btn-sm" disabled>First</button>
+            <button class="btn btn-sm" disabled>Previous</button>
+        {% endif %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&search={{ search }}" class="btn btn-sm">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&search={{ search }}" class="btn btn-sm">Last</a>
+        {% else %}
+            <button class="btn btn-sm" disabled>Next</button>
+            <button class="btn btn-sm" disabled>Last</button>
+        {% endif %}
+        </div>
+    </div>
+
+    <script>  //Update the buttons based on the selection in radio
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            if (event.target.type === 'radio' && event.target.name === 'item_checkbox') {
+                const radio = event.target;
+
+                const selectedId = radio.closest('tr').querySelector('td.id').textContent.trim();
+                
+                let button = document.getElementById("editRequestButton");
+                button.href = '/consumption/thread/request/'+ selectedId + '/edit';
+
+                button = document.getElementById("convertRquestButton");
+                button.href = '/consumption/thread/request/'+ selectedId + '/convert';
+            }
+        });
+    </script>
+{% endblock content %}

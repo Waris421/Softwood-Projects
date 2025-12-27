@@ -15,6 +15,7 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
         {'groupName': 'StyleCard', 'appName': 'apparelManagement', 'modelName': 'StyleCard', 'views': [
             {'displayName': 'View All', 'viewName': 'apparelManagement:Style'},
             {'displayName': 'Add New', 'viewName': 'apparelManagement:addStyle'},
+            {'displayName': 'Cons Requests', 'viewName': 'apparelManagement:threadConsRequests'},
         ]},
         {'groupName': 'Work Order', 'appName': 'apparelManagement', 'modelName': 'WorkOrder', 'views': [
             {'displayName': 'View All', 'viewName': 'apparelManagement:WOs'},
@@ -110,6 +111,33 @@ APP_OPTIONS = [
     ]},
     {'groupValue':'QC', 'groupName':'Quality Control','options':[]},
 ]
+
+BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = {
+    'productivity': [
+        {'label': 'Dashboard', 'href':'/productivity', 'appName': 'prodManagement', 'modelName': 'Operation'},
+        {'label': 'Consumption', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
+            {'label': 'Pending Consumptions', 'href':'/consumption/request/thread/pending'},
+            {'label': 'View All', 'href':'/consumption/request/thread'},
+        ]},
+        {'label': 'Presets', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
+            {'label':'Style Bulletin', 'href':'/productivity/buletins'},
+            {'label':'Operation', 'href':'/productivity/operations'},
+            {'label':'Machines', 'href':'/productivity/machines'},
+            {'label':'Workers', 'href':'/productivity/workers'},
+        ]},
+        {'label': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'children': [
+            {'label': 'Core Sheet', 'href': '/productivity/core-sheets'},
+        ]},
+        {'label': 'Stitching', 'appName': 'prodManagement', 'modelName': 'Serial', 'children': [
+            {'label': 'Scan Report', 'href': '/productivity/serials'},
+        ]},
+        {'label': 'Outsource', 'appName': 'prodManagement', 'modelName': 'OutSourceJobContract', 'children': [
+            {'label': 'Contract List', 'href': '/productivity/outsource-contracts'},
+            {'label': 'Add Contract', 'href': '/productivity/outsource-contracts/add'},
+            {'label': 'Print Contracts', 'href': '/productivity/outsource-contracts?approval=approved'},
+        ]},
+    ],
+}
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')
 GST_RATE = 18.0

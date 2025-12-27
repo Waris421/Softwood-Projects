@@ -60,6 +60,25 @@ def hasPermission (
     
     return False
 
+def authenticateUser(
+        request: Request,
+        appName: str|None,
+        modelName: str|None,
+        type: Literal["view", "add", "change", "delete"]|None
+):
+    token = request.META.get('HTTP_AUTHORIZATION')
+
+    try:
+        user = Token.objects.get(key=token).user
+    except:
+        raise PermissionError('Unauthorised')
+
+    if all([appName, modelName, type]):
+        if not hasPermission(user, appName, modelName, type):
+            raise PermissionError('Access Denied')
+    
+    return user
+
 def canApprovePD (user: User):    
     #Users are maunally allowed to approve PD
     authorizedUsers = ['tanveer.hassan', 'firasat']

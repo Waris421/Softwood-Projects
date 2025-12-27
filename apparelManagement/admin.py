@@ -72,12 +72,6 @@ class DepartmentAdmin (admin.ModelAdmin):
     search_fields = ('Name', 'Location')
     ordering = ('Name',)
 
-@admin.register(models.Notification)
-class NotificationAdmin(admin.ModelAdmin):
-    list_display = ('Heading','Summary')
-    list_filter = ('User',)
-    search_fields = ('Summary','Body')
-
 @admin.register(models.InventoryCodePart1)
 class InventoryCodeP1Admin(admin.ModelAdmin):
     '''Admin View for InventoryCodeP1'''
@@ -102,18 +96,10 @@ class InventoryCodeP3Admin(admin.ModelAdmin):
     list_filter = ('Code',)
     ordering = ('Part2',)
 
-@admin.register(models.Issuance)
-class IssuanceAdmin(admin.ModelAdmin):
-    '''Admin View for Issuance'''
+@admin.register(models.ThreadConsumptionRequest)
+class ConsRequestAdmin(admin.ModelAdmin):
+    '''Admin View for ConsRequest'''
 
-    list_display = ('id','Department', 'IssuanceDate')
-    list_filter = ('Department',)
-    ordering = ('IssuanceDate',)
-
-@admin.register(models.InventoryReciept)
-class ReceiptsAdmin(admin.ModelAdmin):
-    '''Admin View for Receipts'''
-
-    list_display = ('id', 'ReceiptDate', 'Supplier')
-    list_filter = ('Supplier',)
+    list_display = ('id', 'RequestBy')
+    list_filter = ('RequestBy',)
     ordering = ('id',)

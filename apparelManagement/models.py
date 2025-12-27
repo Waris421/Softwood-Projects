@@ -545,7 +545,8 @@ class Issuance (models.Model):
 
     id = models.AutoField (primary_key=True)
     IssuanceDate = models.DateField (auto_now_add=True)
-    Department = models.ForeignKey(Department, on_delete=models.PROTECT)
+    Department = models.ForeignKey(Department, on_delete=models.PROTECT, blank=True, null=True)
+    Supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, blank=True, null=True)
     ReceivedBy = models.CharField (max_length=50, blank=False, null=False)
     InventoryRequisition = models.ForeignKey(Requisition, on_delete=models.PROTECT)
 
@@ -596,3 +597,19 @@ class Attachment(models.Model):
     ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     ObjectId = models.CharField(max_length=50, db_index=True)
     Content = GenericForeignKey('ContentType', 'ObjectId')
+
+class ThreadConsumptionRequest(models.Model):
+    id=models.AutoField(primary_key=True)
+    RequestDate = models.DateField(auto_now_add=True)
+    RequestBy = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    IsClosed = models.BooleanField(default=False)
+
+class ThreadConsumptionRequestStyles(models.Model):
+    id=models.AutoField(primary_key=True)
+    Request = models.ForeignKey(ThreadConsumptionRequest, on_delete=models.CASCADE)
+    Style = models.ForeignKey(StyleCard, on_delete=models.PROTECT)
+
+class ThreadConsumptionRequestThreads(models.Model):
+    id=models.AutoField(primary_key=True)
+    Request = models.ForeignKey(ThreadConsumptionRequest, on_delete=models.CASCADE)
+    Thread = models.CharField(max_length=255)

@@ -20,7 +20,7 @@ from prodManagement import models as prodModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
 from core.constants.generic import APP_OPTIONS
-from core.services.auth_service import hasPermission, getAPIUser
+from core.services.auth_service import hasPermission, getAPIUser, authenticateUser
 
 from .generic_services import dfToListOfDicts
 
@@ -180,6 +180,47 @@ def getInventories(request: HttpRequest):
     else:
         return HttpResponse ('No allowed', status=405)
 
+class GetInventories(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+
+        search = request.GET.get('search', '')
+
+        filters = Q()
+
+        if search:
+            filters &= Q(Name__icontains=search) | Q(Code__icontains=search)
+        
+        objects = appModels.Inventory.objects.filter(filters)
+
+        if objects.count() < 1:
+            response = []
+            status = rest_framework.status.HTTP_200_OK
+            return Response(data=response, status=status)
+
+        objects = objects[:15].values('Code','Name')
+        dfData = pd.DataFrame(objects)
+        
+        dfData['text'] = dfData['Name']+' - '+dfData['Code']
+        dfData.drop(inplace=True, columns=['Name'])
+        dfData.rename(inplace=True, columns={'Code': 'value'})
+        dfData['value'] = dfData['value'].astype(str)
+        
+        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+
+        data = dfToListOfDicts(dfData)
+        status = rest_framework.status.HTTP_200_OK
+
+        return Response(data=data, status=status)
+     
 @login_required(login_url='/login')
 def getInvGroups (request: HttpRequest):
     if request.method == 'GET':

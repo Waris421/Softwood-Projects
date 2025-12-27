@@ -7,7 +7,7 @@ import numpy as np
 import json
 import traceback
 
-from datetime import datetime
+from datetime import datetime, date
 import calendar
 from collections import defaultdict
 from typing import Dict, Any, List, Union
@@ -456,10 +456,12 @@ def convertCountryCodeToName(code):
     except:
         return None
 
-def formatNumbers(n: int|float):
+def formatNumbers(n: int|float|None):
     """
     Converts a number to k,m,B notation
     """
+    if n is None:
+        return ""
     
     if abs(n) >= 1_000_000_000:
         return f'{n/1_000_000_000:.1f}B'
@@ -521,6 +523,10 @@ def generateUrlfromPk(pkSeries: pd.Series, appName: str, pathName: str):
     return pd.Series(urls, index=pkSeries.index)
 
 def convertMonthstoStrtEndDates(months: List[str], format='%b-%Y'):
+    if not months:
+        currentDate = date.today()
+
+        return currentDate, currentDate
     dates = [datetime.strptime(m, format) for m in months]
 
     earliestMonth = min(dates)

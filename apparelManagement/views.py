@@ -4,11 +4,17 @@ from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
 from django.db import transaction
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import  AllowAny
+from rest_framework.request import Request
+import rest_framework
+
 import json
 
 from core.constants.theme import theme
 from core.services import generic_services
-from core.services.auth_service import hasPermission, getNavLinks, canApprovePD
+from core.services.auth_service import authenticateUser, hasPermission, getNavLinks, canApprovePD
 
 from . import models
 from .services import notifications_service
@@ -332,11 +338,9 @@ def AddStyle (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='add'):
         return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
-    if request.method == 'POST':        
-        #Convert the json to a dict
-        jsonData = json.loads(request.body.decode('utf-8'))
+    if request.method == 'POST':
 
-        dfStyle, dfVariants, dfRoute = generic_services.refineJson(jsonData) 
+        dfStyle, dfRoute, dfVariants = generic_services.refineFormData(request) 
         
         try:
             styleCode = style_card_service.AddStyleCard(dfStyle, dfVariants, dfRoute)       
@@ -361,7 +365,6 @@ def UpdateStyle (request: HttpRequest, pk: str):
     except:
         return generic_services.showMessageResponse(request, 'Resource Not Found', 400)
     if request.method == 'POST':
-        
         dfStyle, dfRoute, dfVariants, dfConsumption, dfAttachments = generic_services.refineFormData(request)
 
         try:
@@ -1762,3 +1765,136 @@ def AddIssuance (request: HttpRequest):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'issuance/add.html', context)
+
+@login_required(login_url='/login')
+def ThreadConsumptionRequests(request: HttpRequest):
+    if not hasPermission(request.user,'apparelManagement', 'ThreadConsumptionRequest', type='view'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    if request.method != 'GET':
+        return generic_services.showMessageResponse(request, 'Not allowed', 405)
+    
+    searchTerm = request.GET.get('search', '')
+    status = request.GET.get('status', 'false')
+
+    requests = style_card_service.GetThreadConsRequests(status)
+    requests = generic_services.applySearch(requests, searchTerm)
+    data = generic_services.paginate(requests, 1)
+
+    context = {
+        'requests': data.object_list, 'page_obj': data,
+        'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
+        'search': searchTerm, 'status': status,
+    }
+    return render(request, 'consumption/thread/home.html', context)
+
+@login_required(login_url='/login')
+def AddThreadConsumptionRequest(request: HttpRequest):
+    if not hasPermission(request.user, 'apparelManagement', 'ThreadConsumptionRequest', type='add'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    if request.method == 'POST':
+        data = json.loads(request.body.decode('utf-8'))
+        dfRequest = generic_services.refineJson(data)
+        
+        try:
+            requestId = style_card_service.AddRequestForThreadCons(dfRequest, request.user)
+            return HttpResponse(requestId, status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        context = {
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'consumption/thread/add.html', context)
+
+@login_required(login_url='/login')
+def EditThreadConsumptionRequest(request: HttpRequest, pk: int):
+    if not hasPermission(request.user, 'apparelManagement', 'ThreadConsumptionRequest', type='change'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    try:
+        consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
+    except:
+        return generic_services.showMessageResponse(request, 'Request not found', 400)
+
+    if consRequest.IsClosed:
+        return generic_services.showMessageResponse(request, 'This resource is closed.', 405)
+
+    if not (consRequest.RequestBy == request.user or request.user.is_staff):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    if request.method == 'POST':
+        data = json.loads(request.body.decode('utf-8'))
+        dfRequest = generic_services.refineJson(data)
+
+        try:
+            style_card_service.UpdateRequestForThreadCons(consRequest, dfRequest)
+            return HttpResponse('Ok', status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(e, status=400)
+    else:
+        consData = style_card_service.ProcessConsRequestData(consRequest)
+        
+        context = {
+            'request': consRequest, 'consData': consData, 'consJson': json.dumps(list(consData)),
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+        }
+        return render(request, 'consumption/thread/edit.html', context)
+
+class GetPendingThreadConsRequest(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'ThreadConsumptionRequest', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+
+        try:
+            requests = style_card_service.GetThreadConsRequests('false')
+            return Response(data=requests, status=rest_framework.status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_400_BAD_REQUEST
+            return Response(data=response, statu=status)
+
+class UpdateThreadConsumption(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, pk: int):
+        try:
+            authenticateUser(request, 'apparelManagement', 'ThreadConsumptionRequest', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+        
+        try:
+            consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
+        except:
+            response = {'message', 'Resource Not Found'}
+            status = rest_framework.status.HTTP_404_NOT_FOUND
+            return Response(data=response, status=status)
+
+        
+        try:
+            consRequest, consThreads, addedData = style_card_service.ProcessThreadConsumptionData(consRequest)
+
+            responseData = {
+                'request': consRequest, 'threads': consThreads, 'addedData': addedData
+            }
+            status = rest_framework.status.HTTP_200_OK
+            return Response(data=responseData, status=status)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_400_BAD_REQUEST
+            return Response(data=response, statu=status)

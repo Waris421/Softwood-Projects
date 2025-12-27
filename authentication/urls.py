@@ -11,4 +11,6 @@ urlpatterns = [
     path ('api/login', views.APILogin.as_view(), name='apiLogin'),
 
     path('access/denied', showMessageResponse, {'message': "You don't have the privileges to access this page."}, name='accessDenied'),
+
+    path ('api/navbar-options', views.GetNavBarOptions.as_view(), name='apiLogin'),
 ]

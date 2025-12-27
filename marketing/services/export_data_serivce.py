@@ -1,3 +1,4 @@
+from decimal import Decimal
 import pandas as pd
 import numpy as np
 
@@ -361,7 +362,10 @@ def GetImporterSummary(
 
     dfExportData = dfExportData.groupby('Importer').agg({'Quantity': 'sum', 'ShipmentValue': 'sum'}).reset_index()
     
-    dfExportData['Price'] = (dfExportData['ShipmentValue'].astype(float) / dfExportData['Quantity']).round(2)
+    if not dfExportData.empty:
+        dfExportData['Price'] = (dfExportData['ShipmentValue'].astype(float) / dfExportData['Quantity']).round(2)
+    else:
+        dfExportData['Price'] = pd.Series([], dtype=float)
     dfExportData.drop(inplace=True, columns=['ShipmentValue'])
 
     #Sort w.r.t qty first
@@ -535,7 +539,13 @@ def GetStats(
 
     totalValue = instances.aggregate(total_v=Sum(F('Quantity') * F('Price'), output_field=DecimalField()))['total_v']
     
-    averagePrice = float(totalValue)/totalQuantity
+    if totalValue is not None and totalQuantity is not None and totalQuantity != 0:
+        totalQuantity = Decimal(str(totalQuantity))
+        totalValue = Decimal(str(totalValue))
+
+        averagePrice = totalValue/totalQuantity
+    else:
+        averagePrice = 0
 
     totalQuantity = formatNumbers(totalQuantity)
     averagePrice = round(averagePrice, 2)

@@ -29,6 +29,12 @@ urlpatterns = [
     path('style/<str:pk>/delete/', views.DeleteStyle, name='deleteStyle'),
     path('style/<str:pk>/copy/', views.CopyStyle, name='copyStyle'),
     path('style/route-preset/details', views.StyleRoutePrssetDetails, name='getRoutepresetDetails'),
+    
+    path('consumption/thread/requests', views.ThreadConsumptionRequests, name='threadConsRequests'),
+    path('consumption/thread/request/add', views.AddThreadConsumptionRequest, name='addThreadConsRequest'),
+    path('consumption/thread/request/<int:pk>/edit', views.EditThreadConsumptionRequest, name='editThreadConsRequest'),
+    path('consumption/thread/requests/pending', views.GetPendingThreadConsRequest.as_view(), name='pendingThreadConsRequests'),
+    path('consumption/thread/request/<int:pk>/update', views.UpdateThreadConsumption.as_view(), name='updateThreadConst'),
 
     path('workorder', views.WorkOrder, name='WOs'),
     path('workorder/add', views.AddWorkOrder, name='addWO'),
@@ -97,4 +103,6 @@ urlpatterns = [
     path('options/workorders', options_service.getWorkOrders, name='workOrders'),
     path('options/purchaseorders/open', options_service.getOpenPOs, name='openPOs'),
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
+
+    path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),
 ]

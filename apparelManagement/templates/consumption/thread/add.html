@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Request Addition
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <div class="{{theme.border}}">
+        <form method="POST" autocomplete="off" id="requestForm">
+            <div class="grid grid-cols-5 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0"">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Style
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Thread
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}} relative">
+                    <select id="style_1" class="grow {{theme.dropdown}}" name="Style" onclick="showSearchBox(this, '/options/styles')"></select>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="Thread">
+                </div>
+                <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="grid grid-cols-1 mt-4 x-3">
+        <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+    </div>
+
+    <script>   //To Send data to server
+        async function submitForms() {
+            showLoadingIcon();
+
+            const allForms = document.forms;
+
+            const requestForm = allForms['requestForm'];
+
+            //Prepare the data for details Group
+            const data = formToTable('request', requestForm, {});
+
+            await submitData(data);
+
+            hideLoadingIcon();
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('', {
+              method: 'POST',
+              body: data,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+                return ;
+            }
+
+            const requestNumber = await response.text();
+            window.location.href = `/consumption/thread/request/${requestNumber}/edit`;
+        }
+    </script>
+{% endblock content %}
