@@ -566,6 +566,9 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', type='change'):
             return generic_services.showMessageResponse(request, 'Access Denied', 403)
 
+        if (orderObject.Merchandiser != request.user):
+            return HttpResponse('Access Denied', status=403)
+
         dfOrder, dfVariants, dfRequirement, dfAttachments = generic_services.refineFormData(request)
 
         try:
@@ -1884,6 +1887,10 @@ class UpdateThreadConsumption(APIView):
             status = rest_framework.status.HTTP_404_NOT_FOUND
             return Response(data=response, status=status)
 
+        if consRequest.IsClosed:
+            response = {'message': 'This resource is closed'}
+            status = rest_framework.status.HTTP_405_METHOD_NOT_ALLOWED
+            return Response(data=response, status=status)
         
         try:
             consRequest, consThreads, addedData = style_card_service.ProcessThreadConsumptionData(consRequest)
@@ -1897,4 +1904,38 @@ class UpdateThreadConsumption(APIView):
             print(e)
             response = {'message': str(e)}
             status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, statu=status)
+            return Response(data=response, status=status)
+    
+    def post(self, request:Request, pk: int):
+        try:
+            authenticateUser(request, 'apparelManagement', 'ThreadConsumptionRequest', type='change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+        
+        try:
+            consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
+        except:
+            response = {'message', 'Resource Not Found'}
+            status = rest_framework.status.HTTP_404_NOT_FOUND
+            return Response(data=response, status=status)
+
+
+        if consRequest.IsClosed:
+            response = {'message': 'This resource is closed'}
+            status = rest_framework.status.HTTP_405_METHOD_NOT_ALLOWED
+            return Response(data=response, status=status)
+
+        isFinal = request.data.get('final', False)
+        data = request.data.get('items')
+
+        try:
+            style_card_service.SaveThreadConsumption(consRequest, data, isFinal)
+            return Response(data=[], status=rest_framework.status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_400_BAD_REQUEST
+            return Response(data=response, status=status)

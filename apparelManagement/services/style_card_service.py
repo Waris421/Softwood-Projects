@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+from typing import List, Dict
+
 from django.forms.models import model_to_dict
 from django.db import transaction
 from django.db.models import Q
@@ -508,11 +510,61 @@ def UpdateRequestForThreadCons(request: models.ThreadConsumptionRequest, dfReque
         updateModelWithDF(models.ThreadConsumptionRequestThreads, dfThreads, dfPreviousThreads)
     except Exception as e:
         raise ValueError(f'Error saving Styles: {e}')
+    
+    request.IsClosed = False
+    request.save()
 
 def ProcessThreadConsumptionData(request: models.ThreadConsumptionRequest):
     fields = ['id', 'Thread']
     threads = models.ThreadConsumptionRequestThreads.objects.filter(Request=request).values(*fields)
 
-    #Get the data for when the consumption is already added and return it
+    try:
+        consumption = models.ThreadConsumption.objects.get(Request=request)
+        
+        fields = ['id', 'Operation', 'Frequency', 'StitchType', 'Factor', 'ThreadType', 'Count', 'ConsumptionValue']
+        consumptionThreads = models.ThreadConsumptionThreads.objects.filter(Consumption=consumption).values(*fields)
+        
+        dfConsumptionThreads = pd.DataFrame(consumptionThreads) if consumptionThreads else pd.DataFrame(columns=fields)
+        del consumptionThreads
 
-    return model_to_dict(request), threads, []
+        dfConsumptionThreads.rename(inplace=True, columns={'ConsumptionValue':'Consumption'})
+        addedData = dfToListOfDicts(dfConsumptionThreads)
+        del dfConsumptionThreads
+    except models.ThreadConsumption.DoesNotExist:
+        addedData = []
+    except Exception as e:
+        raise LookupError(e)
+
+    return model_to_dict(request), threads, addedData
+
+def SaveThreadConsumption(request: models.ThreadConsumptionRequest, data: List[Dict[str, str|int|float]], isFinal: bool):
+    dfData = pd.DataFrame(data)
+    if dfData.empty:
+        raise ValueError('No Data Provided')
+    
+    try:
+        consumption = models.ThreadConsumption.objects.get(Request=request)
+    except models.ThreadConsumption.DoesNotExist:
+        consumption = models.ThreadConsumption(Request=request)
+        consumption.save()
+    except Exception as e:
+        raise LookupError(e)
+
+    fields = ['id']
+    previousConsThreads = models.ThreadConsumptionThreads.objects.filter(Consumption=consumption).values(*fields)
+    dfPreviousConsThreads = pd.DataFrame(previousConsThreads) if previousConsThreads else pd.DataFrame(columns=fields)
+    del previousConsThreads
+    
+    dfData['ThreadType'] = convertTexttoObject(models.ThreadConsumptionRequestThreads, dfData['ThreadType'], 'id')
+    
+    dfData.rename(inplace=True, columns={'Consumption':'ConsumptionValue'})
+    dfData['Consumption'] = consumption
+
+    try:
+        updateModelWithDF(models.ThreadConsumptionThreads, dfData, dfPreviousConsThreads)
+    except Exception as e:
+        raise ValueError(e)
+
+    if isFinal:
+        request.IsClosed = True
+        request.save()

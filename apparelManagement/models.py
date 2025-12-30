@@ -609,7 +609,38 @@ class ThreadConsumptionRequestStyles(models.Model):
     Request = models.ForeignKey(ThreadConsumptionRequest, on_delete=models.CASCADE)
     Style = models.ForeignKey(StyleCard, on_delete=models.PROTECT)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['Request'])
+        ]
+
 class ThreadConsumptionRequestThreads(models.Model):
     id=models.AutoField(primary_key=True)
     Request = models.ForeignKey(ThreadConsumptionRequest, on_delete=models.CASCADE)
     Thread = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Request'])
+        ]
+
+class ThreadConsumption(models.Model):
+    id=models.AutoField(primary_key=True)
+    Request = models.ForeignKey(ThreadConsumptionRequest, on_delete=models.PROTECT)
+    AddedOn = models.DateField(auto_now_add=True)
+
+class ThreadConsumptionThreads(models.Model):
+    id=models.AutoField(primary_key=True)
+    Consumption = models.ForeignKey(ThreadConsumption, on_delete=models.CASCADE)
+    Operation = models.CharField(max_length=255)
+    Frequency = models.PositiveIntegerField()
+    StitchType = models.CharField(max_length=15)
+    Factor = models.FloatField()
+    ThreadType = models.ForeignKey(ThreadConsumptionRequestThreads, on_delete=models.PROTECT)
+    Count = models.CharField(max_length=15)
+    ConsumptionValue = models.FloatField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Consumption'])
+        ]
