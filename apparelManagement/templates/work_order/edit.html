@@ -328,28 +328,6 @@
             
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
-            const objects = document.getElementById('requirementForm').children[0].children;
-            const reqTableRows = Array.from(objects).slice(1);
-
-            for (let i=1; i<reqTableRows.length; i++) {
-                reqTableRows[i].remove();
-            }
-
-            let rowToCopy = reqTableRows[0];
-            const table = rowToCopy.parentElement;
-
-            //Delete previous data from the row to copy.
-            const inputs = rowToCopy.querySelectorAll('input');
-            inputs.forEach(input => {
-                const type = input.type;
-
-                if (type === 'checkbox') {
-                    input.checked = false;
-                } else {
-                    input.value = '';
-                }
-            });
-
             const response = await fetch('/workorder/requirement/calculate', {
                 method: 'POST',
                 body: data,
@@ -361,6 +339,8 @@
                 showMessage(errorMessage);
 
                 hideLoadingIcon();
+
+                return ;
             }
 
             document.location.reload();

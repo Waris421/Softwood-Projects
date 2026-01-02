@@ -517,6 +517,9 @@ def UpdateRequestForThreadCons(request: models.ThreadConsumptionRequest, dfReque
 def ProcessThreadConsumptionData(request: models.ThreadConsumptionRequest):
     fields = ['id', 'Thread']
     threads = models.ThreadConsumptionRequestThreads.objects.filter(Request=request).values(*fields)
+    
+    fields = ['Style']
+    styles = models.ThreadConsumptionRequestStyles.objects.filter(Request=request).values(*fields)
 
     try:
         consumption = models.ThreadConsumption.objects.get(Request=request)
@@ -535,7 +538,7 @@ def ProcessThreadConsumptionData(request: models.ThreadConsumptionRequest):
     except Exception as e:
         raise LookupError(e)
 
-    return model_to_dict(request), threads, addedData
+    return model_to_dict(request), threads, addedData, styles
 
 def SaveThreadConsumption(request: models.ThreadConsumptionRequest, data: List[Dict[str, str|int|float]], isFinal: bool):
     dfData = pd.DataFrame(data)

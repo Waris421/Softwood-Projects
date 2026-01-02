@@ -164,10 +164,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
-SESSION_COOKIE_AGE = 1209600        #"1209600(2 weeks)" by default
+PASSWORD_RESET_TIMEOUT = 60 * 60            #1 hour
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14      #2 weeks
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False     #Don't delete cookies upon browser close
 
-SESSION_SAVE_EVERY_REQUEST = True # "False" by default
+SESSION_SAVE_EVERY_REQUEST = True           # "False" by default
 
 #Settings for emails
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

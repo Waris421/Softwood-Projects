@@ -603,7 +603,7 @@ def CalculateVariants(request: HttpResponse):
 @login_required(login_url='/login')
 def CalculateRequirement(request: HttpRequest):
     if request.method != 'POST':
-        return HttpResponse('Not allowed', status=302)
+        return HttpResponse('Not allowed', status=405)
     
     #convert json to a dict.
     data = json.loads(request.body.decode('utf-8'))
@@ -617,6 +617,9 @@ def CalculateRequirement(request: HttpRequest):
     except Exception as e:
         print(e)
         return HttpResponse('Invalid Input', status=400)
+
+    if (workOrder.Merchandiser != request.user):
+        return HttpResponse('Access Denied', status=403)
 
     work_order_service.CalculateRequirement(styleCard, workOrder)
 
@@ -1893,10 +1896,11 @@ class UpdateThreadConsumption(APIView):
             return Response(data=response, status=status)
         
         try:
-            consRequest, consThreads, addedData = style_card_service.ProcessThreadConsumptionData(consRequest)
+            consRequest, consThreads, addedData, styles = style_card_service.ProcessThreadConsumptionData(consRequest)
 
             responseData = {
-                'request': consRequest, 'threads': consThreads, 'addedData': addedData
+                'request': consRequest, 'threads': consThreads, 'addedData': addedData,
+                'styles': styles,
             }
             status = rest_framework.status.HTTP_200_OK
             return Response(data=responseData, status=status)

@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import authenticate, login, logout, password_validation
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -15,7 +14,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
 from rest_framework.authtoken.models import Token
 from rest_framework.request import Request
+from rest_framework import status
 import rest_framework
+
+from . import serializers
 
 from core.constants.theme import theme
 from core.constants.generic import BROWSER_OPTIONS
@@ -86,6 +88,66 @@ class APILogin(APIView):
                 status = rest_framework.status.HTTP_401_UNAUTHORIZED
             
             return Response (data=response, status=status)
+
+class APIPasswordResetRequest(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        userEmail = request.data.get('email')
+
+        user = User.objects.filter(email=userEmail).first()
+
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            response = {
+                'token': token,
+                'uid': uid,
+            }
+            status = rest_framework.status.HTTP_200_OK
+        else:
+            response = {"message": "User does not exist"}
+            status = rest_framework.status.HTTP_404_NOT_FOUND
+
+        return Response(data=response, status=status)
+
+class APIPasswordResetConfirm(APIView):
+    permission_classes = [AllowAny]
+
+    def getUser(self, uidb64):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            return User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return None
+
+    def post(self, request: Request, uidb64, token):
+        user = self.getUser(uidb64)
+        if user is None or not default_token_generator.check_token(user, token):
+            return Response({"message": "Invalid or expired link"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = serializers.APIPasswordResetConfirm(data=request.data)
+
+        if serializer.is_valid():
+            newPassword = serializer.validated_data['password1']
+            
+            try:
+                password_validation.validate_password(newPassword, user)
+                user.set_password(newPassword)
+                user.save()
+                return Response({"message": "Password reset successful"}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"message": list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request: Request, uidb64, token):
+        user = self.getUser(uidb64)
+        if user is not None and default_token_generator.check_token(user, token):
+            return Response({"message": "Token is valid"}, status=status.HTTP_200_OK)
+        
+        return Response({"message": "Invalid or expired link"}, status=status.HTTP_400_BAD_REQUEST)
 
 class GetNavBarOptions(APIView):
     permission_classes = [AllowAny]
