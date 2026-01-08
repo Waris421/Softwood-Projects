@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 
 from .. import models
 from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts, convertTextToBool
+from core.constants.prod import threadCounts
 
 def getStyleCard (customer:str):
     filters = Q()
@@ -482,8 +483,8 @@ def ProcessConsRequestData(request: models.ThreadConsumptionRequest):
     return dfToListOfDicts(dfCombined)
 
 def UpdateRequestForThreadCons(request: models.ThreadConsumptionRequest, dfRequest: pd.DataFrame):
-    dfStyles = dfRequest[['StyleId', 'Style']].replace('', np.nan).dropna()
-    dfThreads = dfRequest[['ThreadId', 'Thread']].replace('', np.nan).dropna()
+    dfStyles = dfRequest[['StyleId', 'Style']].replace('', np.nan).dropna(how='all')
+    dfThreads = dfRequest[['ThreadId', 'Thread']].replace('', np.nan).dropna(how='all')
     del dfRequest
 
     fields = ['id']
@@ -498,6 +499,7 @@ def UpdateRequestForThreadCons(request: models.ThreadConsumptionRequest, dfReque
     
     dfStyles.rename(inplace=True, columns={'StyleId': 'id'})
     dfStyles['Style'] = convertTexttoObject(models.StyleCard, dfStyles['Style'], 'StyleCode')
+    dfStyles['Request'] = request
 
     try:
         updateModelWithDF(models.ThreadConsumptionRequestStyles, dfStyles, dfPreviousStyles)
@@ -505,6 +507,7 @@ def UpdateRequestForThreadCons(request: models.ThreadConsumptionRequest, dfReque
         raise ValueError(f'Error saving Styles: {e}')
     
     dfThreads.rename(inplace=True, columns={'ThreadId': 'id'})
+    dfThreads['Request'] = request
 
     try:
         updateModelWithDF(models.ThreadConsumptionRequestThreads, dfThreads, dfPreviousThreads)
@@ -524,9 +527,8 @@ def ProcessThreadConsumptionData(request: models.ThreadConsumptionRequest):
     try:
         consumption = models.ThreadConsumption.objects.get(Request=request)
         
-        fields = ['id', 'Operation', 'Frequency', 'StitchType', 'Factor', 'ThreadType', 'Count', 'ConsumptionValue']
+        fields = ['id', 'Operation', 'Frequency', 'StitchType', 'Factor', 'ThreadType', 'NeedleCount', 'LooperCount','ConsumptionValue']
         consumptionThreads = models.ThreadConsumptionThreads.objects.filter(Consumption=consumption).values(*fields)
-        
         dfConsumptionThreads = pd.DataFrame(consumptionThreads) if consumptionThreads else pd.DataFrame(columns=fields)
         del consumptionThreads
 
@@ -545,6 +547,7 @@ def SaveThreadConsumption(request: models.ThreadConsumptionRequest, data: List[D
     if dfData.empty:
         raise ValueError('No Data Provided')
     
+    print(data)
     try:
         consumption = models.ThreadConsumption.objects.get(Request=request)
     except models.ThreadConsumption.DoesNotExist:
@@ -571,3 +574,86 @@ def SaveThreadConsumption(request: models.ThreadConsumptionRequest, data: List[D
     if isFinal:
         request.IsClosed = True
         request.save()
+
+def ProcessThreadConDataForConversion(request: models.ThreadConsumptionRequest):
+    try:
+        consumption = models.ThreadConsumption.objects.get(Request=request)
+    except:
+        raise LookupError('Cannot find consumption for this request')
+
+    fields = ['id', 'Style']
+    requestStyles = models.ThreadConsumptionRequestStyles.objects.filter(Request=request).filter(IsConverted=False).values(*fields)
+    dfRequestStyles = pd.DataFrame(requestStyles) if requestStyles else pd.DataFrame(columns=fields)
+    del requestStyles
+
+    fields = ['id', 'Thread']
+    requestThreads = models.ThreadConsumptionRequestThreads.objects.filter(Request=request).values(*fields)
+    dfRequestThreads = pd.DataFrame(requestThreads) if requestThreads else pd.DataFrame(columns=fields)
+    del requestThreads
+
+    fields = ['Frequency', 'Factor', 'ThreadType', 'NeedleCount', 'LooperCount', 'ConsumptionValue']
+    consumptionThreads = models.ThreadConsumptionThreads.objects.filter(Consumption=consumption).values(*fields)
+    dfConsumptionThreads = pd.DataFrame(consumptionThreads) if consumptionThreads else pd.DataFrame(columns=fields)
+    del consumptionThreads
+    
+    fields = ['Style', 'InventoryCode', 'InventoryCode__Name']
+    styleCardThreads = models.StyleConsumption.objects.filter(Style__in=dfRequestStyles['Style'].to_list()).filter(InventoryCode__Code__startswith='THR').values(*fields)
+    dfStyleCardThreads = pd.DataFrame(styleCardThreads) if styleCardThreads else pd.DataFrame(columns=fields)
+    del styleCardThreads
+
+    dfConsumptionThreads.rename(inplace=True, columns={'ConsumptionValue': 'Length'})
+    
+    dfConsumptionThreads = dfConsumptionThreads.melt(
+        id_vars=['Frequency', 'Factor', 'ThreadType', 'Length'],
+        value_vars=['NeedleCount', 'LooperCount'],
+        var_name='Count_Type',
+        value_name='Count'
+    )
+    
+    dfConsumptionThreads['Count'] = dfConsumptionThreads['Count'].replace('', np.nan)
+
+    dfConsumptionThreads = dfConsumptionThreads.dropna(subset=['Count']).drop(columns=['Count_Type'])
+    
+    dfConsumptionThreads['Consumption'] = dfConsumptionThreads['Frequency'] * dfConsumptionThreads['Factor'] * dfConsumptionThreads['Length'] / 100
+    dfConsumptionThreads = dfConsumptionThreads.groupby(['ThreadType', 'Count'])['Consumption'].sum().reset_index()
+
+    dfConsumptionThreads = pd.merge(left=dfConsumptionThreads, right=dfRequestThreads, left_on='ThreadType', right_on='id', how='left')
+    del dfRequestThreads
+    dfConsumptionThreads.drop(inplace=True, columns=['ThreadType'])
+
+    countMapping = {item['value']: item['text'] for item in threadCounts}
+    
+    dfConsumptionThreads['Count'] = dfConsumptionThreads['Count'].map(countMapping).fillna(dfConsumptionThreads['Count'])
+
+    dfRequestStyles.rename(inplace=True, columns={'id':'value', 'Style':'text'})
+
+    dfStyleCardThreads.rename(inplace=True, columns={'InventoryCode__Name':'InventoryName'})
+    dfStyleCardThreads.sort_values(inplace=True, by='InventoryName')
+
+    return dfToListOfDicts(dfRequestStyles), dfToListOfDicts(dfConsumptionThreads), dfToListOfDicts(dfStyleCardThreads)
+
+def ConvertThreadConsumption(requestStyle: models.ThreadConsumptionRequestStyles, dfConsumption: pd.DataFrame):
+    if (dfConsumption['InvCode'].str.len()==0).any():
+        raise ValueError('Incomplete threads')
+
+    dfConsumption.drop(inplace=True, columns=['Thread', 'Count', 'id'])
+    dfConsumption.rename(inplace=True, columns={'InvCode': 'InventoryCode'})
+
+    #Fixed Columns iniiialisation
+    dfConsumption['Type'] = 'BW'
+    dfConsumption['Unit'] = 'Meter'
+    dfConsumption['HasVariant'] = False
+    dfConsumption['SizeDetails'] = ''
+    dfConsumption['FinalCons'] = calculateFinalConsumption(dfConsumption[['InventoryCode','Unit','Consumption']])
+
+    #Setting columns to objects
+    dfConsumption['Style'] = requestStyle.Style
+    dfConsumption['InventoryCode'] = convertTexttoObject(models.Inventory, dfConsumption['InventoryCode'], 'Code')
+    dfConsumption['Unit'] = convertTexttoObject(models.Unit, dfConsumption['Unit'], 'Name')
+
+    instancesToSave = [models.StyleConsumption(**row) for _, row in dfConsumption.iterrows()]
+    
+    with transaction.atomic():
+        models.StyleConsumption.objects.bulk_create(instancesToSave)
+        requestStyle.IsConverted = True
+        requestStyle.save()

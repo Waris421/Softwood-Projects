@@ -35,6 +35,8 @@ urlpatterns = [
     path('consumption/thread/request/<int:pk>/edit', views.EditThreadConsumptionRequest, name='editThreadConsRequest'),
     path('consumption/thread/requests/pending', views.GetPendingThreadConsRequest.as_view(), name='pendingThreadConsRequests'),
     path('consumption/thread/request/<int:pk>/update', views.UpdateThreadConsumption.as_view(), name='updateThreadConst'),
+    path('consumption/thread/<int:pk>/convert', views.ConvertThreadConsumption, name='convertThreadCons'),
+    
 
     path('workorder', views.WorkOrder, name='WOs'),
     path('workorder/add', views.AddWorkOrder, name='addWO'),

@@ -1943,3 +1943,46 @@ class UpdateThreadConsumption(APIView):
             response = {'message': str(e)}
             status = rest_framework.status.HTTP_400_BAD_REQUEST
             return Response(data=response, status=status)
+
+def ConvertThreadConsumption(request: HttpRequest, pk: int):
+    if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='change'):
+        return generic_services.showMessageResponse(request, 'Access Denied', 403)
+    
+    try:
+        consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
+    except:
+        return generic_services.showMessageResponse(request, 'Request not found', 400)
+
+    if not consRequest.IsClosed:
+        return generic_services.showMessageResponse(request, 'Consumption not final yet.', 405)
+
+    if request.method == 'POST':
+        dfStyle, dfConsumption = generic_services.refineFormData(request)
+        
+        style = dfStyle.iloc[0, 0]
+        try:
+            requestStyle = models.ThreadConsumptionRequestStyles.objects.get(id=style)
+        except:
+            return HttpResponse('This style is removed from request', status=400)
+        
+        try:
+            style_card_service.ConvertThreadConsumption(requestStyle, dfConsumption)
+            return HttpResponse('Ok', status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(str(e), status=400)
+    else:
+        try:
+            styles, consThreads, styleThreads = style_card_service.ProcessThreadConDataForConversion(consRequest)
+        except Exception as e:
+            print(e)
+            return generic_services.showMessageResponse(request, str(e), 400)
+
+        context = {
+            'styles': styles, 'stylesJson': json.dumps(list(styles)),
+            'consThreads': consThreads,
+            'styleThreads': styleThreads, 'styleThreadsJson': json.dumps(list(styleThreads)),
+            'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
+        }
+
+        return render(request, 'consumption/thread/finalise.html', context)

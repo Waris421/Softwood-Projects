@@ -108,3 +108,11 @@ stitchingLines = [
     {'value': 'B', 'text':'Blue'},
     {'value': 'G', 'text':'Green'},
 ]
+
+threadCounts = [
+    {'value': '203', 'text': '20/3'},
+    {'value': '203E', 'text': '20/3 EPIC'},
+    {'value': '202', 'text': '20/2'},
+    {'value': '202E', 'text': '20/2 EPIC'},
+    {'value': '204', 'text': '20/4'},
+]

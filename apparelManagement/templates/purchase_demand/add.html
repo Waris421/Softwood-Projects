@@ -10,7 +10,7 @@
     <!-- The main Demand form-->
     <form method="POST" id="demandForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-5 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/3] items-center">
                     <label class="mx-2 whitespace-nowrap">Department:&nbsp; </label>
                     <select id="id_Department" class="{{theme.dropdown}}" name="Department"> </select>
@@ -20,6 +20,10 @@
                     <input type="text" name="Demandee" class="{{theme.textInput}}">
                 </div>
                 <div class="flex col-[5/6] items-center">
+                    <label class="mx-2 whitespace-nowrap">Grand Total:&nbsp; </label>
+                    <div id="grandTotalDisplay" class="text-xl font-bold">Rs. 0/-</div>
+                </div>
+                <div class="flex col-[6/7] items-center">
                     <button id="submit" class="{{theme.buttonBasic}}" onclick="submitForms()" type="button">          <!--Save Button-->
                         Submit
                     </button>
@@ -92,6 +96,11 @@
                     <input type="number" class="{{theme.textInput}}" name="Forex">
                 </div>
                 <div class="flex col-[8/9] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <div class="tooltip" data-tip="Total: 0.00">
+                        <button class="{{theme.plusButton}}" type="button" onmouseenter="showTotal(this)">
+                            <span class="material-symbols-outlined">info</span>
+                        </button>
+                    </div>
                     <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                         <span>+</span>
                     </button>
@@ -169,8 +178,51 @@
             const currencies = await response.json();
             await appendOptions('id_Currency_1', currencies,'PKR');
 
+            const invTable = document.getElementById('inventoryForm');
+            invTable.addEventListener('input', (e) => {
+                if (['Quantity', 'Price', 'Forex'].includes(e.target.name)) {
+                    calculateGrandTotal();
+                }
+            });
             hideLoadingIcon();
         });
+    </script>
+
+    <script>    //To handle the totals
+        function showTotal(source) {
+            const tooltipDiv = source.parentElement;
+            const row = tooltipDiv.parentElement.parentElement;
+
+            const qty = parseFloat(row.querySelector('input[name="Quantity"]').value) || 0;
+            const price = parseFloat(row.querySelector('input[name="Price"]').value) || 0;
+            const forex = parseFloat(row.querySelector('input[name="Forex"]').value) || 1;
+
+            const total = qty * price * forex;
+
+            tooltipDiv.setAttribute('data-tip', `Total: ${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
+        }
+
+        function calculateGrandTotal() {
+            let grandTotal = 0;
+
+            const table = document.getElementById('inventoryForm');
+            
+            const rows = table.querySelectorAll('#inventoryForm [row]:not([row="0"])');
+
+            rows.forEach(row => {
+                const qty = parseFloat(row.querySelector('input[name="Quantity"]').value) || 0;
+                const price = parseFloat(row.querySelector('input[name="Price"]').value) || 0;
+                const forex = parseFloat(row.querySelector('input[name="Forex"]').value) || 1;
+                
+                grandTotal += (qty * price * forex);
+            });
+
+            const display = document.getElementById('grandTotalDisplay');
+            display.textContent = ' Rs. '+grandTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            })+'/-';
+        }
     </script>
 
     <script>    //To handle inventory search box

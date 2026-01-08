@@ -10,24 +10,28 @@
     <!-- The main Demand form-->
     <form method="POST" id="demandForm" autocomplete="off" class="{{theme.formHeading}}">
         <div class="{{theme.border}}">
-            <div class="grid grid-cols-8 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="grid grid-cols-11 my-2 {{theme.justify}} {{theme.align}}">
                 <div class="flex col-[1/2] items-center">
                     <label class="mx-2 whitespace-nowrap">PD:&nbsp; </label>
                     <input type="number" class="{{theme.textInput}}" value="{{demand.id}}" name="id" readonly>
                 </div>
-                <div class="flex col-[2/4] items-center">
+                <div class="flex col-[2/5] items-center">
                     <label class="mx-2 whitespace-nowrap">Deparment:&nbsp; </label>
                     <select id="id_Department" class="{{theme.dropdown}}" name="Department"> </select>
                 </div>
-                <div class="flex col-[4/6] items-center">
+                <div class="flex col-[5/7] items-center">
                     <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
                     <input type="text" class="{{theme.textInput}}" value="{{demand.Demandee}}" name="Demandee">
                 </div>
-                <div class="flex col-[6/8] items-center">
+                <div class="flex col-[7/9] items-center">
                     <label class="mx-2 whitespace-nowrap">Date:&nbsp; </label>
                     <input value="{{demand.DemandDate|date:'d/m/Y'}}" class="{{theme.textInput}}" name="DemandDate" readonly>
                 </div>
-                <div class="flex col-[8/9] btn-group items-center">
+                <div class="flex col-[9/11] items-center">
+                    <label class="mx-2 whitespace-nowrap">Grand Total:&nbsp; </label>
+                    <div id="grandTotalDisplay" class="text-xl font-bold">Rs. 0/-</div>
+                </div>
+                <div class="flex col-[11/12] btn-group items-center">
                     <button class="{{theme.buttonBasic}}" onclick="submitForms()" type="button">Submit</button>
                 </div>
             </div>
@@ -102,6 +106,11 @@
                         <input type="number" class="{{theme.textInput}}" name="Forex" value="{{data.Forex}}">
                     </div>
                     <div class="flex col-[8/9] space-x-1 {{theme.align}} {{theme.justify}}">
+                        <div class="tooltip" data-tip="Total: 0.00">
+                            <button class="{{theme.plusButton}}" type="button" onmouseenter="showTotal(this)">
+                                <span class="material-symbols-outlined">info</span>
+                            </button>
+                        </div>
                         <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
                             <span>+</span>
                         </button>
@@ -194,8 +203,54 @@
 
             delete response;
 
+            calculateGrandTotal();
+
+            const invTable = document.getElementById('inventoryForm');
+            invTable.addEventListener('input', (e) => {
+                if (['Quantity', 'Price', 'Forex'].includes(e.target.name)) {
+                    calculateGrandTotal();
+                }
+            });
+
             hideLoadingIcon();
         });
+    </script>
+
+    <script>    //To handle the totals
+        function showTotal(source) {
+            const tooltipDiv = source.parentElement;
+            const row = tooltipDiv.parentElement.parentElement;
+
+            const qty = parseFloat(row.querySelector('input[name="Quantity"]').value) || 0;
+            const price = parseFloat(row.querySelector('input[name="Price"]').value) || 0;
+            const forex = parseFloat(row.querySelector('input[name="Forex"]').value) || 1;
+
+            const total = qty * price * forex;
+
+            tooltipDiv.setAttribute('data-tip', `Total: ${total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}/-`);
+        }
+
+        function calculateGrandTotal() {
+            let grandTotal = 0;
+
+            const table = document.getElementById('inventoryForm');
+            
+            const rows = table.querySelectorAll('#inventoryForm [row]:not([row="0"])');
+
+            rows.forEach(row => {
+                const qty = parseFloat(row.querySelector('input[name="Quantity"]').value) || 0;
+                const price = parseFloat(row.querySelector('input[name="Price"]').value) || 0;
+                const forex = parseFloat(row.querySelector('input[name="Forex"]').value) || 1;
+                
+                grandTotal += (qty * price * forex);
+            });
+
+            const display = document.getElementById('grandTotalDisplay');
+            display.textContent = ' Rs. '+grandTotal.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            })+'/-';
+        }
     </script>
 
     <script>    //To handle inventory search box

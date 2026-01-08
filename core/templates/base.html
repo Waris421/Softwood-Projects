@@ -443,11 +443,6 @@
           listContainer.innerHTML = '';
           source.innerHTML = '';
 
-          if (addBlank) {
-            const newRow = { "value": null, "text": "-----------" };
-            data.unshift(newRow);
-          }
-
           if (optionsData && optionsData.length > 0) {
             for (const option of optionsData) {
               const listItem = document.createElement('li');
