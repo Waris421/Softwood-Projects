@@ -116,27 +116,32 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
     'productivity': [
         {'label': 'Dashboard', 'href':'/productivity', 'appName': 'prodManagement', 'modelName': 'Operation'},
         {'label': 'Consumption', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
-            {'label': 'Pending Consumptions', 'href':'/consumption/request/thread/pending'},
-            {'label': 'View All', 'href':'/consumption/request/thread'},
+            {'label': 'Pending Consumptions', 'href':'/consumption/request/thread/pending', 'subtext': 'Review and finalize thread consumptions'},
+            {'label': 'View All', 'href':'/consumption/request/thread', 'subtext': 'Complete history of thread consumptions'},
         ]},
         {'label': 'Presets', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
-            {'label':'Style Bulletin', 'href':'/productivity/buletins'},
-            {'label':'Operation', 'href':'/productivity/operations'},
-            {'label':'Machines', 'href':'/productivity/machines'},
-            {'label':'Workers', 'href':'/productivity/workers'},
+            {'label':'Style Bulletin', 'href':'/productivity/buletins', 'subtext': 'Manage style bulletins'},
+            {'label':'Operation', 'href':'/productivity/operations', 'subtext': 'Define and categorize production operations'},
+            {'label':'Machines', 'href':'/productivity/machines', 'subtext': 'Define and categorize production machines'},
+            {'label':'Workers', 'href':'/productivity/workers', 'subtext': 'Manage operator profiles and skill matrices'},
         ]},
         {'label': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'children': [
-            {'label': 'Core Sheet', 'href': '/productivity/core-sheets'},
+            {'label': 'Core Sheet', 'href': '/productivity/core-sheets', 'subtext': 'Track core sheets'},
         ]},
         {'label': 'Stitching', 'appName': 'prodManagement', 'modelName': 'Serial', 'children': [
-            {'label': 'Scan Report', 'href': '/productivity/serials'},
+            {'label': 'Scan Report', 'href': '/productivity/serials', 'subtext': 'Monitor production scanning data'},
         ]},
         {'label': 'Outsource', 'appName': 'prodManagement', 'modelName': 'OutSourceJobContract', 'children': [
-            {'label': 'Contract List', 'href': '/productivity/outsource-contracts'},
-            {'label': 'Add Contract', 'href': '/productivity/outsource-contracts/add'},
-            {'label': 'Print Contracts', 'href': '/productivity/outsource-contracts?approval=approved'},
+            {'label': 'Contract List', 'href': '/productivity/outsource-contracts', 'subtext': 'Manage out-source contracts'},
         ]},
     ],
+    'finance': [
+        {'label': 'Dashboard', 'href': '/finance', 'appName': 'apparelManagement', 'modelName':'Inventory'},
+        {'label': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'children': [
+            {'label': 'Raw Material Stock', 'href': '/finance/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
+            {'label': 'Free Inventory', 'href': '/finance/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
+        ]}
+    ]
 }
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')

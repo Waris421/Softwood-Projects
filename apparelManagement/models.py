@@ -638,8 +638,8 @@ class ThreadConsumptionThreads(models.Model):
     StitchType = models.CharField(max_length=15)
     Factor = models.FloatField()
     ThreadType = models.ForeignKey(ThreadConsumptionRequestThreads, on_delete=models.PROTECT)
-    NeedleCount = models.CharField(max_length=15)
-    LooperCount = models.CharField(max_length=15)
+    NeedleCount = models.CharField(max_length=15, blank=True, null=True)
+    LooperCount = models.CharField(max_length=15, blank=True, null=True)
     ConsumptionValue = models.FloatField()
 
     class Meta:

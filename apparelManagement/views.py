@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
 from django.db import transaction
@@ -8,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
+from rest_framework import status
 import rest_framework
 
 import json
@@ -228,6 +230,26 @@ def InventoryReports(request: HttpRequest):
     context = {'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
     return render(request, 'inventory/reports_home.html', context)
 
+class InventoryStockStatus(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'ThreadConsumptionRequest', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+            
+        try:
+            stockStatus = inventory_card_service.GetInventoryStockStatus()
+            #print(stockStatus)
+            return Response(data=stockStatus, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
 @login_required(login_url='/login')
 def UnOrderedInventory(request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='view'):
@@ -1912,7 +1934,7 @@ class UpdateThreadConsumption(APIView):
     
     def post(self, request:Request, pk: int):
         try:
-            authenticateUser(request, 'apparelManagement', 'ThreadConsumptionRequest', type='change')
+            authenticateUser(request, 'apparelManagement', 'ThreadConsumption', type='change')
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -1986,3 +2008,21 @@ def ConvertThreadConsumption(request: HttpRequest, pk: int):
         }
 
         return render(request, 'consumption/thread/finalise.html', context)
+    
+class GetThreadConsumptions(APIView):
+    permission_classes = [AllowAny]
+
+    def get(serl, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'ThreadConsumption', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            consumptions = style_card_service.GetThreadConsumptions()
+            return Response(data=consumptions, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)

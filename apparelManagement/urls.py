@@ -18,6 +18,7 @@ urlpatterns = [
     path('inv/<str:pk>/check/', views.CheckInventoryCodeExists, name='checkInvcode'),
     path('inv/code/gen/', views.GenerateInventoryCode, name='genInvCode'),
     path('inv/reports', views.InventoryReports, name='inventoryReportsHome'),
+    path('inventory/stock-report', views.InventoryStockStatus.as_view(), name='inventoryStockStatusReport'),
     
     path('inv/reports/free-stock', views.InventoryFreeStockReport, name='inventoryReportFreeStock'),
     path('inv/reports/un-ordered', views.UnOrderedInventory, name='inventoryReportUnOrdered'),
@@ -36,7 +37,7 @@ urlpatterns = [
     path('consumption/thread/requests/pending', views.GetPendingThreadConsRequest.as_view(), name='pendingThreadConsRequests'),
     path('consumption/thread/request/<int:pk>/update', views.UpdateThreadConsumption.as_view(), name='updateThreadConst'),
     path('consumption/thread/<int:pk>/convert', views.ConvertThreadConsumption, name='convertThreadCons'),
-    
+    path('consumption/thread', views.GetThreadConsumptions.as_view(), name='threadConsumptions'),
 
     path('workorder', views.WorkOrder, name='WOs'),
     path('workorder/add', views.AddWorkOrder, name='addWO'),

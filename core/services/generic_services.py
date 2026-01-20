@@ -2,6 +2,7 @@
 Contains generic functions
 """
 
+import math
 import pandas as pd
 import numpy as np
 import json
@@ -375,14 +376,26 @@ def askAI(prompt: str, outputSchema: Union[Dict[str, Any], None] = None):
         response = model.generate_content(prompt)
         return response.text
 
-def dfToListOfDicts(df: pd.DataFrame):
+def dfToListOfDicts(df: pd.DataFrame) -> List[Dict]:
     '''
-    Converts a dataframe to a list of dicts
+    Converts a dataframe to a list of dicts and cleans any null values
     '''
     if df.empty:
-        return []
+        listofDicts = []
     else:
-        return df.to_dict(orient='records')
+        listofDicts = df.to_dict(orient='records')
+    
+    def cleaner(obj):
+        if isinstance(obj, list):
+            return [cleaner(i) for i in obj]
+        elif isinstance(obj, dict):
+            return {k: cleaner(v) for k, v in obj.items()}
+        elif isinstance(obj, float) and math.isnan(obj):
+            return None
+        
+        return obj
+    
+    return cleaner(listofDicts)
 
 def dfToJSON(df: pd.DataFrame):
     '''

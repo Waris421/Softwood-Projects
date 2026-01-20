@@ -657,3 +657,58 @@ def ConvertThreadConsumption(requestStyle: models.ThreadConsumptionRequestStyles
         models.StyleConsumption.objects.bulk_create(instancesToSave)
         requestStyle.IsConverted = True
         requestStyle.save()
+
+def GetThreadConsumptions():
+    fields = ['id', 'AddedOn', 'Request__id', 'Request__RequestBy__first_name', 'Request__RequestBy__last_name', 'Request__IsClosed']
+    consumptions = models.ThreadConsumption.objects.all().values(*fields)
+    dfConsumptions = pd.DataFrame(consumptions) if consumptions else pd.DataFrame(columns=fields)
+    del consumptions
+
+    fields = ['Request', 'Style']
+    consumptionStyles = models.ThreadConsumptionRequestStyles.objects.filter(Request__in=dfConsumptions['Request__id'].to_list()).values(*fields)
+    dfConsumptionStyles = pd.DataFrame(consumptionStyles) if consumptionStyles else pd.DataFrame(columns=fields)
+    del consumptionStyles
+
+    fields = ['Consumption', 'NeedleCount', 'LooperCount', 'Frequency', 'Factor', 'ConsumptionValue']
+    threads = models.ThreadConsumptionThreads.objects.filter(Consumption__in=dfConsumptions['id'].to_list()).values(*fields)
+    dfThreads = pd.DataFrame(threads) if threads else pd.DataFrame(columns=fields)
+    del threads
+
+    dfConsumptions['RequestBy'] = dfConsumptions['Request__RequestBy__first_name']+' '+dfConsumptions['Request__RequestBy__last_name']
+    dfConsumptions.drop(inplace=True, columns=['Request__RequestBy__first_name', 'Request__RequestBy__last_name'])
+    dfConsumptions.rename(inplace=True, columns={
+        'Request__id':'Request',
+        'Request__IsClosed': 'Closed'
+    })
+
+    dfConsumptionStyles = dfConsumptionStyles.groupby('Request').agg(
+    {
+        'Style': lambda x: ', '.join(x.astype(str))
+    }).reset_index()
+
+    dfConsumptions = pd.merge(left=dfConsumptions, right=dfConsumptionStyles, on='Request', how='left')
+    del dfConsumptionStyles
+    dfConsumptions.drop(inplace=True, columns=['Request'])
+
+    #Multiple consumption value by 2 if there are threads in both needle and looper
+    hasNeedleThread = (dfThreads['NeedleCount'].str.len() > 0).fillna(False)
+    hasLooperThread = (dfThreads['LooperCount'].str.len() > 0).fillna(False)
+    combinedMask = hasNeedleThread & hasLooperThread
+    dfThreads.loc[combinedMask, 'ConsumptionValue'] = dfThreads.loc[combinedMask, 'ConsumptionValue'] * 2
+    del hasNeedleThread, hasLooperThread, combinedMask
+    dfThreads.drop(inplace=True, columns=['NeedleCount', 'LooperCount'])
+    
+    dfThreads['ConsumptionValue'] = dfThreads['Frequency'] * dfThreads['Factor'] * dfThreads['ConsumptionValue'] / 100
+    dfThreads.drop(inplace=True, columns=['Frequency', 'Factor'])
+    dfThreads = dfThreads.groupby('Consumption').agg(
+        {'ConsumptionValue': 'sum'}
+    ).reset_index()
+    
+    dfConsumptions = pd.merge(left=dfConsumptions, right=dfThreads, left_on='id', right_on='Consumption', how='left')
+    del dfThreads
+    dfConsumptions.drop(inplace=True, columns=['Consumption'])
+
+    dfConsumptions['Status'] = np.where(dfConsumptions['Closed'], 'Closed', 'Pending')
+    dfConsumptions.drop(inplace=True, columns=['Closed'])
+    
+    return dfToListOfDicts(dfConsumptions)
