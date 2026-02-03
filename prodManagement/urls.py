@@ -28,9 +28,6 @@ urlpatterns = [
     path('productivity/cut/<int:pk>/get', views.GetCutDetails, name='getCutDetails'),
     path('productivity/cut/<int:pk>/available-bundle', views.GetNextAvailableBundle, name='getAvailableBundle'),
 
-    path('productivity/workers', views.Workers, name='workers'),
-    path('productivity/worker/add', views.AddWorker, name='addWorker'),
-    path('productivity/worker/<int:pk>/edit', views.EditWorker, name='editWorker'),
     path('productivity/api/complete-group', views.MarkGroupCompletion.as_view(), name='groupCompletionAPI'),
     path('productivity/api/assign-worker-card', views.AssignWorkerCard.as_view(), name='assignWorkerCard'),
 

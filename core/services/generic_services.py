@@ -357,7 +357,7 @@ def askAI(prompt: str, outputSchema: Union[Dict[str, Any], None] = None):
 
     if outputSchema:
         model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash',
+            model_name='gemini-3-flash-preview',
             generation_config={
                 "response_mime_type": "application/json",
                 "response_schema": outputSchema
@@ -439,7 +439,7 @@ def convertCountryNameToCode(countryNamesSeries: pd.Series) -> Dict[str, str]:
     }
 
     model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash',
+        model_name='gemini-3-flash-preview',
         generation_config={
             "response_mime_type": "application/json",
             "response_schema": responseSchema
@@ -612,3 +612,28 @@ def stringValidator (key: str):
 def printExceptionInDetail(e: Exception):
     print(f"Error: {e}")
     traceback.print_exc()
+
+def convertFullNametoNameParts(fulName: str, makeMidleName=False):
+    parts = fulName.strip().split()
+
+    if not parts:
+        return None, None, None
+    
+    #If there is a single name
+    if len(parts) == 1:
+        return parts[0], None, None
+
+    #If only two part name
+    if len(parts) == 2:
+        return parts[0], None, parts[1]
+    
+    last = parts[-1]
+    if makeMidleName:
+        first = parts[0]
+        middle = " ".join(parts[1:-1])
+    else:
+        first = " ".join(parts[:-1])
+        middle = None
+
+
+    return first, middle, last

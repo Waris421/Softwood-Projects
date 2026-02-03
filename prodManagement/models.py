@@ -100,6 +100,7 @@ class Bundle(models.Model):
         ]
 
 class Worker(models.Model):
+    "20-Jan-2025: This model is deprecated"
     WorkerCode = models.PositiveBigIntegerField(primary_key=True)
     WorkerName = models.CharField(max_length=255)
     FatherSpouseName = models.CharField(max_length=255, blank=True, null=True)

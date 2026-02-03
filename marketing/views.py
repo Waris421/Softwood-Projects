@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 
 import json
-import csv
 from urllib.parse import urlencode
 
 from core.constants.theme import theme

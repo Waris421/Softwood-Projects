@@ -422,6 +422,7 @@ def ConvertPDtoPO (demand: models.PurchaseDemand, dfDemand: pd.DataFrame, dfPOIn
 
     dfPOInventory['Inventory'] = convertTexttoObject(models.Inventory, dfPOInventory['Inventory'], 'Code')
     dfPOInventory['Currency'] = convertTexttoObject(models.Currency, dfPOInventory['Currency'], 'Code')
+    dfPOInventory.drop(inplace=True, columns=['id'])
 
     dfPOInventory['PONumber'] = orderCard
 

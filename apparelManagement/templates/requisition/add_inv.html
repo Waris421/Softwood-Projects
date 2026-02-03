@@ -15,9 +15,9 @@
                     <label class="mx-2 whitespace-nowrap">Group:&nbsp; </label>
                     <select id="id_Group" class="{{theme.dropdown}}" name="Group" onchange="changeInvDropdown(this)"></select>
                 </div>
-                <div class="flex col-[2/3] items-center">
+                <div class="flex col-[2/3] items-center relative">
                     <label class="mx-2 whitespace-nowrap">Inventory:&nbsp; </label>
-                    <select id="id_Inventory" class="{{theme.dropdown}}" name="Inventory"></select>
+                    <select id="id_Inventory" class="{{theme.dropdown}}" name="Inventory" onclick="showSearchBox(this, '/options/inventories')"></select>
                 </div>
                 <div class="flex col-[3/4] items-center">
                     <label class="mx-2 whitespace-nowrap">Department:&nbsp; </label>

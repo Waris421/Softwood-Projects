@@ -140,8 +140,28 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'children': [
             {'label': 'Raw Material Stock', 'href': '/finance/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/finance/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
-        ]}
-    ]
+        ]},
+    ],
+    'hr': [
+        {'label': 'Dashboard', 'href': '/hr', 'appName': 'apparelManagement', 'modelName': 'Inventory'},
+        {'label': 'Employees', 'appName': 'HumanResource', 'modelName': 'Employee', 'children': [
+            {'label': 'View All', 'href': '/hr/worker', 'subtext': 'Manage Employees'},
+            {'label': 'Performance', 'href': '/hr/performance', 'subtext': 'Follow up on employee performance'},
+            {'label': 'Training', 'href': '/hr/training', 'subtext': 'Follow up on employee training'},
+        ]},
+        {'label': 'Attendance', 'appName': 'HumanResource', 'modelName': 'Employee', 'children': [
+            {'label': 'View Attendance', 'href': '/hr/attendance', 'subtext': 'View your attendance record or your sub-ordinates'},
+            {'label': 'Pending Approvals', 'href': '/hr/attendance/approval/pending', 'subtext': 'Pending approval requests'},
+            {'label': 'Leaves record', 'href': '/hr/attendance/leaves', 'subtext': 'View Leaves Record'},
+        ]},
+    ],
+    'mmc': [
+        {'label': 'Dashboard', 'href': '/mmc', 'appName': 'apparelManagement', 'modelName': 'Inventory'},
+        {'label': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'children': [
+            {'label': 'Raw Material Stock', 'href': '/mmc/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
+            {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
+        ]},
+    ],
 }
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')
@@ -153,5 +173,7 @@ NOW = datetime.now()
 TODAY = datetime.today()
 
 MIN_WAGE = 32000
+
+EMPLOYEMENT_AGE_IN_YEARS = 18
 
 API_KEY_FOR_AI = os.environ.get("API_KEY_FOR_AI")

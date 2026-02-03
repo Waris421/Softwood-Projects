@@ -242,7 +242,7 @@ class StyleConsumption (models.Model):
         ]
 
 class StyleRoute (models.Model):
-    """Data model for a style's production route."""
+    """20-01-2026: This model is deprecated."""
 
     id = models.AutoField (primary_key=True)
     Style = models.ForeignKey(StyleCard, on_delete = models.CASCADE)

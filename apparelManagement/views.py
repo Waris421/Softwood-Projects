@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
 from django.db import transaction
@@ -235,7 +234,7 @@ class InventoryStockStatus(APIView):
 
     def get(self, request: Request):
         try:
-            authenticateUser(request, 'apparelManagement', 'ThreadConsumptionRequest', type='view')
+            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -243,7 +242,6 @@ class InventoryStockStatus(APIView):
             
         try:
             stockStatus = inventory_card_service.GetInventoryStockStatus()
-            #print(stockStatus)
             return Response(data=stockStatus, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
@@ -988,6 +986,7 @@ def EditPurchaseOrder(request: HttpRequest, pk):
 def getPOAllocation(request: HttpRequest):
     if request.method == 'POST':
         pk = json.loads(request.body.decode('utf-8'))['id']
+        print(pk)
 
         try:
             poInventory = models.POInventory.objects.get(id=pk)

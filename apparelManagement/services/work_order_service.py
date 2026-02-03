@@ -987,8 +987,13 @@ def PrintWO (order: models.WorkOrder):
     dfVariants[['POQuantity', 'CutQuantity']] = dfVariants[['POQuantity', 'CutQuantity']].astype(int).astype(str)
     dfVariants.rename(inplace=True, columns={'POQuantity':'PO Quantity', 'CutQuantity':'Will Cut', 'ActualCut':'Actual Cut'})
     cutting = {}
+    
     allVar1s = sorted(dfVariants['Variant1'].unique())
-    allVar2s = sorted(dfVariants['Variant2'].unique())
+    
+    var2Order = pd.unique(dfVariants['Variant2'])
+    inputOrderCat = pd.api.types.CategoricalDtype(categories=var2Order, ordered=True)
+    dfVariants['Variant2'] = dfVariants['Variant2'].astype(inputOrderCat)
+    allVar2s = list(var2Order)
     tableHeadings = ['PO Quantity', 'Will Cut', 'Actual Cut']
     
     for heading in tableHeadings:
