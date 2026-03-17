@@ -9,7 +9,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
 from rest_framework import status
-import rest_framework
 
 import json
 
@@ -550,6 +549,27 @@ def WorkOrder (request: HttpRequest):
                'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
     return render(request, 'work_order/home.html', context)
+
+class WorkOrders(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'WOrkOrder', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        currentOrders = request.data.get('currentOrders')
+        try:
+            orderData = work_order_service.GetOrdersForIntegration(currentOrders)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(data=orderData, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def AddWorkOrder(request: HttpRequest):
@@ -1781,7 +1801,7 @@ def AddIssuance (request: HttpRequest):
         comments = request.POST.get('Comments')
         try:
             issuance_service.AddIssuance(requisition, comments)
-            return redirect('requisition')
+            return redirect('apparelManagement:requisition')
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
@@ -1880,17 +1900,15 @@ class GetPendingThreadConsRequest(APIView):
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
             requests = style_card_service.GetThreadConsRequests('false')
-            return Response(data=requests, status=rest_framework.status.HTTP_200_OK)
+            return Response(data=requests, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, statu=status)
+            return Response(data=response, statu=status.HTTP_400_BAD_REQUEST)
 
 class UpdateThreadConsumption(APIView):
     permission_classes = [AllowAny]
@@ -1901,20 +1919,17 @@ class UpdateThreadConsumption(APIView):
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
         
         try:
             consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
         except:
             response = {'message', 'Resource Not Found'}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
 
         if consRequest.IsClosed:
             response = {'message': 'This resource is closed'}
-            status = rest_framework.status.HTTP_405_METHOD_NOT_ALLOWED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
         
         try:
             consRequest, consThreads, addedData, styles = style_card_service.ProcessThreadConsumptionData(consRequest)
@@ -1923,13 +1938,11 @@ class UpdateThreadConsumption(APIView):
                 'request': consRequest, 'threads': consThreads, 'addedData': addedData,
                 'styles': styles,
             }
-            status = rest_framework.status.HTTP_200_OK
-            return Response(data=responseData, status=status)
+            return Response(data=responseData, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
     def post(self, request:Request, pk: int):
         try:
@@ -1937,33 +1950,29 @@ class UpdateThreadConsumption(APIView):
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
         
         try:
             consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
         except:
             response = {'message', 'Resource Not Found'}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
 
 
         if consRequest.IsClosed:
             response = {'message': 'This resource is closed'}
-            status = rest_framework.status.HTTP_405_METHOD_NOT_ALLOWED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
         isFinal = request.data.get('final', False)
         data = request.data.get('items')
 
         try:
             style_card_service.SaveThreadConsumption(consRequest, data, isFinal)
-            return Response(data=[], status=rest_framework.status.HTTP_200_OK)
+            return Response(data=[], status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 def ConvertThreadConsumption(request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='change'):

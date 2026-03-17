@@ -2,6 +2,7 @@ from django.contrib import admin
 from . import models
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from django.core.cache import cache
 
 # Register your models here.
 
@@ -13,6 +14,11 @@ class ImpExp(ImportExportModelAdmin):
     list_display = ('id','Name')
     resource_class = ImpExpResource """
 
+@admin.action(description="Clear entire cache")
+def clearCacheAction(modeladmin, request, queryset):
+    cache.clear()
+    modeladmin.message_user(request, "Cache has been cleared.")
+
 @admin.register(models.Unit)
 class UnitAdmin(admin.ModelAdmin):
     list_display = ('Name','Group')
@@ -23,6 +29,14 @@ class UnitAdmin(admin.ModelAdmin):
 class CurrencyAdmin(admin.ModelAdmin):
     list_display = ('Code', 'Name') """
 
+@admin.register(models.InventoryReciept)
+class InventoryReceiptAdmin(admin.ModelAdmin):
+    '''Admin View for InventoryReceipt'''
+
+    list_display = ('id', 'Supplier', 'ReceiptDate')
+    list_filter = ('Supplier',)
+    ordering = ('id',)
+    search_fields = ('id',)
 
 @admin.register(models.Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
@@ -31,6 +45,7 @@ class AttachmentAdmin(admin.ModelAdmin):
     list_display = ('id', 'Description')
     list_filter = ('ContentType',)
     ordering = ('AddedAt',)
+    actions = [clearCacheAction]
 
 @admin.register(models.RoutePreset)
 class RoutePresetAdmin(admin.ModelAdmin):

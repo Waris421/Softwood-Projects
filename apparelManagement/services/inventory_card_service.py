@@ -93,48 +93,6 @@ def GetInventories (group: str, stockFilter: str):
         dfInventory = pd.DataFrame(columns=['Code','Name','Group','Unit','InUse'])
     del inventories
 
-    receiptInventories = models.RecInventory.objects.filter(InventoryCode__in=dfInventory['Code'].to_list())
-    receiptInventories = receiptInventories.values('InventoryCode','Quantity')
-    if receiptInventories:
-        dfReceiptInventories = pd.DataFrame(receiptInventories)
-    else:
-        dfReceiptInventories = pd.DataFrame(columns=['InventoryCode','Quantity'])
-    del receiptInventories
-
-    issuanceInventories = models.IssueInventory.objects.filter(Inventory__in=dfInventory['Code'].to_list())
-    issuanceInventories = issuanceInventories.values('Inventory','Quantity')
-    if issuanceInventories:
-        dfIssuanceInventories = pd.DataFrame(issuanceInventories)
-    else:
-        dfIssuanceInventories = pd.DataFrame(columns=['Inventory','Quantity'])
-    del issuanceInventories
-
-    dfReceiptInventories = dfReceiptInventories.groupby('InventoryCode')['Quantity'].sum().reset_index()
-
-    dfInventory = pd.merge(left=dfInventory, right=dfReceiptInventories, left_on='Code', right_on='InventoryCode', how='left')
-    del dfReceiptInventories
-    dfInventory.drop(inplace=True, columns=['InventoryCode'])
-    dfInventory.rename(inplace=True, columns={'Quantity':'Received'})
-
-    dfIssuanceInventories.groupby('Inventory')['Quantity'].sum().reset_index()
-
-    dfInventory = pd.merge(left=dfInventory, right=dfIssuanceInventories, left_on='Code', right_on='Inventory', how='left')
-    del dfIssuanceInventories
-    dfInventory.drop(inplace=True, columns=['Inventory'])
-    dfInventory.rename(inplace=True, columns={'Quantity':'Issued'})
-
-    dfInventory['StockLevel'] = dfInventory['Received'] - dfInventory['Issued']
-    dfInventory.drop(inplace=True, columns=['Received','Issued'])
-    dfInventory['StockLevel'] = np.where(dfInventory['StockLevel'].isna(), 0, dfInventory['StockLevel'])
-
-    #TODO: Also make data for free stock quantity
-    
-    if stockFilter == 'InStock':
-        dfInventory = dfInventory[dfInventory['StockLevel'] > 0]
-
-    if dfInventory.empty:
-        return []
-   
     dfInventory = dfInventory.sort_values (by='Code')
     dfInventory = dfInventory.sort_values (by='Group')
     
@@ -574,7 +532,7 @@ def GetInventoryStockStatus():
     dfReceiptInventories = pd.merge(left=dfReceiptInventories, right=dfIssueInventories, on=['InventoryCode', 'Variant'], how='left')
     del dfIssueInventories
 
-    dfReceiptInventories['Quantity'] = dfReceiptInventories['Quantity'] - dfReceiptInventories['IssueQty']
+    dfReceiptInventories['Quantity'] = dfReceiptInventories['Quantity'] - dfReceiptInventories['IssueQty'].fillna(0)
     dfReceiptInventories['Value'] = dfReceiptInventories['Quantity'] * dfReceiptInventories['AveragePrice']
     dfReceiptInventories.drop(inplace=True, columns=['AveragePrice', 'IssueQty'])
 

@@ -219,34 +219,22 @@ def PrepareDataForOrderRequitionAdd (order: int):
 def PrepareDataForInvRequisitionAdd (code: str):
     fields = ['id','ReceiptNumber','Variant','Quantity']
     receiptInvs = models.RecInventory.objects.filter(InventoryCode=code).values(*fields)
-    if receiptInvs:
-        dfReceiptInvs = pd.DataFrame(receiptInvs)
-    else:
-        dfReceiptInvs = pd.DataFrame(columns=fields)
+    dfReceiptInvs = pd.DataFrame(receiptInvs) if receiptInvs else pd.DataFrame(columns=fields)
     del receiptInvs
     
     fields = ['id','ReceiptDate','Supplier']
     receipts = models.InventoryReciept.objects.filter(id__in=dfReceiptInvs['ReceiptNumber'].to_list()).values(*fields)
-    if receipts:
-        dfReceipts = pd.DataFrame(receipts)
-    else:
-        dfReceipts = pd.DataFrame(columns=fields)
+    dfReceipts = pd.DataFrame(receipts) if receipts else pd.DataFrame(columns=fields)
     del receipts
 
     fields = ['RecInvId','Quantity']
     receiptAlloc = models.RecAllocation.objects.filter(RecInvId__in=dfReceiptInvs['id'].to_list()).values(*fields)
-    if receiptAlloc:
-        dfReceiptAlloc = pd.DataFrame(receiptAlloc)
-    else:
-        dfReceiptAlloc = pd.DataFrame(columns=fields)
+    dfReceiptAlloc = pd.DataFrame(receiptAlloc) if receiptAlloc else pd.DataFrame(columns=fields)
     del receiptAlloc
 
     fields = ['Variant','Quantity']
     previousData = models.RequisitionInventory.objects.filter(Inventory=code).values(*fields)
-    if previousData:
-        dfPreviousData = pd.DataFrame(previousData)
-    else:
-        dfPreviousData = pd.DataFrame(columns=fields)
+    dfPreviousData = pd.DataFrame(previousData) if previousData else pd.DataFrame(columns=fields)
     del previousData, fields
         
     dfReceiptAlloc = dfReceiptAlloc.groupby('RecInvId')['Quantity'].sum().reset_index()

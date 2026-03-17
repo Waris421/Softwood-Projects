@@ -30,7 +30,9 @@
                 <h3 class="{{theme.headingBold}}">Supplier:</h3>
             </div>
             <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
-                <div class="{{theme.headingNormal}}">{{order.Supplier.Name}}</div>
+                <div class="{{theme.headingNormal}}">
+                    {{ order.Supplier.TradeName|default:order.Supplier.Name }}
+                </div>
             </div>
             <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
                 <h3 class="{{theme.headingBold}}">PO Number:</h3>

@@ -67,7 +67,6 @@ NAV_LINKS_CONFIG: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]= 
             {'displayName': 'Style Bulletin', 'viewName': 'PM:styleBulletins'},
             {'displayName': 'Operations', 'viewName': 'PM:operations'},
             {'displayName': 'Machines', 'viewName': 'PM:machines'},
-            {'displayName': 'Workers', 'viewName': 'PM:workers'},
         ]},
         {'groupName': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'views': [
             {'displayName': 'Core Sheet', 'viewName': 'PM:coreSheets'},

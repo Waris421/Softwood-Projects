@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import PasswordResetForm
 from django.utils.crypto import get_random_string
 from django.contrib.auth.admin import UserAdmin
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import Group
+from django.shortcuts import render, redirect
 
 class UserCreationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
@@ -17,16 +18,39 @@ class UserCreationForm(UserCreationForm):
     
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
-        password2 = super(UserCreationForm, self).clean_password2()
+        password2 = self.cleaned_data.get("password2")
 
         if bool(password1) ^ bool(password2):
             raise forms.ValidationError("Fill out both fields")
         
         return password2
 
+class AddUsersToGroupForm(forms.Form):
+    group = forms.ModelChoiceField(queryset=Group.objects.all(), label="Select Group")
+
 User = get_user_model()
 
+@admin.action(description='Add selected users to a group')
+def AddUsersToGroupAction(modeladmin,request, queryset):
+    if 'apply' in request.POST:
+        form = AddUsersToGroupForm(request.POST)
+        if form.is_valid():
+            group = form.cleaned_data['group']
+            for user in queryset:
+                user.groups.add(group)
+            modeladmin.message_user(request, f"Successfully added {queryset.count()} users to {group.name}.")
+            return redirect(request.get_full_path())
+    else:
+        form = AddUsersToGroupForm()
+        return render(request, 'admin/add_to_group.html', {
+            'users': queryset,
+            'form': form,
+            'title': 'Choose a group'
+        })
+
 class UserAdmin(UserAdmin):
+    actions = [AddUsersToGroupAction]
+
     add_form = UserCreationForm
 
     add_fieldsets = (

@@ -126,6 +126,32 @@ def GetOrderList(customer: str, startDateStr: str, endDateStr: str):
     
     return dfToListOfDicts(OrderDF)
 
+def GetOrdersForIntegration(currentOrders: List[int]):
+    filters = Q()
+    if currentOrders:
+        filters &= ~Q(OrderNumber__in=currentOrders)
+
+    fields = ['OrderNumber', 'StyleCode', 'Customer', 'OrderDate']
+    orders = models.WorkOrder.objects.filter(filters).values(*fields)
+    dfOrders = pd.DataFrame(orders) if orders else pd.DataFrame(columns=fields)
+    del orders
+
+    fields = ['OrderNumber', 'Quantity']
+    variants = models.OrderVariant.objects.filter(OrderNumber__in=dfOrders['OrderNumber'].to_list()).values(*fields)
+    dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=fields)
+    del variants, fields
+
+    dfVariants = dfVariants.groupby('OrderNumber').agg({'Quantity': 'sum'}).reset_index()
+
+    dfOrders = pd.merge(left=dfOrders, right=dfVariants, on='OrderNumber', how='left')
+
+    dfOrders.rename(inplace=True, columns={'OrderNumber': 'WorkOrder', 'StyleCode': 'Style', 'Quantity': 'OrderQty'})
+
+    #TODO: Set this from production status later
+    dfOrders['IsShipped'] = 0
+
+    return dfToListOfDicts(dfOrders)
+
 def AddWorkOrder(
         dfOrder: pd.DataFrame,
         dfVariants: pd.DataFrame,

@@ -50,6 +50,7 @@ urlpatterns = [
     path('workorder/requirement/get', views.GetRequirementHistory, name='getRequirementHistory'),
     path('workorder/initial-plan', views.WorkOrderInitialPlan, name='initialPlan'),
     path('purchaseorder/add/fromworkorder/<int:pk>', views.GeneratePOFromWO, name='poFromWO'),
+    path('api/workorders', views.WorkOrders.as_view(), name='apiWOs'),
 
     path('purchaseorder/autogen', views.AutoInventoryRequirement, name='autoReq'),
     path('purchaseorder', views.PurchaseOrder, name='POs'),
