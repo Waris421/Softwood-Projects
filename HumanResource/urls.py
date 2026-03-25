@@ -10,4 +10,8 @@ urlpatterns = [
     path('hr/worker/bulk-add', views.AddEmployeeBulk.as_view(), name='employeeBulkAdd'),
     path('hr/worker/<int:pk>/update', views.UpdateEmployee.as_view(), name='employeeUpdate'),
     path('hr/worker/shift-define', views.UpdateEmployeeShift.as_view(), name='employeeShiftUpdate'),
+
+    path('hr/holiday/add', views.DefineHoliday.as_view(), name='holidayAdd'),
+
+    path('hr/worker/set-saturday', views.SetSaturday.as_view(), name='setSaturday'),
 ]

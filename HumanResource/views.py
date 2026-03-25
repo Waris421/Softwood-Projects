@@ -4,7 +4,7 @@ from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
 from rest_framework import status
 
-from .services import employee_service, shift_service
+from .services import employee_service, shift_service, holiday_service
 from core.services.auth_service import authenticateUser
 from . import models
 
@@ -117,7 +117,7 @@ class UpdateEmployee(APIView):
 
     def get(self, request: Request, pk: int):
         try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
+            authenticateUser(request, 'HumanResource', 'Employee', type='change')
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -139,7 +139,7 @@ class UpdateEmployee(APIView):
     
     def post(self, request: Request, pk: int):
         try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
+            authenticateUser(request, 'HumanResource', 'Employee', type='change')
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -165,7 +165,7 @@ class UpdateEmployeeShift(APIView):
 
     def get(self, request: Request):
         try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
+            authenticateUser(request, 'HumanResource', 'WorkingShift', type='add')
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -183,7 +183,7 @@ class UpdateEmployeeShift(APIView):
     
     def post(self, request: Request):
         try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
+            authenticateUser(request, 'HumanResource', 'WorkingShift', type='add')
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -198,3 +198,76 @@ class UpdateEmployeeShift(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
+class DefineHoliday(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'HumanResource', 'Holiday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            responseData = holiday_service.GetDataForHolidayDefine()
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'HumanResource', 'Holiday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            holiday_service.AddHoliday(request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class SetSaturday(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        employeeCode = request.query_params.get('employee')
+        
+        try:
+            responseData = holiday_service.GetDataForOffSaturday(employeeCode)
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            holiday_service.DefineOffSaturday(request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)

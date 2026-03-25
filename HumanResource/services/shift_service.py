@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Dict, List
+from typing import Dict
 import pandas as pd
 
 from django.db.models import Q
@@ -36,7 +36,7 @@ def GetDataForShiftUpdate(department: str|None):
 def UpdateShift(data: Dict[str, any]):
     #Convert the date and time strings to objects
     tasks = [
-        (['StartDate', 'EndDate'], '%Y-%m-%dT%H:%M:%S.%fZ', 'date'),
+        (['StartDate', 'EndDate'], '%Y-%m-%d', 'date'),
         (['StartTime', 'EndTime'], '%H:%M', 'time')
     ]
 

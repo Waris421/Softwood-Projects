@@ -138,7 +138,7 @@ def GetDataForEmployeeAddition():
     return data
 
 def AddEmployee(data: Dict[str, any]):
-    dateOfBirth = convertStrToDateTime(data.pop('DateOfBirth'), '%Y-%m-%dT%H:%M:%S.%fZ')
+    dateOfBirth = convertStrToDateTime(data.pop('DateOfBirth'), '%Y-%m-%d')
     if not dateOfBirth:
         raise ValueError('Invalid Date of Birth')
     dateOfBirth = dateOfBirth.date()
