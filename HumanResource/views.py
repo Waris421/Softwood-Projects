@@ -4,7 +4,7 @@ from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
 from rest_framework import status
 
-from .services import employee_service, shift_service, holiday_service
+from .services import employee_service, shift_service, holiday_service, location_service
 from core.services.auth_service import authenticateUser
 from . import models
 
@@ -265,6 +265,26 @@ class SetSaturday(APIView):
         
         try:
             holiday_service.DefineOffSaturday(request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class AddOffice(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            location_service.AddOffice(request.data)
             response = {'message': 'Saved Successfully'}
             return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:

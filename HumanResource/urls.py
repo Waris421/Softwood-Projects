@@ -14,4 +14,6 @@ urlpatterns = [
     path('hr/holiday/add', views.DefineHoliday.as_view(), name='holidayAdd'),
 
     path('hr/worker/set-saturday', views.SetSaturday.as_view(), name='setSaturday'),
+
+    path('hr/office/add', views.AddOffice.as_view(), name='addOffice'),
 ]
