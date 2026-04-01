@@ -272,6 +272,24 @@ class SetSaturday(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
+class OfficeList(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'HumanResource', 'Location', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            offices = location_service.GetOffices()
+            return Response(data=offices, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 class AddOffice(APIView):
     permission_classes = [AllowAny]
 
@@ -285,6 +303,92 @@ class AddOffice(APIView):
         
         try:
             location_service.AddOffice(request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class UpdateOffice(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, pk: int):
+        try:
+            authenticateUser(request, 'HumanResource', 'Location', type='change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            office = models.Location.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            responseData = location_service.GetDataForOfficeUpdate(office)
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            authenticateUser(request, 'HumanResource', 'Location', type='change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            office = models.Location.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            location_service.updateOffice(office, request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class AssignOffice(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            manager = authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        employeeCode = request.query_params.get('employee')
+
+        try:
+            responseData = location_service.GetDataForOfficeAssign(manager, employeeCode)
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            manager = authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            location_service.AssignOffices(manager, request.data)
             response = {'message': 'Saved Successfully'}
             return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:

@@ -15,5 +15,9 @@ urlpatterns = [
 
     path('hr/worker/set-saturday', views.SetSaturday.as_view(), name='setSaturday'),
 
+    path('hr/offices', views.OfficeList.as_view(), name='officeList'),
     path('hr/office/add', views.AddOffice.as_view(), name='addOffice'),
+    path('hr/office/<int:pk>/update', views.UpdateOffice.as_view(), name='officeUpdate'),
+
+    path('hr/worker/office-assign', views.AssignOffice.as_view(), name='officeAssign'),
 ]

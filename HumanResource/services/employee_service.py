@@ -9,6 +9,7 @@ from datetime import datetime
 from django.contrib.auth.models import User
 from django.forms import model_to_dict
 from django.db import transaction
+from django.db.models import F
 from django.core.cache import cache
 
 from HumanResource import models
@@ -105,13 +106,34 @@ def validateUploader(dfData: pd.DataFrame):
 
     return dfData
 
+def formatDuration(row: pd.Index, today: datetime.timestamp):
+    start = row['DateOfJoining']
+    end = row['DateOfLeaving'] if pd.notnull(row['DateOfLeaving']) else today
+
+    diff = relativedelta(end, start)
+
+    if diff.years >= 1:
+        return f"{diff.years} years"
+    else:
+        return f"{diff.months} months"
+
 def GetEmployeeList():
-    fields = ['id', 'WorkerName', 'Department', 'Manager', 'DateOfBirth', 'DateOfJoining', 'Status', 'Gender']
+    fields = ['id', 'WorkerName', 'Department', 'Manager__WorkerName', 'DateOfBirth', 'DateOfJoining', 'DateOfLeaving', 'Status', 'Gender']
     employees = models.Employee.objects.all().values(*fields)
     dfEmployees = pd.DataFrame(employees) if employees else pd.DataFrame(columns=fields)
     del employees
+
+    dfEmployees.rename(inplace=True, columns={'Manager__WorkerName': 'Manager'})
     
-    #TODO: Implement calculation of age and job duration
+    dfEmployees['DateOfBirth'] = pd.to_datetime(dfEmployees['DateOfBirth'])
+    dfEmployees['DateOfJoining'] = pd.to_datetime(dfEmployees['DateOfJoining'])
+    dfEmployees['DateOfLeaving'] = pd.to_datetime(dfEmployees['DateOfLeaving'])
+
+    today = pd.to_datetime('today').normalize()
+
+    dfEmployees['Age'] = (today - dfEmployees['DateOfBirth']).dt.days // 365.25
+
+    dfEmployees['JobDuration'] = dfEmployees.apply(formatDuration, today=today, axis=1)
 
     return dfToListOfDicts(dfEmployees)
 
@@ -282,28 +304,33 @@ def AddEmployeeBulk(token: str | None):
 
 def GetDataForEmployeeUpdate(employee: models.Employee):
     employeeData = model_to_dict(employee)
-    employeeData['Name'] = employeeData.pop('WorkerName')
-    employeeData['FatherSpouse'] = employeeData.pop('FatherSpouseName')
-    employeeData['CreateAccount'] = True if employeeData['User'] else False
+    employeeData.update({
+        'Name': employeeData.pop('WorkerName', None),
+        'FatherSpouse': employeeData.pop('FatherSpouseName', None),
+        'CreateAccount': bool(employee.User)
+    })
 
-    fields = ['Name', 'FullName']
-    departments = models.Department.objects.all().values(*fields)
-    dfDepartments = pd.DataFrame(departments) if departments else pd.DataFrame(columns=fields)
-    del departments
+    if employee.User:
+        employeeData['Username'] = employee.User.username
+        employeeData['Email'] = employee.User.email
+    else:
+        employeeData['Username'] = None
+        employeeData['Email'] = None
     
-    fields = ['id', 'WorkerName']
-    managers = models.Employee.objects.all().values(*fields)
-    dfManagers = pd.DataFrame(managers) if managers else pd.DataFrame(columns=fields)
-    del managers, fields
+    employeeData['SubDepartment'] = employeeData['SubDepartment'] if employeeData['SubDepartment'] else ''
 
-    dfDepartments.rename(inplace=True, columns={'Name': 'value', 'FullName': 'label'})
-
-    dfManagers.rename(inplace=True, columns={'id': 'value', 'WorkerName': 'label'})
+    departments = list(
+        models.Department.objects.values(value=F('Name'), label=F('FullName'))
+    )
+    
+    managers = list(
+        models.Employee.objects.values(value=F('id'), label=F('WorkerName'))
+    )
 
     data = {
         'employeeData': employeeData,
-        'departments': dfToListOfDicts(dfDepartments),
-        'managers': dfToListOfDicts(dfManagers),
+        'departments': departments,
+        'managers': managers,
     }
 
     return data
@@ -318,7 +345,7 @@ def UpdateEmployee(employee: models.Employee, data: Dict[str, str | int | None])
 
         if user and User.objects.filter(id=user).exists():
             user = User.objects.get(id=user)
-            if models.Employee.objects.filter(User=user).exists():
+            if models.Employee.objects.filter(User=user).exclude(id=employee.id).exists():
                 raise ValueError('This user is already assign to another employee')
         else:
             user = User.objects.create_user(
@@ -332,6 +359,9 @@ def UpdateEmployee(employee: models.Employee, data: Dict[str, str | int | None])
     else:
         if employee.User:
             employee.User = None
+    data.pop('User')
+    data.pop('Email')
+    data.pop('Username')
     
     customFieldMapping = {
         'Name': 'WorkerName',
@@ -346,7 +376,7 @@ def UpdateEmployee(employee: models.Employee, data: Dict[str, str | int | None])
         data['Department'] = models.Department.objects.get(Name=data['Department'])
     except:
         raise LookupError('Invalid department')
-
+    
     data['DateOfBirth'] = datetime.fromisoformat(data['DateOfBirth'].replace("Z", "+00:00")).date()
     if data['DateOfLeaving']:
         data['DateOfLeaving'] = datetime.fromisoformat(data['DateOfLeaving'].replace("Z", "+00:00")).date()

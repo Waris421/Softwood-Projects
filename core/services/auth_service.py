@@ -65,13 +65,19 @@ def authenticateUser(
         appName: str|None,
         modelName: str|None,
         type: Literal["view", "add", "change", "delete"]|None
-):
-    token = request.META.get('HTTP_AUTHORIZATION')
+) -> User:
+    user = request.user
+    
+    #This implements when a user is accessing via
+    if user.is_anonymous:
+        token = request.META.get('HTTP_AUTHORIZATION')
 
-    try:
-        user = Token.objects.get(key=token).user
-    except:
-        raise PermissionError('Unauthorised')
+        try:
+            user = Token.objects.get(key=token).user
+        except Token.DoesNotExist:
+            raise PermissionError('Unauthorised')
+        except Exception as e:
+            raise ValueError(e)
 
     if all([appName, modelName, type]):
         if not hasPermission(user, appName, modelName, type):
