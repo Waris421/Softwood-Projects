@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {{orderNumber}} Update
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <form method="POST" id="cutForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center h-full">
+                    <label class="mx-2 whitespace-nowrap">Cut #:&nbsp; </label>
+                    <select id="id_Cut" class="{{theme.dropdown}}" name="Cut" onchange="getBundles(this.value)" required>
+                        {% for cut in cuts %}
+                            <option value="{{cut.id}}">{{cut.CutNumber}}</option>
+                        {% endfor %}
+                    </select>
+                    <a class="{{theme.plusButton}}" role="button" onclick="addCut()">+</a>
+                </div>
+                <div class="flex col-[2/3] items-center h-full">
+                    <label class="mx-2 whitespace-nowrap">Shade:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="Shade" placeholder="A, B, C, D etc.">
+                </div>
+                <div class="flex col-[3/4] items-center h-full">
+                    <label class="mx-2 whitespace-nowrap">No. Of Plies:&nbsp; </label>
+                    <input type="number" class="flex-grow {{theme.textInput}}" name="NoOfPlies">
+                </div>
+                
+                <div class="flex col-[4/5] items-center h-full">
+                    <label class="mx-2 whitespace-nowrap">Inseam:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="Inseam" placeholder="">
+                </div>
+                <div class="flex col-[1/2] items-center h-full">
+                    <label class="mx-2 whitespace-nowrap">Shrinkage:&nbsp; </label>
+                    <input type="number" class="flex-grow {{theme.textInput}}" name="ShrinkageWarp" placeholder="Warp">
+                    <input type="number" class="flex-grow {{theme.textInput}}" name="ShrinkageWeft" placeholder="Weft">
+                </div>
+                <div class="flex col-[2/4] items-center h-full">
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="" value="This will be summary box." readonly>
+                </div>
+                
+                <div class="flex col-[4/5] items-center h-full">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+                </div>
+            </div>
+        </div>
+    </form>  
+
+    <form method="POST" id="bundlesForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Size
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Bundle Number
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div hidden>
+                    <input name="id">
+                </div>
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <select id="id_Size" class="flex-grow {{theme.dropdown}}" name="Size" onchange="getBundleNumber(this)">
+                        {% for size in sizes %}
+                            <option value="{{size}}">{{size}}</option>
+                        {% endfor %}                            
+                    </select>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="flex-grow {{theme.textInput}}" name="BundleNumber">
+                </div>
+                <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>    //To Add a new cut
+        async function addCut() {
+            const cutSelect = document.getElementById('id_Cut');
+
+            const selectedCut = cutSelect.value;            
+            const currentCuts = cutSelect.options;
+
+            if ((selectedCut==='') && (currentCuts.length > 0)) {
+                showMessage('Please save this cut');
+                return;
+            }
+
+            let nextCutNumber = 1;
+            
+            if (currentCuts.length) {
+                const cutNumbers = Array.from(currentCuts).map(option => parseInt(option.text));
+                const highestCut = Math.max(...cutNumbers);
+                
+                nextCutNumber = highestCut + 1;
+            }
+            const option = document.createElement('option');
+            option.value = '';
+            option.text = nextCutNumber;
+            cutSelect.appendChild(option);
+
+            cutSelect.value = '';
+
+            try {
+                const response = await fetch(`/productivity/cut/${selectedCut}/available-bundle`);
+                const availableBundle = parseInt(await response.text());
+
+                const bundleForm = document.forms['bundlesForm'];
+                bundleForm.children[0].children[1].children[2].children[0].value = availableBundle;
+            } catch {}
+            
+            await getBundles('');
+        }
+    </script>
+
+    <script>    //To show bundles for selected cut
+        async function getBundles(cutId) {
+            const forms = document.forms;
+            const cutFormElements = forms['cutForm'].elements;
+            const bundleForm = forms['bundlesForm'];
+            
+            if (cutId) {
+                //Get the details of the cut from backend
+                const url = `/productivity/cut/${cutId}/get`;
+                const response = await fetch(url);
+                const cutDetails = await response.json();
+                
+                //Update the heading data
+                cutFormElements[1].value = cutDetails['Shade'];
+                cutFormElements[2].value = cutDetails['NoOfPlies'];
+                cutFormElements[3].value = cutDetails['Inseam'];
+                cutFormElements[4].value = cutDetails['WarpShrinkage'];
+                cutFormElements[5].value = cutDetails['WeftShrinkage'];
+
+                let rows = bundleForm.children[0].children;
+
+                //Calculate how many rows are required for bundles and how many are available
+                const availableRows = rows.length;
+                const requiredRows = cutDetails['Bundles'].length;
+                
+                if (availableRows > requiredRows) {
+                    //Remove the extra rows
+                    for (let i=availableRows-1; i>requiredRows; i--) {
+                        rows[i].remove();
+                    };
+                } else {
+                    //Simulate clicks on the + plus button of previous row
+                    for (let i=availableRows-1; i<requiredRows; i++) {
+                        const plusButton = rows[i].children[3].children[0];
+                        await addRow(plusButton);
+                    }
+                }
+                
+                //Refresh the rows to get the updated rows.
+                rows = bundleForm.children[0].children;
+                for (let i=0; i<requiredRows; i++) {
+                    const bundle = cutDetails['Bundles'][i];
+                    const row = rows[i+1];
+
+                    row.children[0].children[0].value = bundle['id'];
+                    row.children[1].children[0].value = bundle['Size'];
+                    row.children[2].children[0].value = bundle['Bundle'];
+                }
+            } else {
+                for (let i=1; i<4; i++) {
+                    cutFormElements[i].value = '';
+                }
+                
+                //Refresh the rows to ge the updated rows
+                rows = bundleForm.children[0].children;
+                for (let i = rows.length - 1; i >= 2; i--) {
+                    rows[i].remove();
+                };
+            }
+        }
+    </script>
+
+    <script>    //Auto add bundle number
+        function getBundleNumber(source) {
+            const row = source.parentElement.parentElement;
+            const bundleCell = row.children[2].children[0];
+            
+            if(bundleCell.value) {
+                return ;
+            }
+
+            const rowNumber = parseInt(row.getAttribute('row'));
+            const previousRow = row.parentElement.querySelector(`div[row="${rowNumber-1}"]`);
+            const previousBundleNumber = parseInt(previousRow.children[2].children[0].value);
+            
+            bundleCell.value = previousBundleNumber + 1;
+        }
+    </script>
+
+    <script>    //To Send data to server
+        async function submitForms() {
+            showLoadingIcon();
+            const forms = document.forms;
+
+            const cutForm = forms['cutForm'];
+            const bundlesForm = forms['bundlesForm'];
+
+            const cut = cutForm.elements;
+
+            let data = {};
+            //Prepare the data for Bulletin Group
+            let group = 'cut';
+            for (const element of cut) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+
+            data = formToTable('bundles', bundlesForm, data);
+
+            await submitData(data);
+
+            hideLoadingIcon();
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok){
+                const selectedCut = await response.text();
+
+                const url = new URL(window.location.href);
+                const params = new URLSearchParams(url.search);
+
+                params.set('cut', selectedCut);
+                url.search = params.toString();
+
+                window.location.href = url.toString();
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+                return
+            }
+        }
+
+        function formToTable(group, form, data){
+            let rows = form.querySelectorAll('[row]');
+            //Remove unnecesary rows
+            rows = dropElements(rows);
+            
+
+            for (const row of rows) {
+                let rowNum = row.getAttribute('row');
+                let cols = row.children;
+                //Remove unnecessary columns
+                cols = dropElements(cols, cols.length-1, cols.length-1);
+
+                for (const col of cols) {
+                    name = col.firstElementChild.name+'_'+rowNum;
+                    value = col.firstElementChild.value;
+                    data[group+'_'+name] = value;               
+                }
+            }
+            return data;
+        }
+
+        function dropElements(obj, startFrom=0, endAt=0) {
+            const arr = Object.values(obj);
+
+            arr.splice(startFrom, endAt - startFrom + 1);
+
+            return arr;
+        }
+    </script>
+
+    <script>    //To run at the start. This should be at the end of the file.
+        //Get the cut number to selecte
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+
+        let selectedCut = urlParams.get('cut');
+        if (selectedCut) {
+            document.getElementById('id_Cut').value=selectedCut;
+        } else {
+            selectedCut = document.getElementById('id_Cut').value;
+        }
+
+        getBundles(selectedCut);
+
+    </script>
+{% endblock content %}forms

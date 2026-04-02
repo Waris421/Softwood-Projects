@@ -1,0 +1,556 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Purchase Receipt Update
+{% endblock %} 
+
+{% block content %}
+    {% csrf_token %}                        <!--This is to protect against CSRF attacks-->
+    
+    <!-- The main Receipt form-->
+    <form method="POST" id="receiptForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-8 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">PO:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" value="{{receipt.PONumber}}" name="PONumber" readonly>
+                    <button type="button" class="material-symbols-outlined {{theme.hyperLink}}" onclick="window.open('/purchaseorder/{{receipt.PONumber}}/edit', '_blank');">open_in_new</button>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">GRN:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" value="{{receipt.id}}" name="GRNNumber" id="GRNNumber" readonly>
+                    <input type="text" id="recId" name="recId" value="" class="" hidden>
+                </div>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Date:&nbsp; </label>
+                    <input value="{{receipt.ReceiptDate|date:'Y-m-d'}}" class="{{theme.textInput}}" name="ReceiptDate" readonly>
+                </div>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Invoice:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{receipt.Invoice}}" name="Invoice">
+                </div>
+                <div class="flex col-[7/9] items-center">
+                    <label class="mx-2 whitespace-nowrap">Vehicle:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{receipt.Vehicle}}" name="Vehicle">
+                </div>
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{receipt.Supplier}}" name="Supplier" readonly>
+                </div>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Bilty#:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{receipt.Bilty}}" name="Bilty">
+                </div>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Amount#:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" value="{{receipt.BiltyValue}}" name="BiltyValue">
+                </div>
+                <div class="flex col-[7/9] btn-group items-center">
+                    <button class="{{theme.buttonBasic}}" onclick="submitForms()" type="button">
+                        Save
+                    </button>
+                    <button class="{{theme.buttonSecondary}}" onclick="showSelectionBox()" type="button">
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Receipt Inventory Table -->
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-11 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+                <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Qty
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Approval
+                    </div>
+                </div>
+                <div class="flex col-[8/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Comments
+                    </div>
+                </div>
+                <div class="flex col-[11/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            {% for data in inv %}
+                <div class="grid grid-cols-11 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div hidden>
+                        <input type="number" value="{{data.id}}" class="{{theme.textInput}}" name="id">
+                    </div>
+                    <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InventoryName" readonly>
+                    </div>
+                    <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant">
+                    </div>
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity">
+                    </div>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                        {% if data.Approval %}
+                            <span class="{{theme.trueClass}}">{{theme.trueValue}}</span>
+                        {% else %}
+                            <span class="{{theme.falseClass}}">{{theme.falseValue}}</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex col-[8/11] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.QualityComments}}" readonly>
+                    </div>
+                    <div class="flex col-[11/12] space-x-1 {{theme.align}} {{theme.justify}}">
+                        <button class="{{theme.plusButton}}" type="button" onclick="openAllocation(this)">
+                            <span class="material-symbols-outlined">more_vert</span>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <!--Allocation dialog box-->
+    <input type="checkbox" id="allocationToggle" class="modal-toggle" />
+    <div class="modal" role="dialog" id="allocationTable">
+        <form method="POST" id="allocationForm" autocomplete="off">
+            <div class="{{theme.dialogBox}}">
+                <div class="modal-content">
+                    <div class="{{theme.dialogBoxHeader}}">
+                        <h3 class="{{theme.dialogBoxTitle}}">Allocation</h3>
+                    </div>
+                    <div class="{{theme.dialogBoxBody}}">
+                        <div class="grid grid-cols-4 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                    Order#
+                                </div>
+                            </div>
+                            <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                    Quantity
+                                </div>
+                            </div>
+                            <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                    Actions
+                                </div>
+                            </div>
+                         </div>
+                         <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}} relative">
+                                <select class="{{theme.dropdown}}" id="id_WorkOrder_1" name="WorkOrder" onclick="showSearchBox(this, '/options/workorders')" onchange="getDefaultQty(this)"></select>
+                            </div>
+                            <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                <input type="number" class="{{theme.textInput}}" value="" name="Quantity" min="0" onchange="changeQty()">
+                            </div>
+                            <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                                    <span>+</span>
+                                </button>
+                                <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                                    <span>-</span>
+                                </button>
+                            </div>
+                         </div>
+                    </div>
+                    <div class="{{theme.dialogBoxFooter}}">
+                        <label class="font-semibold">Total Qty:&nbsp; </label>
+                        <div id="totalQuantity" class="mr-4"></div>
+
+                        <label class="font-semibold">|| Allocted Qty:&nbsp; </label>
+                        <div id="allocatedQuantity" class="mr-4"></div>
+
+                        <label class="font-semibold">|| Free Qty:&nbsp; </label>
+                        <div id="freeQuantity" class="mr-4"></div>
+
+                        <button type="button" class="{{theme.buttonSecondary}}" onclick="reAllocate('distribute')">Distribute</button>
+                        <button type="button" class="{{theme.buttonSecondary}}" onclick="reAllocate('proportionate')">Prioritize</button>
+                        <button type="button" class="{{theme.buttonBasic}}" onclick="closeAllocation()">OK</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            //Show loading icon to users
+            showLoadingIcon();
+
+            response = await fetch('/options/workorders');
+            const workOrders = await response.json();
+            await appendOptions('id_WorkOrder_1', workOrders);
+
+            //Remove loading animation
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script>    //To handle allocation box
+        async function openAllocation(source) {
+            showLoadingIcon();
+            
+            const id = source.parentElement.parentElement.children[0].children[0].value;
+
+            let allocation;
+
+            //get the allocation from server.
+            try {
+                allocation = await getAllocation(id);
+            } catch (e) {
+                showMessage(e);
+                hideLoadingIcon();
+                return ;
+            }
+
+            //Get the format of the allocation table
+            const allocationTable = document.getElementById('allocationTable');
+
+            const title = allocationTable.querySelector('.modal-header');
+            title.textContent += `#${id}`;
+            
+            const allocationArea = allocationTable.querySelector('.modal-body');
+
+            const previousRows = allocationArea.children;
+
+            for (let i=previousRows.length - 1; i>1; i--) {
+                previousRows[i].remove();
+            }
+            delete previousRows;
+
+            const firstRowPlusButton = allocationArea.children[1].children[2].children[0];
+
+            for (let i=1; i<allocation.length; i++) {
+                addRow(firstRowPlusButton);
+            }
+            delete firstRowPlusButton;
+            
+            const rows = allocationArea.children;
+            
+            for (let i=1; i<rows.length; i++) {
+                const workOrderBox = rows[i].children[0].children[0];
+                const qtyBox = rows[i].children[1].children[0];
+
+                if (allocation.length) {
+                    workOrderBox.value = (allocation[i-1].WorkOrder);
+                    qtyBox.value = (allocation[i-1].Quantity);
+                }
+            }
+
+            //The dummy box that contains inventory the currently selected inventory code
+            const referenceBox = document.getElementById('recId');
+            referenceBox.value = id;
+
+            //Get the total quantity
+            const totalQty = parseFloat(source.parentElement.parentElement.children[3].children[0].value);
+
+            //Get the footer to set the summary
+            const footer = allocationTable.children[0].children[0].children[0].children[2];
+
+            //Set the value of total quantity.
+            const totalQtyBox = footer.querySelector('#totalQuantity');
+            totalQtyBox.textContent = totalQty.toFixed(2);
+
+            //Set the value of allocated quantity
+            const allocQtyBox = footer.querySelector('#allocatedQuantity');
+            allocQtyBox.textContent = 0;
+
+            //Set the value of free qty to the difference of total and allocated quantity
+            const freeQtyBox = footer.querySelector('#freeQuantity');
+            freeQtyBox.textContent = totalQty;
+
+            document.getElementById('allocationToggle').checked = true;
+
+            changeQty();
+
+            hideLoadingIcon();
+        }
+
+        function changeQty() {
+            //Get the modal
+            const dialogBox = document.getElementById('allocationTable').children[0].children[0].children[0];
+            
+            //Get all the rows in an array
+            const rows = Array.from(dialogBox.children[1].children);
+            
+            //Remove header row
+            rows.shift();
+
+            let allocQty = 0.0;
+
+            for (const row of rows) {
+                //Get the first column
+                const quantity = parseFloat(row.children[1].children[0].value);
+                if (quantity) {
+                    allocQty = allocQty + quantity;
+                }
+            }
+            allocQty = allocQty.toFixed(2);
+
+            const footer = dialogBox.children[2];
+            
+            const totalQty = parseFloat(footer.querySelector('#totalQuantity').textContent);
+            const allocatedQtyBox = footer.querySelector('#allocatedQuantity');
+            const freeQtyBox = footer.querySelector('#freeQuantity');
+
+            allocatedQtyBox.textContent = allocQty;
+            freeQtyBox.textContent = (totalQty - allocQty).toFixed(2);
+        }
+
+        async function getAllocation(id) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const data = JSON.stringify({'id':id});
+
+            const response = await fetch('/purchasereceipt/alloc/get', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok){
+                return response.json();
+            } else {
+                const errorMessage = await response.text();
+
+                throw errorMessage;
+            }
+        }
+
+        async function closeAllocation() {
+            //Get the selected inventory code and variant
+            const id = document.getElementById('recId').value;
+
+            //Get the total allocated qty.
+            const footer = document.getElementById('allocationTable').children[0].children[0].children[0].children[2];
+            const allocatedQty = parseFloat(footer.querySelector('#allocatedQuantity').textContent);
+
+            //Get the rows of inventory table.
+            const InvTableRows = Array.from(document.getElementById('inventoryForm').children[0].children);
+            InvTableRows.splice(0,1);
+            
+            for (const row of InvTableRows) {
+                const idBox = row.children[0].children[0];
+                const qtyBox = row.children[3].children[0];
+                
+                if (idBox.value == id) {
+                    const totalQty = parseFloat(qtyBox.value);
+
+                    if (totalQty < allocatedQty) {
+                        qtyBox.value = allocatedQty;
+                    }
+                }
+            }
+
+            document.getElementById('allocationToggle').checked = false;
+            await submitForms();
+        }
+    </script>
+
+    <script>    //To reallocate qty to wos
+        async function reAllocate(allocationMethod) {
+            showLoadingIcon();
+            try {
+                await implmentReAllocate(allocationMethod);
+            } catch (e) {
+                showMessage(e);
+            }
+
+            hideLoadingIcon();
+        }
+
+        async function implmentReAllocate(allocationMethod) {
+            const recId = document.getElementById('recId').value;
+            const InvTableRows = Array.from(document.getElementById('inventoryForm').children[0].children);
+            InvTableRows.splice(0,1);
+
+            let recQty = 0.0;
+
+            for (const row of InvTableRows) {
+                const idBox = row.children[0].children[0];
+                const qtyBox = row.children[3].children[0];
+
+                if (idBox.value == recId) {
+                    recQty = parseFloat(qtyBox.value);
+                    break;
+                }
+            }
+
+            const response = await fetch(`/purchasereceipt/${recId}/re-allocate?totalQty=${recQty}&allocationMethod=${allocationMethod}`);
+            
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+            const allocations = await response.json();
+            
+            await rePopulateAllocBox(allocations);
+        }
+
+        async function rePopulateAllocBox(allocations) {
+            //Get the modal
+            const dialogBox = document.getElementById('allocationTable').children[0].children[0].children[0];
+            
+            //Get all the rows in an array
+            const rows = Array.from(dialogBox.children[1].children);
+            
+            //Remove header row
+            rows.shift();
+
+            for (let i=0; i<rows.length; i++) {
+                const row = rows[i];
+                const allocation = allocations[i]
+
+                const response = await fetch(`/options/workorders?search=${allocation.WorkOrder}`);
+                const workOrders = await response.json();
+                await appendOptions(`id_WorkOrder_${i+1}`, workOrders, allocation.WorkOrder);
+                
+                const qtyBox = row.children[1].children[0];
+                qtyBox.value = allocation.Quantity;
+            }
+            changeQty();
+        }
+    </script>
+
+    <script> //To print the receipt
+        function showSelectionBox() {
+            const options = [
+                {'value':'QC', 'text':'For Quality'},
+                {'value':'ACC', 'text':'For Accounts'},
+            ];
+            const selectedOption = 'ACC';
+
+            showDropDown(options, printRec, selectedOption, false);
+        }
+        async function printRec(selectedFormat) {            
+            showLoadingIcon();     
+
+            const recBox = document.getElementById('GRNNumber');
+            const recNumber = parseInt(recBox.value);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const obj = {'format':selectedFormat};
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('/purchasereceipt/'+recNumber+'/print', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf, "Accept": "application/pdf"},
+            });
+
+            if (!response.ok) {
+                errorMessage = await response.text();
+                showMessage(errorMessage);
+                hideLoadingIcon();
+
+                return ;
+            }
+
+            const pdfBlob = await response.blob();
+            const pdfURL = URL.createObjectURL(pdfBlob);
+
+            const win = window.open(pdfURL, '_blank');
+            win.onafterprint = function() {
+                URL.revokeObjectURL(pdfURL);
+            };
+
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script> //To send data to server
+        function submitForms() {
+            const allForms = document.forms;
+
+            const orderForm = allForms['receiptForm']; 
+            const inventoryForm = allForms['inventoryForm'];
+            const allocationForm = allForms['allocationForm'];
+            
+            const order = orderForm.elements;
+
+            let data = {};
+             
+            //Prepare the data for Style Group
+            let group = 'receipt';
+            for (const element of order) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+
+            //Prepare the data for inventory Group
+            data = formToTable('inventory', inventoryForm, data);
+
+            //Prepare the data for alocaiton Group
+            data = formToTable('allocation', allocationForm, data);
+            
+            submitData(data)
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const data = JSON.stringify(obj);
+            
+            const response = await fetch('', {
+              method: 'POST',
+              body: data,
+              headers: { "X-CSRFToken": csrf},
+            });
+            if (response.status == 200) {
+                location.reload();
+            } else {
+                const errorMessage = await response.text();
+
+                showMessage(errorMessage);
+            }
+        }
+
+        function formToTable(group, form, data){
+            let rows = form.querySelectorAll('[row]');
+            //Remove unnecesary rows
+            rows = dropElements(rows);
+
+            for (const row of rows) {
+                let rowNum = row.getAttribute('row');
+                let cols = row.children;
+                //Remove unnecessary columns
+                cols = dropElements(cols, cols.length-1, cols.length-1);
+
+                for (const col of cols) {
+                    name = col.firstElementChild.name+'_'+rowNum;
+                    value = col.firstElementChild.value;
+                    data[group+'_'+name] = value;               
+                }
+            }
+            return data;
+        }
+
+        function dropElements(obj, startFrom=0, endAt=0) {
+            const arr = Object.values(obj);
+
+            arr.splice(startFrom, endAt - startFrom + 1);
+
+            return arr;
+        }
+    </script>
+{% endblock %}

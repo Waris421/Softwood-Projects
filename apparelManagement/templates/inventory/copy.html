@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Copying Inventory
+{% endblock %}
+
+{% block content %}
+    <div class="card w-full max-w-md bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+        <div class="card-body">
+            <h2 class="card-title text-2xl font-bold mb-6 text-center text-gray-800 dark:text-gray-100">Copying Inv Code</h2>
+            <form method="POST" autocomplete="off">
+                {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+                <div class="form-control mb-4">
+                    <label class="mx-2 whitespace-nowrap">Copy From:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="source" value="{{code}}">
+                </div>
+                <div class="form-control mb-6">
+                    <label class="mx-2 whitespace-nowrap">New Code:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="target" value="{{code}}">
+                </div>
+                <div class="form-control mt-8">
+                    <div class="flex btn-group {{theme.align}} justify-end ml-1">
+                        <button type="submit" class="{{theme.buttonBasic}}" name="confirm" value="true">
+                            Create Copy
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>    //To show error if provided
+        window.addEventListener('load', async () => {
+            const errorMessage = "{{message}}";
+            const errorBox = document.getElementById('error')
+            if (errorMessage) {
+                showMessage(errorMessage);
+            }
+        });
+    </script>
+{% endblock %}

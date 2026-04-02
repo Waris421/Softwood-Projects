@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Purchase Demands
+{% endblock %}
+
+{% block content %}    
+    <div class="{{theme.border}} {{theme.formHeading}}">
+        {% csrf_token %}
+        <form action="{% url 'apparelManagement:purchaseDemand' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Department:</span>
+                    <select id="departmentFilter" name="departmentFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Demand#:</span>
+                    <input type="number" class="{{theme.textInput}} w-100" name="demandFilter" value="{{selectedDemand}}">
+                </div>
+                <div class="flex flex-col col-[4/6] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}} w-100" name="searchTerm" value="{{searchTerm}}">
+                </div>
+                <div class="flex flex-col col-[6/8] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Approval:</span>
+                    <select name="statusFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="OnApp" {% if selectedStatus == "OnApp" %}selected{% endif %}> Pending Approval  </option>
+                        <option value="OnPO" {% if selectedStatus == "OnPO" %}selected{% endif %}> Pending PO  </option>
+                        <option value="Rej" {% if selectedStatus == "Rej" %}selected{% endif %}> Rejected  </option>
+                        <option value="Close" {% if selectedStatus == "Close" %}selected{% endif %}> Closed  </option>
+                    </select>
+                </div>
+                <div class="flex col-[8/13] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:addPD' %}" role="button">Add New</a>
+                </div>
+            </div>
+            <div class="grid grid-cols-5 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/6] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <a id="copyDemandButton" class="{{theme.buttonBasic}}" role="button">Copy</a>
+                    <a id="editDemandButton" class="{{theme.buttonBasic}}" role="button">Edit</a>
+                    <a id="deleteDemandButton" class="{{theme.buttonBasic}}" role="button">Delete</a>
+                    <a id="makePOButton" class="{{theme.buttonBasic}}" role="button">Make PO</a>
+                    <a id="approveDemandButton" class="{{theme.buttonBasic}}" role="button">Approve</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id ="purchaseDemandTable" class="mt-6">
+        <table class="{{theme.table}}">
+            <tr class = "{{theme.tableHead}}">
+                <th scope="col">Select</th>
+                <th scope="col">Demand Number</th>
+                <th scope="col">PO Number</th>
+                <th scope="col">Demand Date</th>
+                <th scope="col">Department</th>
+                <th scope="col">Demand By</th>
+                <th scope="col">Inventory (Top 3)</th>
+                <th scope="col">Approval</th>
+            </tr>
+            <tbody id="tableData" class = "{{theme.tableBody}}">
+                {% for data in demand %}
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
+                        <td class="demand">{{ data.PDNumber }}</td>
+                        <td>{{ data.PONumber }}</td>
+                        <td>{{ data.DemandDate }}</td>
+                        <td>{{ data.Department }}</td>
+                        <td>{{ data.Demandee }}</td>
+                        <td>{{ data.Name }}</td>
+                        <td>{{ data.Approval }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>//To change the buttons based on selection in radio
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            const radio = event.target;
+            const selectedCode = radio.closest('tr').querySelector('td.demand').textContent.trim();
+
+            var button = document.getElementById("copyDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/copy";
+
+            button = document.getElementById("editDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/edit";
+
+            button = document.getElementById("deleteDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/delete";
+
+            button = document.getElementById("approveDemandButton");
+            button.href = "/purchasedemand/" + selectedCode + "/approve";
+
+            button = document.getElementById('makePOButton');
+            button.href = "/purchasedemand/" + selectedCode + "/makepo";
+        });
+    </script>
+
+    <script>//To run when the page loads
+        window.addEventListener('load', async () => {
+            //Departments dropdown
+            let response = await fetch('/options/departments');
+            const departments = await response.json();
+            await appendOptions('departmentFilter', departments, '{{selectedDepartment}}');
+        });
+    </script>
+{% endblock %}

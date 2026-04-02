@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Login
+{% endblock title %}
+
+{% block content %}
+    <form method="post" class="mt-16">
+        {% csrf_token %}     <!--This is to protect against CSRF attacks-->
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Username:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="username" autocomplete="username" required>
+                </div>
+                <div class="flex col-[1/2] items-center my-2">
+                    <label class="mx-2 whitespace-nowrap">Password:&nbsp; </label>
+                    <input type="password" class="{{theme.textInput}}" name="password" autocomplete="current-password" required>
+                </div>
+                <div class="flex col-[1/2] items-center my-2">
+                    <button type="submit" class="{{theme.buttonBasic}} mx-2" >Login</button>
+                    <a class="{{theme.buttonSecondary}}" href="{% url 'passwordResetRequest' %}" role="button">Reset Password</a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>    //To show any error messages
+        window.addEventListener('load', () => {
+            const errorMessage = '{{error}}';
+            if (errorMessage) {
+                showMessage(errorMessage);
+            }
+        });
+    </script>
+{% endblock content %}

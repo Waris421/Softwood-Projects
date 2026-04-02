@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Uploading ExportData
+{% endblock title %}
+
+{% block content %}
+    <dialog id="confirm_addition" class="{{theme.dialogBox}}" open>
+        <div class="modal-box">
+            <div class="card bg-base-100 dark:bg-neutral-800 shadow-xl p-6">
+                <div class="alert alert-info mb-6">
+                    <div>
+                        <h3 class="font-bold text-lg">Alert!</h3>
+                        <p class="text-sm">Are you sure you want to add the data? Below is the summary.</p>
+                        <h3 class="font-bold text-lg">Number of Rows: {{pendingUploads.numberOfEntries}}</h3>
+                        <h3 class="font-bold text-lg">Month: {{pendingUploads.months}}</h3>
+                        <h3 class="font-bold text-lg">Total Quantity: {{pendingUploads.totalQty}}</h3>
+                        <h3 class="font-bold text-lg">Average Price: {{pendingUploads.Price}}</h3>
+                        <h3 class="font-bold text-lg">Article: {{pendingUploads.frequentItem}}</h3>
+                        <h3 class="font-bold text-lg">HS Code: {{pendingUploads.frequentHSCode}}</h3>
+                        
+                        {% if addedMonths %}
+                            <p class="text-sm">Data for the following months already exists.</p>
+                            <h3 class="font-bold text-lg">{{addedMonths}} </h3>
+                        {% endif %}
+                    </div>
+                </div>
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="flex btn-group {{theme.align}} justify-end ml-1">
+                        <button type="submit" class="{{theme.buttonBasic}}" name="action" value="approve">
+                            Approve
+                        </button>
+                        <button type="submit" class="{{theme.buttonBasic}}" name="action" value="reject">
+                            Reject
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </dialog>
+{% endblock content %}

@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Production Planning
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+
+    <!-- The main filter form-->
+    <div class="{{theme.border}} {{theme.formHeading}}">
+        <form action="{% url 'planning:setSource' %}" method="get">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/2] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Plan By:</span>
+                    <select id="sortingMethod" name="sortingMethod" class="{{theme.dropdown}}" onchange="this.form.submit()">
+                        <option value="orderWise" 
+                            {% if sortingMethod == 'orderWise' %}
+                                selected
+                            {% endif %}
+                            >Order Wise</option>
+                        <option value="processWise"
+                            {% if sortingMethod == 'processWise' %}
+                                selected
+                            {% endif %}
+                            >Process Wise</option>
+                    </select>
+                </div>
+                
+                <div class="flex flex-col col-[2/3] items-center relative">
+                    {% if sortingMethod == 'orderWise' %}
+                        <span class="text-sm text-gray-500 mb-1">Work Order:</span>
+                        <select id="orderFilter" name="orderFilter" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/workorders')">
+
+                        </select>
+                    {% else %}
+                        <span class="text-sm text-gray-500 mb-1">Process:</span>
+                        <select id="stageFilter" name="stageFilter" class="{{theme.dropdown}}">
+
+                        </select>
+                    {% endif %}
+                </div>    
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Delivery Date:</span>
+                    <div class="flex items-center" id="date-range-picker" date-rangepicker datepicker-format="yyyy-mm-dd">
+                        <input id="startingDD" name="startingDD" type="text" class="{{theme.textInput}}" value="{{ startingDD|date:"Y-m-d" }}">
+                        <input id="endingDD" name="endingDD" type="text" class="{{theme.textInput}}" value="{{ endingDD|date:"Y-m-d" }}">
+                    </div>
+                </div>
+                <div class="flex col-[4/5] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <button type="button" class="{{theme.buttonSecondary}}" onclick="submitForms()">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sources Table -->
+    <form method="POST" id="sourcesForm" autocomplete="off">
+        <div class="{{theme.border}} overflow-x-auto">
+            <div class="grid grid-cols-13 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        WO
+                    </div>
+                </div>
+                <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Style
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Buyer
+                    </div>
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Process
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Quantity
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        DD
+                    </div>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Ready
+                    </div>
+                </div>
+                <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Source
+                    </div>
+                </div>
+                <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        M Date
+                    </div>
+                </div>
+                <div class="flex col-[13/14] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actual
+                    </div>
+                </div>
+            </div>
+            {% for data in ordersPlanning %}
+                <div class="grid grid-cols-13 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                    </div>
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.WorkOrder}}" name="OrderNumber" readonly>
+                    </div>
+                    <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.StyleCode}}" name="StyleCode" readonly>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Customer}}" name="Customer" readonly>
+                    </div>
+                    <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Stage}}" name="Stage" readonly>
+                    </div>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity" readonly>
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.DeliveryDate|date:'d-M'}}" name="DeliveryDate" readonly>
+                    </div>
+                    <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.ReadyDate|date:'d-M'}}" name="ReadyDate" readonly>
+                    </div>
+                    <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                        <select class="{{theme.dropdown}}" id="id_Source_{{forloop.counter}}" name="Source" required></select>
+                    </div>
+                    <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
+                        <input id="MDate_{{forloop.counter}}" datepicker datepicker-autohide datepicker-format="d-M" type="text" value="{{data.MDate|date:'d-M'}}" class="{{theme.textInput}}" name="MDate">
+                    </div>
+                    <div class="flex col-[13/14] {{theme.align}} {{theme.justify}}">
+                        <input id="ActualDate_{{forloop.counter}}" datepicker datepicker-autohide datepicker-format="d-M" type="text" value="{{data.ActualDate|date:'d-M'}}" class="{{theme.textInput}}" name="ActualDate">
+                    </div>
+                    <div hidden>
+
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            let response = await fetch('/options/capacities');
+            const capacities = await response.json();
+
+            const emptyRow = {"value": "","text": "-----------"}
+
+            const planningData = {{planningJSON | safe}};
+
+            for (const [index, data] of planningData.entries()) {
+                appendOptions(`id_Source_${index+1}`, capacities, data.Source);
+            }
+
+            const orderFilter = document.getElementById('orderFilter');
+            if (orderFilter) {
+                response = await fetch('/options/workorders?search={{orderFilter}}');
+                const workOrders = await response.json();
+                workOrders.unshift(emptyRow);
+                appendOptions('orderFilter', workOrders, '{{orderFilter}}');
+            } else  {
+                response = await fetch('/options/prodstages');
+                const routeTypes = await response.json();
+                routeTypes.unshift(emptyRow);
+                await appendOptions('stageFilter', routeTypes, '{{stageFilter}}');
+            }
+
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script>    //To send data to server
+        async function submitForms() {
+            showLoadingIcon();
+
+            //Get all the forms in the page
+            const allForms = document.forms;
+            
+            const sourceForm = allForms['sourcesForm'];
+
+            const data = formToTable('source', sourceForm, {});
+
+            const response = await submitData(data);
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage, 5, `{{theme.errorBox}}`);
+            }
+
+            hideLoadingIcon();
+        }
+
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('', {
+              method: 'POST',
+              body: data,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            return response;
+        }
+    </script>
+{% endblock content %}

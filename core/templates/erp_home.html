@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% load static %}
+    Fashion OS
+{% endblock title %}
+
+{% block content %}
+    <div class="container mx-auto mt-5">
+        <div class="flex justify-center space-x-4">
+            <a href="/marketing" class="relative border-4 border-black">
+                <img src="{% static 'Marketing.png' %}" alt="Marketing" class="h-[350px]">
+                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-4xl font-bold">
+                    MARKETING
+                </div>
+            </a>
+            <a href="/apparel" class="relative border-4 border-black">
+                <img src="{% static 'Procurement.png' %}" alt="Procurement" class="h-[350px]">
+                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-4xl font-bold">
+                    PROCUREMENT
+                </div>
+            </a>
+            <a href="/quality" class="relative border-4 border-black">
+                <img src="{% static 'Quality Control.png' %}" alt="Quality Control" class="h-[350px]">
+                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-4xl font-bold">
+                    QUALITY CONTROL
+                </div>
+            </a>
+        </div>
+        <div class="flex justify-center space-x-4">
+            <a href="/planning" class="relative border-4 border-black">
+                <img src="{% static 'Planning.png' %}" alt="Marketing" class="h-[350px]">
+                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-4xl font-bold">
+                    PLANNING
+                </div>
+            </a>
+            <a href="/productivity" class="relative border-4 border-black">
+                <img src="{% static 'Production.png' %}" alt="Producutivity" class="h-[350px]">
+                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white text-4xl font-bold">
+                    PRODUCTION
+                </div>
+            </a>
+        </div>
+    </div>
+{% endblock content %}

@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+
+{% block title %}
+    Trim Audit History
+{% endblock title %}
+
+{% block content %}
+    <div class="{{theme.border}}">
+        <form action="{% url 'QC:trimAudit' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Supplier:</span>
+                    <select id="supplierFilter" name="supplier" onclick="showSearchBox(this, '/options/suppliers')" class="{{theme.dropdown}}">
+                    </select>
+                </div>
+                <div class="flex flex-col col-[3/6] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Inventory:</span>
+                    <select id="inventoryFilter" name="inventory" onclick="showSearchBox(this, '/options/inventories')" class="{{theme.dropdown}}">
+                    </select>
+                </div>
+                <div class="flex flex-col col-[6/9] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Receipt Date:</span>
+                    <div class="flex items-center" id="date-range-picker" date-rangepicker datepicker-format="yyyy-mm-dd">
+                        <input id="datepicker-range-start" name="startDate" type="text" class="{{theme.textInput}}" placeholder="Start Date" value="{{startDate}}|default:''">
+                        <input id="datepicker-range-end" name="endDate" type="text" class="{{theme.textInput}}" placeholder="End Date" value="{{endDate}}|default:''">
+                    </div>
+                </div>
+                <div class="flex flex-col col-[9/12] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Decision:</span>
+                    <select name="approval" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="false" {% if approval == False %} selected {% endif %}>Rejected</option>
+                        <option value="true" {% if approval == True %} selected {% endif %}>Approved</option>
+                        <option value="null" {% if approval == None %} selected {% endif %}>All</option>
+                    </select>
+                </div>
+                <div class="flex col-[12/13] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+   
+    <div id="AuditsTable" class="mt-6">
+        <table class="{{theme.table}}">
+            <tr class = "{{theme.tableHead}}">
+                <th scope="col">Receipt Date</th>
+                <th scope="col">Receipt #</th>
+                <th scope="col">Name</th>
+                <th scope="col">Supplier</th>
+                <th scope="col">Approval</th>
+                <th scope="col">Comments</th>
+            </tr>
+            <tbody id="tableData" class = "{{theme.tableBody}}">
+                {% for data in audits %}
+                <tr class="{{theme.tableBodyRow}}">
+                    <td>{{ data.ReceiptDate }}</td>
+                    <td class="{{theme.hyperLink}}"><a href="/trims/audit/{{ data.RecInventory }}/edit">{{ data.ReceiptNumber }}</a></td>
+                    <td>{{ data.Name }}</td>
+                    <td>{{ data.Supplier }}</td>
+                    <td>
+                        {% if data.Approval %}
+                            <span class="{{theme.trueClass}}">{{theme.trueValue}}</span>
+                        {% else %}
+                            <span class="{{theme.falseClass}}">{{theme.falseValue}}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ data.QualityComments }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="{{ theme.pagination }}">
+        <div class="btn-group">
+            {% if page_obj.has_previous %}
+                <a href="?page=1&supplier={{supplier}}&inventory={{inventory}}&startDate={{startDate}}&endDate={{endDate}}&approval={{approval}}" class="btn btn-sm">First</a>
+                <a href="?page={{ page_obj.previous_page_number }}&supplier={{supplier}}&inventory={{inventory}}&startDate={{startDate}}&endDate={{endDate}}&approval={{approval}}" class="btn btn-sm">Previous</a>
+            {% else %}
+                <button class="btn btn-sm" disabled>First</button>
+                <button class="btn btn-sm" disabled>Previous</button>
+            {% endif %}
+    
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&supplier={{supplier}}&inventory={{inventory}}&startDate={{startDate}}&endDate={{endDate}}&approval={{approval}}" class="btn btn-sm">Next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}&supplier={{supplier}}&inventory={{inventory}}&startDate={{startDate}}&endDate={{endDate}}&approval={{approval}}" class="btn btn-sm">Last</a>
+            {% else %}
+                <button class="btn btn-sm" disabled>Next</button>
+                <button class="btn btn-sm" disabled>Last</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('load', async () => {
+            showLoadingIcon(200);
+
+            let response = await fetch(`/options/suppliers?search={{supplier}}`);
+            const suppliers  = await response.json();
+            await appendOptions('supplierFilter', suppliers, '{{supplier}}');
+
+            response = await fetch(`/options/inventories?search={{inventory}}`);
+            const inventories = await response.json();
+            await appendOptions('inventoryFilter', inventories, '{{inventory}}');
+
+            hideLoadingIcon();
+        });
+    </script>
+{% endblock content %}
+    

@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+
+{% block title %}
+    Trims Audit
+{% endblock title %}
+
+
+{% block content %}
+    {% csrf_token %}         <!--This is to protect against CSRF attacks-->
+    
+    <div id="auditTable" name="auditTable">  
+        <form method="post" id="auditForm" autocomplete="off">
+            <div class="grid grid-cols-2 {{theme.justify}} {{theme.align}}">
+                {% for receipt in inv %}  
+                    <div class="flex flex-col {{theme.align}} {{theme.justify}}">
+                        <input class="{{theme.textInput}} mb-2" readonly value="Supplier: {{receipt.Supplier}}, Receipt: {{receipt.ReceiptNumber}}">
+                        {% for data in receipt.Details %}
+                            <div class="flex flex-col {{theme.align}} {{theme.justify}}">
+                                <input class="{{theme.textInput}} bg-dark text-white mb-1" readonly
+                                    value="{{data.Name}} {% if data.Variant %} ({{data.Variant}}) {% endif %}">
+                                
+                                <input class="{{theme.textInput}} mb-2" readonly
+                                    value="Total Qty: {{data.Quantity}}, Audit Qty: {{data.AuditQuantity}}">
+
+                                <div class="grid grid-cols-4 {{theme.justify}} {{theme.align}}">
+                                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Check List
+                                        </div>
+                                    </div>
+                                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Approval
+                                        </div>
+                                    </div>
+                                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Comments
+                                        </div>
+                                    </div>
+                                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                        <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                                            Actions
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                                        <select class="{{theme.dropdown}}" id="id_CheckList_{{data.RecInvId}}_{{receipt.ReceiptNumber}}" name="CheckList_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
+                                            {% for option in checkListOptions %}
+                                                <option value="{{option.value}}">{{option.text}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                                        <select class="{{theme.dropdown}}" id="id_Approval_{{data.RecInvId}}_{{receipt.ReceiptNumber}}" name="Approval_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
+                                            <option value="null">Pending</option>
+                                            <option value="true">Approved</option>
+                                            <option value="false">Rejected</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                                        <input type="text" class="{{theme.textInput}}" value="" name="Comments_{{data.RecInvId}}_{{receipt.ReceiptNumber}}">
+                                    </div>
+                                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                                            <span>+</span>
+                                        </button>
+                                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this,2)">
+                                            <span>-</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}  
+            </div> 
+            <a class="{{theme.buttonBasic}}" role="button" onclick="submitForms()">Save</a>
+        </form>
+    </div>
+
+    <script>    //To send data to server
+        async function submitForms(){
+            showLoadingIcon();
+
+            const audit = document.forms['auditForm'].elements;
+
+            let data = {};
+            for (const element of audit) {
+                if (element.name) {
+                    const rowNum = element.parentElement.parentElement.getAttribute('row');
+                    data[`${element.name}_${rowNum}`] = element.value;
+                }
+            }
+            try {
+                const response = await submitData(data);
+
+                window.location.href = '/trims/audit';
+            } catch (e) {
+                showMessage(error);
+                hideLoadingIcon();
+            }
+        }
+
+        async function submitData(obj) {
+            const data = JSON.stringify(obj);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const response = await fetch('/trims/audit/add', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+            
+            if (response.ok) {
+                return response
+            } else {
+                error = await response.text()
+                throw error
+            }
+        }
+    </script>
+{% endblock content %}

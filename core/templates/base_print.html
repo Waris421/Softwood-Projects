@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        {% load static %}
+        <link rel="icon" href="{% static 'Logo 3x.png' %}">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+            darkMode: 'media',
+            };
+        </script>
+
+        <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
+
+        <link rel="stylesheet" href="{% static 'style.css' %}">
+        
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            @page {
+                size: A4 {% block orientation %} {% endblock %};
+                margin: 1cm;
+                @bottom-right {
+                    content: counter(page) " / " counter(pages);
+                    font-size: 10pt;
+                }
+
+            }
+            @media print {
+                body {
+                    width: calc(100% - 1cm);
+                    text-align: center;
+                    background-color: #fff !important;
+                    color: #000 !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+                footer {
+                    width: calc(100% - 1cm);
+                    text-align: center;
+                    page-break-before: avoid;
+                    page-break-after: avoid;
+                    page-break-inside: avoid;
+                }
+            }
+        </style>
+        <title>
+            {% block title %} Softwood ERP {% endblock %}
+        </title>
+    </head>
+    
+    <body>
+        <div class="w-full p-4 print-full-width">
+            <!--Document Heading-->
+            <div class="{{theme.border}}">
+                <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+                    <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                        <h1 class="{{theme.titleBold}}">SOFTWOOD PRIVATE LIMITED</h1>
+                    </div>
+                    <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                        <div class="{{theme.headingNormal}}">20-KM Off Ferozpur Road, Main Bazar Youhannabad, Lahore</div>
+                    </div>
+                </div>
+            </div>
+
+            <!--Docuemnt Title-->
+            <div class="{{theme.border}}">
+                <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+                    <div class="flex col-[1/2] {{theme.justify}} {{theme.align}}">
+                        <h3 class="{{theme.headingBold}}">{% block documentName %} {% endblock %}</h3>
+                    </div>
+                </div>
+            </div>
+
+            {% block content %} {% endblock %} 
+        </div>
+        <footer>
+            {% block footer %} {% endblock %}
+        </footer>
+    </body>
+</html>

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Core Sheets
+{% endblock title %}
+    
+{% block content %}
+    <div class="{{theme.border}}">
+        <form action="{% url 'PM:coreSheets' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/5] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="search" value="{{search}}" placeholder="">
+                </div>
+                <div class="flex flex-col col-[5/10] items-center relative">
+                    <span class="text-sm text-gray-500 mb-1">Work Order:</span>
+                    <select id="workOrder" name="workOrder" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/workorders')" value="{{workOrder}}"></select>
+                </div>
+                <div class="flex col-[10/13] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div id="csTable" class="mt-6">
+        <table class="{{theme.table}}">
+            <tr class = "{{theme.tableHead}}">
+                <th scope="col">Work Order</th>
+                <th scope="col">Style</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Merchandiser</th>
+                <th scope="col">Will Cut</th>
+                <th scope="col">Cut Quantity</th>
+                <th scope="col">No. of Cuts</th>
+                <th scope="col">Bundles</th>
+                <th scope="col">Sizes</th>
+            </tr>
+            <tbody id="tableData" class = "{{theme.tableBody}}">
+                {% for data in coreSheets %}
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td class="{{theme.hyperLink}}"><a href="{% url 'PM:editCoreSheet' workOrder=data.OrderNumber %}">{{ data.OrderNumber }}</a></td>
+                        <td>{{ data.StyleCode }}</td>
+                        <td>{{ data.Customer }}</td>
+                        <td>{{ data.Merchandiser }}</td>
+                        <td>{{ data.WillCut }}</td>
+                        <td>{{ data.CutQuantity }}</td>
+                        <td>{{ data.Cuts }}</td>
+                        <td>{{ data.Bundles }}</td>
+                        <td>{{ data.Sizes }}</td>
+                    </tr>
+                {% endfor %}  
+            </tbody>
+        </table>
+    </div>
+
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            let response = await fetch('/options/workorders?search={{workOrder}}');
+            const workOrders = await response.json();
+
+            await appendOptions(`workOrder`, workOrders, '{{workOrder}}');
+
+            hideLoadingIcon();
+        });
+    </script>
+{% endblock content %}

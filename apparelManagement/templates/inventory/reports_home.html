@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Inventory Reports
+{% endblock title %}
+
+{% block content %}
+    <div class="{{theme.border}}">
+        <div class="flex btn-group gap-2 {{theme.align}} {{theme.justify}} mt-2">
+            <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:inventoryReportUnOrdered' %}" role="button">Unordered Inventory</a>
+            <a class="{{theme.buttonBasic}}" href="{% url 'marketing:confirmExportDataUpload' %}" role="button">Pending Receipt</a>
+        </div>
+        <div class="flex btn-group gap-2 {{theme.align}} {{theme.justify}} mt-2">
+            <a class="{{theme.buttonBasic}}" href="{% url 'marketing:exportDataUpload' %}" role="button">Inventory Transactions</a>
+            <a class="{{theme.buttonBasic}}" href="{% url 'marketing:confirmExportDataUpload' %}" role="button">Inventory Summary</a>
+        </div>
+        <div class="flex btn-group gap-2 {{theme.align}} {{theme.justify}} mt-2">
+            <a class="{{theme.buttonSecondary}}" href="{% url 'apparelManagement:inventoryReportFreeStock' %}" role="button">Free Stock Report</a>
+        </div>
+    </div>
+{% endblock content %}

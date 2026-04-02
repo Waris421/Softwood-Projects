@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Demand Approval Form
+{% endblock %} 
+
+{% block content %}
+    <form method="POST" autocomplete="off">
+        {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center">
+                    <div class="card-body">
+                        <h5 class="card-title {{theme.justify}}">Approval</h5>
+                        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+                            <div class="flex col-[1/2] items-center mt-2">
+                                <label class="mx-2 whitespace-nowrap">Decision:&nbsp; </label>
+                                <select class="{{theme.dropdown}} mx-2" name="Approval">
+                                    <option value="None" selected> Pending </option>
+                                    <option value="true"> Approve </option>
+                                    <option value="false"> Reject </option>
+                                </select>
+                            </div>
+                            <div class="flex col-[1/2] items-center mt-2">
+                                <label class="mx-2 whitespace-nowrap">Details:&nbsp; </label>
+                                <textarea class="{{theme.textInputLarge}} mx-2" readonly>
+                                    {{demand.Description}}
+                                </textarea>
+                            </div>
+                            <div class="flex col-[1/2] items-center mt-2">
+                                <button type="submit" class="{{theme.buttonBasic}} mx-2">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <div class="card-body">
+                        <h5 class="card-title {{theme.justify}}">Background Data</h5>
+                        <div class="p-6">
+                            <ul class="list-disc list-outside space-y-3">
+                                {% for item in context %}
+                                <li class="text-base-content leading-relaxed">
+                                    <span class="font-semibold text-primary">{{ item.Name }}</span> 
+                                    from <span class="font-medium italic">{{ item.Supplier }}</span> 
+                                    dated <span class="badge badge-ghost">{{ item.OrderDate|date:"d-M-Y" }}</span> 
+                                    (PO# {{ item.PONumber }}), quantity of 
+                                    <span class="font-medium">{{ item.Quantity }}</span> 
+                                    at a price of <span class="text-success">{{ item.Price }}</span> 
+                                    against a standard price of <span class="text-info">{{ item.StandardPrice }}</span>.
+                                </li>
+                                {% empty %}
+                                <li class="text-gray-500 italic">No data found.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+{% endblock %}

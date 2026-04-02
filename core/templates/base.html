@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% load static %}
+      <link rel="icon" href="{% static 'Logo 3x.png' %}">
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script>
+        tailwind.config = {
+          darkMode: 'media',
+        };
+      </script>
+
+      <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" type="text/css" />
+      <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+      
+      <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+      <style>
+        .noUi-connect {
+          background: rgba(26, 53, 190, 0.7)
+        }
+        .noUi-horizontal .noUi-handle {
+          background: #09cb36;
+          box-shadow: none;
+        }
+        .noUi-tooltip {
+          visibility: hidden;
+          opacity: 0;
+          transition: opacity 0.3s ease-in-out;
+        }
+
+        .noUi-handle:hover .noUi-tooltip,
+        .noUi-tooltip.visible {
+          visibility: visible;
+          opacity: 1;
+        }
+      </style>
+        
+      <title>
+          {% block title %} Fashion OS {% endblock %}
+      </title>
+      
+      <!--Icons from Google fonts-->
+      <div>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <style>
+          .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 20;
+            font-size: 14px;
+            cursor: pointer;
+          }
+        </style>
+      </div>
+  </head>
+  
+  <body> 
+    <!--Navigation Bar-->
+    <div class="{{theme.navigationBar}}">
+      <div class="navbar-start w-full">
+        <ul class="menu menu-horizontal px-1">
+          {% for group in navLinks %}
+            <li class="dropdown dropdown-hover">
+              {% if group.views|length > 0 %}
+                <label tabindex="0" class="cursor-pointer">{{ group.groupName }}</label>
+                <ul tabindex="0" class="{{theme.navigationDropdown}}">
+                  {% for item in group.views %}
+                    <li><a href="{% url item.viewName %}{% if item.searchParams %}?{{item.searchParams}}{% endif %}">
+                      {{item.displayName}}
+                    </a></li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <li><a href="{% url group.viewName %}">{{group.groupName}}</a></li>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="navbar-end">
+        <ul class="menu menu-horizontal p-0 items-center space-x-1">
+          <li>
+            <a href="/" class="btn btn-ghost btn-square" title="Home">
+                <span class="material-symbols-outlined">home</span>
+            </a>
+          </li>
+          <li>
+            <a id="settingsIcon" class="btn btn-ghost btn-square" 
+              custom-url="{% if settingsIconViewName %}{% url settingsIconViewName %}{% endif %}"
+              title="Settings">
+              <span class="material-symbols-outlined">settings</span>
+            </a>
+          </li>
+          <li>
+            <a href="/logout" class="btn btn-ghost btn-square" title="Logout">
+                <span class="material-symbols-outlined">chip_extraction</span>
+            </a>
+          </li>
+          <li class="hidden sm:inline-flex">
+            <span class="text-sm font-light text-gray-600 dark:text-gray-400 mr-2">
+                {{user.first_name}}
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+        
+    <!--Message Box-->
+    <div id="message-container" class="fixed top-0 left-0 right-0 z-50 p-4"></div>
+    
+    <!--Main Body-->
+    <div class="{{theme.pageBody}}">
+        {% block content %} {% endblock %}
+    </div>
+
+    <!--Loading Animiation-->
+    <div style="position: fixed;" id="loadingIcon" hidden>
+      <span class="{{theme.loadingIcon}}">autorenew</span>
+    </div>
+
+    <!--Simple drop down-->
+    <dialog id="dropdown" class="modal">
+      <div class="modal-box max-w-lg h-[50vh]">
+        <h3 class="font-bold text-lg">Select an Option</h3>
+        <div class="py-4 relative">
+            <select id="dialogSelect" class="{{theme.dropdown}}"></select>
+        </div>
+        <div class="modal-action">
+          <form method="dialog" class="w-full">
+            <div class="flex justify-end w-full btn-group">
+              <button id="dialogOK" class="{{theme.buttonBasic}}">OK</button>
+              <button class="{{theme.buttonSecondary}}">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </dialog>
+
+    <script>    //To add the options for selects
+      async function appendOptions (elementId, options, selected=null, removePrevious=true) {
+          try {
+            const element = document.getElementById(elementId);    
+            
+            if (removePrevious) {
+              element.innerHTML = ''; 
+            }
+            
+            const fragment = document.createDocumentFragment();
+
+            options.forEach(optionData => {
+              const option = document.createElement('option');
+              option.text = optionData.text;
+              option.value = optionData.value;
+              if (String(optionData.value) === String(selected)) {
+                option.selected = true;
+              }
+              fragment.appendChild(option);
+            });
+    
+            element.appendChild(fragment);
+          } catch (error) {
+            showMessage(`An Error occured: `+error);
+          }
+      }
+    </script>
+
+    <script>    //To show message to a user
+      function showMessage(message, timeOut = 3, baseClass = '{{theme.errorBox}}') {
+        //Get the container element
+        const messageContainer = document.getElementById('message-container');
+
+        // Create a new alert element
+        const messageElement = document.createElement('div');
+        //Set the correct bootstap class
+        messageElement.classList.add(...baseClass.split(' '));
+        messageElement.setAttribute('role', 'alert');
+        
+        //Add a the message and close button to the message.
+        messageElement.innerHTML = `
+          <span class="{{theme.messageBoxBody}}">${message}</span>
+          <span class="{{theme.messageBoxClose}}">
+            <span class="material-icons cursor-pointer">close</span>
+          </span>`;
+
+        //Add the message element to the container
+        messageContainer.appendChild(messageElement);
+
+        //close the message automatically after given number of seconds
+        let elapsedTime = 0;
+        let timer = null;
+
+        const startTimer = () => {
+          if (timer !== null) return; // Prevent multiple timers
+
+          timer = setInterval(() => {
+            if (!document.hidden) {
+              elapsedTime++;
+              if (elapsedTime >= timeOut) {
+                  clearInterval(timer);
+                  hideMessage();
+              }
+            }
+          }, 1000);
+        };
+
+        const hideMessage = () => {
+          messageElement.classList.replace('opacity-100', 'opacity-0');
+          setTimeout(() => {
+              messageElement.remove();
+          }, 300);
+        };
+        startTimer();
+
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) {
+            startTimer();
+          }
+        });
+
+        messageElement.children[1].addEventListener('click', () => {
+          clearInterval(timer);
+          hideMessage();
+        })
+      }
+    </script>
+
+    <script>  //To show/hide loading icon to user
+      function showLoadingIcon(top=100, left=10, zIndex=9999) {
+        const loadingIcon = document.getElementById('loadingIcon');
+
+        loadingIcon.style.top = `${top}px`;
+        loadingIcon.style.left = `${left}px`;
+        loadingIcon.style.zIndex = zIndex;
+
+        loadingIcon.removeAttribute('hidden');
+      }
+
+      function hideLoadingIcon() {
+        const loadingIcon = document.getElementById('loadingIcon');
+
+        loadingIcon.setAttribute('hidden','');
+      }
+    </script>
+
+    <script>  //To show options dialogue box
+      async function showDropDown(optionsParam, onOkFunction, selected=null, searchBox=true) {
+        const modal = document.getElementById('dropdown');
+        const selectElement = document.getElementById('dialogSelect');
+        const okButton = document.getElementById('dialogOK');
+
+        selectElement.innerHTML = '';
+        okButton.onclick = null;
+
+        let options = [];
+        if (searchBox) {
+          const response = await fetch(optionsParam);
+          options = await response.json();
+          selectElement.onclick = () => showSearchBox(selectElement, optionsParam);
+        } else {
+          options = optionsParam;
+          selectElement.onclick = null;
+          
+          for (const option of options) {
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.text = option.text;
+
+            selectElement.appendChild(optionElement);
+          }
+        }
+
+        if (selected) {
+          selectElement.value = selected;
+        }
+
+        okButton.onclick = null;
+        okButton.onclick = () => {
+            const selectedValue = selectElement.value;
+            onOkFunction(selectedValue);
+            modal.close();
+        };
+
+        modal.showModal();
+      }
+    </script>
+
+    <script>  //To add or remove rows from tables 
+      async function addRow (source, nextFunction=null) {        
+        const rowToCopy = source.parentElement.parentElement;
+        const tableData = rowToCopy.parentElement     //Fetch the table body
+        
+        const copy = rowToCopy.cloneNode(true);     //Create a copy of the row
+
+        // Clear written text that the copy got from source row
+        for (const child of copy.children) {
+          const inputs = child.querySelectorAll('input');
+          inputs.forEach(input => {
+            input.value = '';
+          });
+
+          const selects = child.querySelectorAll('select');
+          selects.forEach(select => {
+            select.selectedIndex = -1;
+          });
+        }
+        
+        //Insert the row after the clicked row
+        tableData.insertBefore(copy, rowToCopy.nextSibling);
+        
+        //Change the row numbers and id of select elements
+        const rows = tableData.children;
+        for (let i=0;i<rows.length;i++) {
+          const currentRow = rows[i];
+          currentRow.setAttribute("row",i);
+
+          const selectsInRow = currentRow.querySelectorAll('select');
+          selectsInRow.forEach(select => {
+            select.id = `id_${select.name}_${i}`;
+          });
+        }
+
+        //Reset the sequence in any column named Sequence
+        const sequences = tableData.querySelectorAll('[name*="Sequence"]')
+        let previousSequence = 0;
+        for (const sequence of sequences) {
+            sequence.value = previousSequence+1;
+            previousSequence = parseInt(sequence.value);
+        }
+
+        const firstVisibleInput = copy.querySelector('input:not([hidden]):not([disabled]):not([readonly])');
+        if (firstVisibleInput) {
+          firstVisibleInput.focus();
+        }
+              
+        if (nextFunction) {
+          nextFunction(copy);
+        }
+      }
+
+      async function removeRow (source, minRows = 0 ) {
+        const tableData = source.parentElement.parentElement.parentElement;     //Fetch the table body   
+        
+        //Don't delete the row if it is the only one
+        if (tableData.children.length < (minRows+3)) {
+            alert("This is the last row. You cannot delete it!");
+            return ;
+        }
+
+        const rowToRemove = source.parentElement.parentElement;    //Fetch the row out of the table
+        const rowNum = parseInt(rowToRemove.getAttribute('row'));
+
+        let dataFlag = false;               //Flag to check if there is data in the row
+
+        const inputs = rowToRemove.querySelectorAll ("input");      //All the columns with inputs
+        const selects = rowToRemove.querySelectorAll ("select");    //All the columns with selection options
+        const combined = [...inputs, ...selects];                 //Combined inputs and selects
+
+        for (const element of combined) {
+            const deletable = element.parentElement.getAttribute("deletable") === "true";
+            if (element.value && !deletable) {  
+                dataFlag = true;                            //Set flag true if there is data in an element
+                break;    
+            }
+        }
+        
+        if (dataFlag) {                 //Give warining if the dataflag is true.
+            const removeFlag = confirm("There is data here. Are you sure you want to remove it?");
+            if (!removeFlag) {          //User doesn't select OK.
+                return ;
+            }
+        }
+
+        rowToRemove.remove();           //Remove the row
+
+        //Reset the serial in the buttons below the deleted row
+        let rows = tableData.children;
+        for (let i=rowNum;i<rows.length;i++) {
+            rows[i].setAttribute("row",i);
+        }
+
+        //Reset the sequence in any column named Sequence
+        const sequences = tableData.querySelectorAll('[name*="Sequence"]')
+        let previousSequence = 0;
+        for (const sequence of sequences) {
+            sequence.value = previousSequence+1;
+            previousSequence = parseInt(sequence.value);
+        }
+      }
+    </script>
+
+    <script> //To handle warning for unsaved data
+      //The if is in response to a bug, where it wouldn't define unsavedDataFlag while replacing html
+      if (typeof unsavedDataFlag === 'undefined') {
+        let unsavedDataFlag = false;
+      }
+
+      //Show warning to user if there is unsaved data.
+      window.addEventListener('beforeunload', (event) => {
+        if (unsavedDataFlag) {
+          event.preventDefault(); // For some older browsers
+          event.returnValue = ''; // For chrome or firefox
+          return ''; // for Safari
+        }
+      });
+    </script>
+
+    <script> //This function shows searchbox for a select element
+      async function showSearchBox(source, url=null, nextFunction=null, addBlank=false, reuseOptions=false) {
+        const rect = source.getBoundingClientRect();
+
+        source.style.display = 'none';
+
+        const originalOptions = Array.from(source.options).map(option => ({
+          value: option.value,
+          text: option.text,
+        }));
+        const originalValue = source.value;
+
+        const searchContainer = document.createElement('div');
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Type Here';
+        searchInput.style.marginTop = '0.5rem';
+        searchInput.classList.add(...'{{theme.textInput}}'.split(' '));
+        searchContainer.appendChild(searchInput);
+
+        const listContainer = document.createElement('ul');
+        listContainer.classList.add('menu');
+        searchContainer.appendChild(listContainer);
+
+        function renderOptions(optionsData) {
+          listContainer.innerHTML = '';
+          source.innerHTML = '';
+
+          if (optionsData && optionsData.length > 0) {
+            for (const option of optionsData) {
+              const listItem = document.createElement('li');
+              const button = document.createElement('button');
+              button.classList.add('w-full', 'text-left', 'hover:bg-base-200', 'dark:hover:bg-gray-800', 'focus:outline-none');
+              button.textContent = option.text;
+              button.value = option.value;
+              button.type = 'button';
+
+              const newOption = document.createElement('option');
+              newOption.value = option.value;
+              newOption.text = option.text;
+              source.appendChild(newOption);
+
+              listItem.appendChild(button);
+              listContainer.appendChild(listItem);
+
+              button.onclick = function () {
+                source.value = this.value;
+                source.style.display = '';
+                searchContainer.remove();
+                document.removeEventListener('click', handleClickOutside);
+
+                if (nextFunction) {
+                  nextFunction(source);
+                }
+              };
+            }
+          } else {
+            const listItem = document.createElement('li');
+            listItem.classList.add('disabled');
+            listItem.textContent = 'No matching options';
+            listContainer.appendChild(listItem);
+          }
+        }
+        
+        async function fetchOptons(searchTerm = '') {
+          if (reuseOptions) {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+
+            const currentOptions = Array.from(source.children).map(option => ({
+                value: option.value,
+                text: option.text,
+            }));
+
+            let filteredOptions = [];
+            currentOptions.forEach(option => {
+              const flag = String(option.text).toLowerCase().includes(lowerSearchTerm) || String(option.value).toLowerCase().includes(lowerSearchTerm);
+              if (flag) filteredOptions.push(option);
+            });
+            renderOptions(filteredOptions);
+
+            return;
+          }
+          try{
+            showLoadingIcon();
+            let response;
+
+            if (searchTerm === '') {
+              response = await fetch(`${url}?search=`);
+            } else {
+              response = await fetch(`${url}?search=${searchTerm}`);
+            }
+
+            if (!response.ok) {
+                console.error(`HTTP error! status: ${response.status}`);
+                listContainer.innerHTML = '<li class="disabled"><a>Error loading data</a></li>';
+                hideLoadingIcon();
+                return;
+            }
+
+            const data = await response.json();
+            if (addBlank) {
+              const newRow = { "value": null, "text": "-----------" };
+              data.unshift(newRow);
+            }
+
+            renderOptions(data);
+            hideLoadingIcon();
+          } catch (error) {
+            console.error(`Error fetching Options: ${error}`);
+            listContainer.innerHTML = '<li class="disabled"><a>Error loading data</a></li>';
+            return;
+          }
+        }
+
+        await fetchOptons();
+
+        let timeoutId;
+        searchInput.addEventListener('input', async function() {
+          const searchTerm = searchInput.value.trim();
+
+          // Debounce the input to avoid excessive backend calls
+          clearTimeout(timeoutId);
+
+          timeoutId = setTimeout(async () => {
+              await fetchOptons(searchTerm);
+          }, 300);
+        });
+
+        searchContainer.appendChild(listContainer);
+
+        searchContainer.classList.add('bg-base-100', 'rounded-box', 'shadow', 'w-full', 'mt-2', 'dark:bg-gray-900', 'dark:text-white');
+        searchContainer.style.zIndex = '10';
+        searchContainer.style.left = '0';
+        searchContainer.style.top = `100%`;
+        searchContainer.style.position = 'absolute';
+        
+        source.parentNode.appendChild(searchContainer);
+        
+        searchInput.focus();
+
+        function handleClickOutside(clickEvent) {
+          if (!searchContainer.contains(clickEvent.target) && clickEvent.target !== source) {
+            closeSearchBox();
+          }
+        }
+
+        function handleEscapeKey(keyEvent) {
+          if (keyEvent.key === 'Escape') {
+            closeSearchBox();
+          }
+        }
+
+        function closeSearchBox() {
+          searchContainer.remove();
+          source.style.display = '';
+          source.innerHTML = '';
+
+          for (const option of originalOptions) {
+            const newOption = document.createElement('option');
+            newOption.value = option.value;
+            newOption.text = option.text;
+            source.appendChild(newOption);
+          }
+          source.value = originalValue;
+
+          document.removeEventListener('click', handleClickOutside);
+        }
+        document.addEventListener('click', handleClickOutside);
+        searchInput.addEventListener('keydown', handleEscapeKey);
+      }
+    </script>
+
+    <script>  //To convert a tabular table form data to json friendly format
+      function formToTable(group, form, data){
+        let rows = form.querySelectorAll('[row]');
+        //Remove unnecesary rows
+        rows = dropElements(rows);
+
+        for (const row of rows) {
+            let rowNum = row.getAttribute('row');
+            let cols = row.children;
+            //Remove unnecessary columns
+            cols = dropElements(cols, cols.length-1, cols.length-1);
+            cols.forEach(col => {
+              const arr = extractValuefromCol(col);
+              data[`${group}_${arr[0]}_${rowNum}`] = arr[1]; 
+            });
+        }
+        return data;
+      }
+
+      function dropElements(obj, startFrom=0, endAt=0) {
+        const arr = Object.values(obj);
+
+        arr.splice(startFrom, endAt - startFrom + 1);
+
+        return arr;
+      }
+
+      function extractValuefromCol(col) {
+        const fileInput = col.querySelector('input[type="file"]');
+        if (fileInput) {;
+          return [fileInput.name, fileInput.files[0]];
+        }
+        
+        const simpleInput = col.querySelector('input.input-bordered');
+        if (simpleInput) {function extractValuefromCol(col) {
+        const simpleInput = col.querySelector('input.input-bordered');
+        if (simpleInput) {
+            return [simpleInput.name,simpleInput.value];
+        }
+        
+        const selectInput = col.querySelector('select.select-bordered');
+        if (selectInput) {
+            return [selectInput.name, selectInput.value];
+        
+        }
+        const multiSelectDiv = col.querySelector('div.dropdown');
+        if (multiSelectDiv) {
+            const selectedItems = multiSelectDiv.querySelectorAll('ul.dropdown-content li input[type="checkbox"]:checked');
+            values = Array.from(selectedItems).map(item => item.value);
+            
+            name = multiSelectDiv.getAttribute('inputName');
+            
+            return [name, values];
+        }
+        return ['','']
+      }
+            return [simpleInput.name,simpleInput.value];
+        }
+        
+        const selectInput = col.querySelector('select.select-bordered');
+        if (selectInput) {
+            return [selectInput.name, selectInput.value];
+        
+        }
+        const multiSelectDiv = col.querySelector('div.dropdown');
+        if (multiSelectDiv) {
+            const selectedItems = multiSelectDiv.querySelectorAll('ul.dropdown-content li input[type="checkbox"]:checked');
+            values = Array.from(selectedItems).map(item => item.value);
+            
+            name = multiSelectDiv.getAttribute('inputName');
+            
+            return [name, values];
+        }
+        return ['','']
+      }
+    </script>
+
+    <script>    //Apply keyboard shortcuts
+        document.addEventListener('keydown', async function(event) {
+
+            if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 's') {
+                if (typeof submitForms === 'function') {
+                    event.preventDefault();
+                    await submitForms();
+                }
+            }
+        });
+    </script>
+
+    <script>  //To setup the settings icon
+      document.addEventListener('DOMContentLoaded', () => {
+        const settingsIcon = document.getElementById('settingsIcon');
+
+        const customUrl = settingsIcon.getAttribute('custom-url')
+
+        let url = '';
+        if (customUrl) {
+          url = customUrl;
+        } else {
+          const adminStatus = '{{user.is_staff}}';
+          
+          if (adminStatus == 'True') {
+            url = "{% url 'admin:index' %}";
+          } else {
+            url = '/access/denied';
+          } 
+        }
+        settingsIcon.href = url;
+      });
+    </script>
+
+    <script>  //To download data from a response object
+      async function convertResponseToCSV(response) {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'download.csv';
+        if (contentDisposition) {
+          const matches = /filename\*?=['"]?([^"';\n\r]+)['"]?/.exec(contentDisposition);
+          if (matches && matches[1]) {
+              filename = matches[1];
+          }
+        }
+
+        const csvBlob = await response.blob();
+        const url = window.URL.createObjectURL(csvBlob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+
+      async function convertResponseToPDF(response) {
+        const pdfBlob = await response.blob();
+        const pdfURL = URL.createObjectURL(pdfBlob);
+        
+        const a = document.createElement('a');
+        a.style.display = 'none';
+
+        a.href = pdfURL;
+        a.target = '_blank';
+
+        document.body.appendChild(a);
+        a.click();
+
+        document.body.removeChild(a);
+
+        setTimeout(() => {
+            URL.revokeObjectURL(pdfURL);
+        }, 100);
+      }
+    </script>
+
+    <script>  //TO convert string true, false to booleans
+      function convertBoolStrtoBool(boolStr, emptyFalse=false) {
+        if (boolStr.toLowerCase() === 'true') {
+          return true;
+        }
+
+        if (boolStr.toLowerCase() === 'false') {
+          return false;
+        }
+
+        if (boolStr === '' && emptyFalse) {
+          return false;
+        }
+
+        return boolStr;
+      }
+    </script>
+  </body>
+</html>

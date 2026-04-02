@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Style Cards
+{% endblock %}
+
+{% block content %}
+  <div class="{{theme.border}} {{theme.formHeading}}">
+    <form action="{% url 'apparelManagement:Style' %}" method="get">
+      <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+        <div class="flex flex-col col-[1/3] items-center relative">
+          <span class="text-sm text-gray-500 mb-1">Customer:</span>
+          <select id="customerFilter" name="customerFilter" onchange="this.form.submit()" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/customers')">
+          </select>
+        </div>
+        <div class="flex flex-col col-[3/5] items-center">
+          <span class="text-sm text-gray-500 mb-1">Search:</span>
+          <input type="text" class="{{theme.textInput}}" name="searchTerm" value="{{searchTerm}}">
+        </div>
+        <div class="flex col-[5/6] btn-group {{theme.align}} justify-end ml-1">
+          <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+        </div>
+        <div class="flex col-[6/13] btn-group {{theme.align}} justify-end ml-1">
+          <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:addStyle' %}" role="button">Add Style</a>
+          <a id="copyCardButton" class="{{theme.buttonBasic}}" role="button">Copy Style</a>
+          <a id="editCardButton" class="{{theme.buttonBasic}}" role="button">Edit Style</a>
+          <a id="deleteCardButton" class="{{theme.buttonBasic}}" role="button">Delete Style</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div id ="style_Table" class="mt-6">   
+    <table class="{{theme.table}}">  
+      <tr class = "{{theme.tableHead}}">
+        <th scope="col">Select</th>
+        <th scope="col">StyleCode</th>
+        <th scope="col">Category</th>
+        <th scope="col">Customer</th>
+        <th scope="col">Fabric</th>
+      </tr>
+      <tbody id="tableData" class="{{theme.tableBody}}">
+        {% for data in style %}
+        <tr class="{{theme.tableBodyRow}}">
+          <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
+          <td class="code">{{ data.StyleCode }}</td>
+          <td>{{ data.Category }}</td>
+          <td>{{ data.Customer }}</td>
+          <td>{{ data.Fabric }}</td>
+        </tr>     
+        {% endfor %}    
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="{{ theme.pagination }}">
+     <div class="btn-group">
+      {% if page_obj.has_previous %}
+          <a href="?page=1&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Previous</a>
+      {% else %}
+          <button class="btn btn-sm" disabled>First</button>
+          <button class="btn btn-sm" disabled>Previous</button>
+      {% endif %}
+
+      {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}&customerFilter={{ selectedCustomer }}&searchTerm={{ searchTerm }}" class="btn btn-sm">Last</a>
+      {% else %}
+          <button class="btn btn-sm" disabled>Next</button>
+          <button class="btn btn-sm" disabled>Last</button>
+      {% endif %}
+     </div>
+  </div>
+
+  <script>  //Update the buttons based on the selection in radio
+    const dataTable = document.getElementById('tableData');
+    dataTable.addEventListener('click', (event) => {
+      if (event.target.type === 'radio' && event.target.name === 'item_checkbox') {
+        const radio = event.target;
+        const selectedCode = radio.closest('tr').querySelector('td.code').textContent.trim();
+
+        var button = document.getElementById("copyCardButton");
+        button.href = '/style/'+ selectedCode + '/copy/';
+
+        button = document.getElementById("editCardButton");
+        button.href = '/style/'+ selectedCode + '/edit/';
+
+        button = document.getElementById("deleteCardButton");
+        button.href = '/style/'+ selectedCode + '/delete/';
+      }
+    });       
+  </script>
+
+  <script>  //To run when the page loads
+    window.addEventListener('load', async () => {
+      let response = await fetch(`/options/customers?search={{selectedCustomer}}`);
+      const customers = await response.json();
+      const emptyRow = {"value": "","text": "-----------"}
+      customers.unshift(emptyRow);
+      await appendOptions('customerFilter', customers, '{{selectedCustomer}}');
+    });
+  </script>
+{% endblock %}
