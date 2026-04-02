@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Inventory Cards
+{% endblock %}
+
+{% block content %}
+  <div class="{{theme.border}} {{theme.formHeading}}">
+    <form action="{% url 'apparelManagement:Inv' %}" method="get" autocomplete="off">
+      <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+        <div class="flex flex-col col-[1/4] items-center">
+          <span class="text-sm text-gray-500 mb-1">Group:</span>
+          <select name="groupFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+            <option value="">  No Filter  </option>
+            {% for data in groups %}
+              <option value="{{ data }}"
+                {% if data == selectedGroup %}
+                  selected
+                {% endif %}>
+                {{ data }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex flex-col col-[4/7] items-center">
+          <span class="text-sm text-gray-500 mb-1">Status:</span>
+          <select name="stockFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
+            <option value="ALL" {% if stockFilter == 'ALL' %} selected{% endif %}>  All  </option>
+            <option value="InStock" {% if stockFilter == 'InStock' %} selected{% endif %}>  In Stock  </option>
+            <option value="Free" {% if stockFilter == 'Free' %} selected{% endif %}>  Free Stock  </option>
+          </select>
+        </div>
+        <div class="flex flex-col col-[7/10] items-center">
+          <span class="text-sm text-gray-500 mb-1">Search:</span>
+          <input type="text" class="{{theme.textInput}}" name="search_term" placeholder="Search inventory" value="{{searchTerm}}">
+        </div>
+        <div class="flex col-[10/13] btn-group {{theme.align}} justify-end ml-1">
+            <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+        </div>
+        <div class="flex col-[1/13] btn-group {{theme.align}} justify-end ml-1">
+          <a class="{{theme.buttonBasic}}" href="{% url 'apparelManagement:addInv' %}" role="button">Add Card</a>
+          <a id="editCardButton" class="{{theme.buttonBasic}}" role="button">Edit Card</a>
+          <a id="copyCardButton" class="{{theme.buttonBasic}}" role="button">Copy Card</a>
+          <a id="deleteCardButton" class="{{theme.buttonBasic}}" role="button">Delete Card</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!--Inventory Table-->
+  <div id="invTable" class="mt-6">
+    <table class="{{theme.table}}">
+      <tr class = "{{theme.tableHead}}">
+        <th scope="col">Select</th>
+        <th scope="col">Inventory Code</th>
+        <th scope="col">Inventory Name</th>
+        <th scope="col">Group</th>
+        <th scope="col">Unit</th>
+        <th scope="col">In Use?</th>  
+        <th scope="col">Stock Level</th> 
+        <th scope="col">Free Stock</th>  
+      </tr>
+      <tbody id="tableData" class = "{{theme.tableBody}}">
+        {% for data in inv %}
+          <tr class="{{theme.tableBodyRow}}">
+            <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
+            <td class="code">{{ data.Code }}</td>
+            <td>{{ data.Name }}</td>
+            <td>{{ data.Group }}</td>
+            <td>{{ data.Unit }}</td>
+            <td>{% if data.InUse %}
+                Yes
+                {% elif data.InUse == '' %}
+                {% else %}
+                No
+                {% endif %}
+            </td>
+            <td>{{ data.StockLevel }}</td>
+            <td>{{ data.FreeStock }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!--Navigation Bar-->
+  <div class="{{ theme.pagination }}">
+    <div class="btn-group">
+      {% if page_obj.has_previous %}
+          <a href="?page=1" class="btn btn-sm">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm">Previous</a>
+      {% else %}
+          <button class="btn btn-sm" disabled>First</button>
+          <button class="btn btn-sm" disabled>Previous</button>
+      {% endif %}
+
+      {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-sm">Last</a>
+      {% else %}
+          <button class="btn btn-sm" disabled>Next</button>
+          <button class="btn btn-sm" disabled>Last</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>  //Update the buttons based on the selected inventory code
+    const dataTable = document.getElementById('tableData');
+    dataTable.addEventListener('click', (event) => {
+      if (event.target.type === 'radio' && event.target.name === 'item_checkbox') {
+        const radio = event.target;
+        const selectedCode = radio.closest('tr').querySelector('td.code').textContent.trim();
+        //Find and link the edit card button to the selected code
+        var button = document.getElementById("copyCardButton");  
+        button.href = '/inv/'+ selectedCode + '/copy/';         
+        
+        button = document.getElementById("editCardButton");  
+        button.href = '/inv/'+ selectedCode + '/edit/';  
+
+        button = document.getElementById("deleteCardButton");  
+        button.href = '/inv/'+ selectedCode + '/delete/';
+      }
+    });         
+  </script>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Finalise Thread Consumption
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    
+    <!--Style Selected-->
+    <div class="{{theme.border}}">
+        <form method="POST" autocomplete="off" id="styleForm">
+            <div class="grid grid-cols-5 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Style:&nbsp; </label>
+                    <select id="id_Style" class="{{theme.dropdown}}" name="Style" onchange="showAddedThreads(this)" required></select>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <button type="button" class="{{theme.buttonSecondary}} mx-2" onclick="submitForms()">Save</button>
+                </div> 
+                <div class="flex flex-col col-[4/6] items-center" id="threadsDiv">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                </div> 
+            </div>
+        </form>
+    </div>
+
+    <!--Consumption form-->
+    <form method="POST" id="consumptionForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-6 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Description
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Count
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Cons. (mtr)
+                    </div>
+                </div>
+                 <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+            </div>
+            {% for data in consThreads %}
+                <div class="grid grid-cols-6 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                    </div>
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Thread}}" name="Thread" readonly>
+                    </div>
+                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Count}}" name="Count" readonly>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption" readonly>
+                    </div>
+                    <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" name="InvCode" required hidden>
+                        <input type="text" class="{{theme.textInput}}" name="InvName" readonly>
+                        <button type="button" class="material-symbols-outlined" onclick="openInvSearch(this)">search</button>
+                    </div>
+                    <div hidden>
+
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <!--Inventory search dialog box-->
+    <input type="checkbox" id="invSearchTableToggle" class="modal-toggle" />
+    <div class="modal" id="invSearchTable">
+        <div class="{{theme.dialogBox}}">
+            <div class="{{theme.dialogBoxHeader}}">
+                <h3 class="{{theme.dialogBoxTitle}}" id="modalLabel">
+                    Inventory Cards
+                </h3>
+                <label for="invSearchTableToggle" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</label>
+            </div>
+            <div class="{{theme.dialogBoxBody}}">
+                <div class="grid grid-cols-3 gap-4 mb-2 bg-gray-800 text-white p-2 rounded-md">
+                    <div class="text-center font-semibold">Filter 1</div>
+                    <div class="text-center font-semibold">Filter 2</div>
+                    <div class="text-center font-semibold">Filter 3</div>
+                </div>
+                <div id="invBoxSearchContainer" class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="handleSearchInput(this)">
+                    <div hidden>
+                        <input readonly />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer user-select-none"
+                    onclick="selectInv(this)"
+                    id="templateRow"
+                    style="display: none;"
+                >
+                <div hidden>
+                    <span></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+            </div>
+            <div id="inventoryListContainer"></div>
+        </div>
+        </div>
+    </div>
+
+    <script>    //To handle inventory search box
+        async function openInvSearch(source) {
+            const row = source.parentElement.parentElement;
+            const invTableRowNum = row.getAttribute('row');
+
+            const description = row.children[1].children[0].value;
+            const count = row.children[2].children[0].value;
+
+            const searchContainer = document.getElementById('invBoxSearchContainer');
+
+            searchContainer.children[1].children[0].value=description;
+            searchContainer.children[2].children[0].value=count;
+            searchContainer.children[3].children[0].value='thr';
+
+            await applySearch(searchContainer);
+
+            //Show the search table
+            document.getElementById('invSearchTableToggle').checked = true;
+
+            const modalLabelElement = document.getElementById('modalLabel');
+            if (modalLabelElement) {
+                modalLabelElement.setAttribute('data-row-number', invTableRowNum);
+            }
+
+            //Put cursor in the first search box
+            searchContainer.children[1].querySelector('input').focus();
+        }
+
+        function appendInventories(inventories) {
+            const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
+            const templateRow = document.getElementById('templateRow');
+            const inventoryListContainer = document.getElementById('inventoryListContainer');
+
+            inventoryListContainer.innerHTML = '';
+
+            const filterInputs = filterRow.querySelectorAll('input[type="text"]');
+
+            for (const inventory of inventories) {
+                const newRow = templateRow.cloneNode(true);
+                newRow.style.display = 'grid';
+                newRow.removeAttribute('id');
+
+                newRow.children[0].children[0].textContent = inventory.value;
+                newRow.children[1].children[0].textContent = inventory.text;
+                newRow.children[2].children[0].textContent = inventory.text;
+                newRow.children[3].children[0].textContent = inventory.text;
+
+                inventoryListContainer.appendChild(newRow);
+            }
+        }
+
+        function selectInv(source) {
+            const selectedCode = source.children[0].children[0].textContent;
+            const selectedName = source.children[1].children[0].textContent;
+
+            const consTableRowNum = parseInt(document.getElementById('modalLabel').getAttribute('data-row-number'));
+            
+            const consTableRow = document.getElementById('consumptionForm').children[0].children[consTableRowNum];
+            
+            const invCodeBox = consTableRow.children[4].children[0];
+            const invNameBox = consTableRow.children[4].children[1];
+            
+            invCodeBox.value = selectedCode;
+            invNameBox.value = selectedName;
+
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = false;
+
+            //Put the cursor in the first editable input box
+            consTableRow.children[2].querySelector('input').focus();
+        }
+
+        //Wait for half a second after user types to avoid multiple server queries
+        let searchTimeout;
+        const DEBOUNCE_DELAY = 500;
+        async function handleSearchInput(source) {
+            // Clear any existing timeout to reset the timer
+            clearTimeout(searchTimeout);
+
+            // Set a new timeout
+            searchTimeout = setTimeout(async () => {
+                await applySearch(source);
+            }, DEBOUNCE_DELAY);
+        }
+
+        async function applySearch(source) { 
+            showLoadingIcon();           
+            const columns = source.children;
+            
+            // Get all the search terms
+            let searchTerms = [];
+            for (const column of columns) {
+                //Convert search term to lower case and append to the array
+                searchTerms.push(column.children[0].value.toLowerCase());
+            }
+
+            let url = `{% url 'apparelManagement:InventoryList' %}`;
+            const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
+            url = `${url}?${queryString}`;
+            
+            //Get the inventories from server
+            const response = await fetch(url);
+            const inventories = await response.json();
+            //Remove the frist row, as that is blank
+            inventories.shift();
+
+            appendInventories(inventories);
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script>    //This code runs when the page is fully loaded
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            const styles = {{ stylesJson|safe }};
+            await appendOptions('id_Style', styles, styles[0].value);
+
+            showAddedThreads(document.getElementById('id_Style'));
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script>    //To show the threads that are already added for a style
+        function showAddedThreads(source) {
+            const styleThreads = {{ styleThreadsJson|safe }};
+            const selectedStyle = source.options[source.selectedIndex].text;
+
+            const filteredThreads = styleThreads
+                .filter(thread => thread.Style === selectedStyle)
+                .map(({ Style, ...rest }) => rest);
+
+            const container = document.getElementById('threadsDiv');
+            container.innerHTML = '';
+
+            const heading = document.createElement('h3');
+            heading.className = "text-sm font-bold uppercase tracking-wider text-base-content/70";
+            heading.innerText = "Added Threads";
+
+            const threadString = filteredThreads.map(thread => thread.InventoryName).join(', ');
+            const textSpan = document.createElement('p');
+            textSpan.className = "text-base leading-relaxed font-medium";
+            textSpan.innerText = threadString;
+
+            container.appendChild(heading);
+            container.appendChild(textSpan);
+        }
+    </script>
+
+    <script>   //To Send data to server
+        async function submitForms() {
+            showLoadingIcon();
+
+            const allForms = document.forms;
+
+            const styleForm = allForms['styleForm'];
+            const consumptionForm = allForms['consumptionForm'];
+
+            const style = styleForm.querySelectorAll('#styleForm input, #styleForm select, #styleForm textarea');
+
+            let data = {};
+            let group = 'style';
+
+            for (const element of style) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+            data = formToTable('consumption', consumptionForm, data);
+            
+            await submitData(data);
+
+            hideLoadingIcon();
+        }
+
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const formData = new FormData();
+            for (const key in obj) {
+                const value = obj[key];
+
+                if (value instanceof File || value instanceof Blob) {
+                    formData.append(key, value, value.name);
+                } else if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        formData.append(key, item);
+                    });
+                } else {
+                    formData.append(key, value);
+                }
+            }
+
+            const response = await fetch('', {
+              method: 'POST',
+              body: formData,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok) {
+                window.location.href = '/consumption/thread/requests';
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+        }
+    </script>
+{% endblock content %}

@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Style Card Addition
+{% endblock %} 
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <!-- The main style form-->
+    <form method="POST" id="styleForm" autocomplete="off" class="{{theme.formHeading}}">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="StyleCode" required>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="StyleName" required>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Notes:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="Notes">
+                </div>
+                <div class="flex col-[1/2] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')"> </select>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
+                    <select id="id_Category" class="{{theme.dropdown}}" name="Category"> </select>
+                </div>  
+                <div class="flex col-[3/4] items-center">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+                </div>    
+            </div>
+        </div>
+    </form>
+    
+    <!-- Buttons to go to each of a style's detail table-->
+    <div class="{{theme.formActions}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+                <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
+                <button id="btn_routeBox" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeBox')">Route</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Variants Table -->
+    <form method="POST" id="variantsForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant 1
+                        <div class="text-xs font-normal opacity-60">(Pant Features eg Colour, Faded, Stone-washed etc)</div>
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant 2
+                        <div class="text-xs font-normal opacity-60">(Waist size eg 32, 34 etc)</div>
+                    </div>
+                </div>
+
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="Variant1">
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="Variant2">
+                </div>
+                <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Route Table -->
+    <div id="routeBox" hidden>
+        <form method="POST" id="routeForm" autocomplete="off">
+            <div class="{{theme.border}}">
+                <div class="grid grid-cols-1 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+                    <div class="flex col-[1/2] items-center relative">
+                        <label class="mx-2 whitespace-nowrap">Route Type:&nbsp; </label>
+                        <select id="routePreset" class="{{theme.dropdown}}" name="RoutePreset" onclick="showSearchBox(this, '/options/preset-routes', resetRoute)"> </select>
+                    </div>
+                </div>
+            </div>
+        </form>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Stage
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Pre-Requisites
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script> //To change view based on selected button
+        const formIds = ['variantsForm','routeBox'];
+
+        function changeView(formId){
+            let forms = [];
+
+            for (let i=0;i<formIds.length;i++) {
+                forms[i] = document.getElementById (formIds[i]);
+                const button = document.getElementById(`btn_${formIds[i]}`);
+                if (formId === formIds[i]){
+                    forms[i].hidden = false;
+                    button.className = `{{theme.buttonSelected}}`;
+                } else {
+                    forms[i].hidden = true;
+                    button.className = `{{theme.buttonBasic}}`;
+                }
+            }
+        }
+    </script>
+    
+    <script> //To send data to server
+        async function submitForms() {
+            const allForms = document.forms;
+            
+            let formsValidityFlag = true;
+            for (const form of allForms) {
+                if (!form.checkValidity()) {
+                    formsValidityFlag = false;
+                    console.log(form);
+                    break;
+                }
+            }
+            if (!formsValidityFlag) {
+                hideLoadingIcon();
+                showMessage('Some required fields are missing', 5, `{{theme.errorBox}}`);
+                return;
+            }
+
+            const styleForm = allForms['styleForm']; 
+            const variantForm = allForms['variantsForm'];
+            const routeForm = allForms['routeForm'];
+
+            const style = styleForm.elements;
+            const route = routeForm.elements;
+
+            let data = {};
+             
+            //Prepare the data for Style Group
+            let group = 'style';
+            for (const element of style) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+
+            group = 'route';
+            for (const element of route) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }  
+            }
+
+            //Prepare the data for variant Group
+            data = formToTable('variant', variantForm, data);
+
+            const response = await submitData(data);
+
+            if (response.ok) {
+                const styleCode = await response.text();
+                window.location.href = `/style/${styleCode}/edit/`;
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage,`{{theme.errorBox}}`);
+            }
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const formData = new FormData();
+            for (const key in obj) {
+                const value = obj[key];
+
+                if (value instanceof File || value instanceof Blob) {
+                    formData.append(key, value, value.name);
+                } else if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        formData.append(key, item);
+                    });
+                } else {
+                    formData.append(key, value);
+                }
+            }
+
+            const response = await fetch('', {
+              method: 'POST',
+              body: formData,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            return response;
+        }
+    </script>
+
+    <script>    //To reset the route based on selected preset
+        async function resetRoute(source) {
+            showLoadingIcon();
+            const selectedPreset = source.value;
+            const response = await fetch(`/style/route-preset/details?id=${selectedPreset}`);
+
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage,`{{theme.errorBox}}`);
+
+                hideLoadingIcon();
+                return ;
+            }
+
+            const stages = await response.json();
+            const routeTable = document.getElementById('routeBox').children[1];
+            
+            while (routeTable.children.length > 1) {
+                routeTable.removeChild(routeTable.children[1]);
+            }
+            
+            const fragment = document.createDocumentFragment();
+            for (const stage of stages) {
+                const row = document.createElement('div');
+                row.innerHTML = `
+                    <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                        <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                            <input type="text" class="{{theme.textInput}}" value="${stage.Stage}" name="Stage" readonly>
+                        </div>
+                        <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                            <input type="text" class="{{theme.textInput}}" value="${stage.PreReqs.join(', ')}" name="PreReqs" readonly>
+                        </div>
+                    </div>
+                `
+                fragment.appendChild(row);
+            }
+            routeTable.appendChild(fragment);
+
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script> //This code runs when the page elements are fully loaded.        
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            //Customer dropdown
+            let response = await fetch('/options/customers');
+            const customers = await response.json();
+            const emptyRow = {"value": "","text": "-----------"};
+            customers.unshift(emptyRow);
+            await appendOptions('id_Customer', customers);
+
+            //Style Categories dropdown
+            response = await fetch('/options/categories');
+            const categories = await response.json();
+            categories.unshift(emptyRow);
+            await appendOptions('id_Category', categories);
+
+            changeView('variantsForm');
+
+            hideLoadingIcon();
+        });
+    </script>
+{% endblock %}

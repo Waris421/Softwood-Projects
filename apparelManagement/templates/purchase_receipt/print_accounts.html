@@ -1,0 +1,147 @@
+{% extends 'base_print.html' %}
+
+{% block title %}
+    {{receipt.id}}
+{% endblock %}
+
+{% block documentName %}
+    Inventory Receipt
+{% endblock documentName %}
+
+{% block content %}
+    <!--Document main data-->
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Receipt Date:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.ReceiptDate|date:'d-m-Y'}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Supplier:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Supplier.Name}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Receipt Number:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.id}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">PO Number:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.PONumber.id}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Invoice Number:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Invoice}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Vehicle Number:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Vehicle}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-9 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Bilty Number:</h3>
+            </div>
+            <div class="flex col-[3/5] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.Bilty}}</div>
+            </div>
+            <div class="flex col-[6/8] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Bilty Value:</h3>
+            </div>
+            <div class="flex col-[8/10] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{receipt.BiltyValue}}</div>
+            </div>
+        </div>
+    </div>
+
+    <!--Document details-->
+    <div id="invtable" class="w-full">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-8 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+                <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Unit
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                        Quantity
+                    </div>
+                </div>
+            </div>
+            {% for data in inv %}
+                <div class="grid grid-cols-8 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                    <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Name}}</h5>
+                    </div>
+                    <div class="flex col-[4/6] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Variant}}</h5>
+                    </div>
+                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Unit}}</h5>
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <h5 class="{{theme.content}}">{{data.Quantity}}</h5>
+                    </div>
+                </div>
+                <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Work Order
+                        </div>
+                    </div>
+                    <div class="flex col-[3/6] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Style
+                        </div>
+                    </div>
+                    <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                        <div class="{{theme.headingBold}} {{theme.textJustify}}">
+                            Quantity
+                        </div>
+                    </div>
+                </div>
+                {% for allocOption in allocation %}
+                    {% if allocOption.RecInvId == data.id %}
+                        <div class="grid grid-cols-12 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                            <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.WorkOrder}}</h5>
+                            </div>
+                            <div class="flex col-[3/6] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.StyleCode}}</h5>
+                            </div>
+                            <div class="flex col-[6/8] {{theme.align}} {{theme.justify}}">
+                                <h5 class="{{theme.content}}">{{allocOption.Quantity}}</h5>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+{% endblock content %}

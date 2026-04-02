@@ -1,0 +1,91 @@
+{% extends 'base_print.html' %}
+
+{% block title %}
+    {{order.OrderNumber}}
+{% endblock %}
+
+{% block orientation %}
+    landscape
+{% endblock orientation %}
+
+{% block documentName %}
+    Cut Plan
+{% endblock documentName %}
+
+{% block content %} 
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Work Order:</h3>
+            </div>
+            <div class="flex col-[2/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.OrderNumber}}</div>
+            </div>
+            <div class="flex col-[5/6] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Style:</h3>
+            </div>
+            <div class="flex col-[6/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.StyleCode.StyleCode}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">PO Quantity:</h3>
+            </div>
+            <div class="flex col-[2/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{summary.poQty|floatformat:0}}</div>
+            </div>
+            <div class="flex col-[5/6] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Customer:</h3>
+            </div>
+            <div class="flex col-[6/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.Customer.Name}}</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Will Cut Quantity:</h3>
+            </div>
+            <div class="flex col-[2/3] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{summary.willCutQty|floatformat:0}}</div>
+            </div>
+            <div class="flex col-[5/6] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <h3 class="{{theme.headingBold}}">Excess Cut:</h3>
+            </div>
+            <div class="flex col-[6/7] {{theme.justify}} {{theme.align}} {{theme.border}}">
+                <div class="{{theme.headingNormal}}">{{order.ExcessCut|floatformat:0}}%</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cuttingTable" class="w-full">      
+        {% for heading, tableData in cut.items %}
+            <div class="{{theme.border}} my-2">
+                <h2 class="{{theme.headingBold}}"">{{ heading }}</h2>
+                <table class="{{theme.table}}">
+                    <thead>
+                        <tr class="{{theme.tableHead}} {{theme.border}}">
+                            <th scope="col">Variants</th>
+                            {% for variant2 in tableData.Variant2s %}
+                                <th scope="col">{{variant2}}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="{{theme.tableBody}}">
+                        {% for variant1Row in tableData.Variant1s %}
+                            <tr class="{{theme.tableBodyRow}} {{theme.border}}">
+                                <td><strong>{{ variant1Row.Name }}</strong></td>
+                                {% for quantity in variant1Row.Quantities %}
+                                    <td>{{ quantity }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>    
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}

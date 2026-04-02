@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Work Order Addition
+{% endblock %} 
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+
+    <!-- The main Order form-->
+    <form method="POST" id="orderForm" autocomplete="off" class="{{theme.formHeading}}">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-12 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Order#:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" name="OrderNumber" required>
+                </div>
+                <div class="flex col-[4/7] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Style:&nbsp; </label>
+                    <select id="id_Style" class="{{theme.dropdown}}" name="Style" onclick="showSearchBox(this, '/options/styles', getCustomerForStyle)"> </select>
+                </div>
+                <div class="flex col-[7/9] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')"> </select>
+                </div>
+                <div class="flex col-[9/11] items-center">
+                    <label class="mx-2 whitespace-nowrap">DD:&nbsp; </label>
+                    <input id="datepicker-format" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" name="DeliveryDate" placeholder="Select date">
+                </div>
+                <div class="flex col-[11/13] items-center">
+                    <label class="mx-2 whitespace-nowrap">Type:&nbsp; </label>
+                    <select id="id_Type" class="{{theme.dropdown}}" name="Type"> </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-12 my-2 {{theme.justify}} {{theme.align}} mt-2">
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Currency:&nbsp; </label>
+                    <select id="id_Currency" class="{{theme.dropdown}}" name="Currency"></select>
+                </div>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Price:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" name="Price">
+                </div>
+                <div class="flex col-[5/8] items-center">
+                    <label class="mx-2 whitespace-nowrap">Agency:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" name="Agent">
+                </div>
+                <div class="flex col-[8/10] items-center">
+                    <label class="mx-2 whitespace-nowrap">Commission(%):&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" name="Commission">
+                </div>
+                <div class="flex col-[10/12] items-center">
+                    <label class="mx-2 whitespace-nowrap">Excess Cut(%):&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" name="ExcessCut">
+                </div>
+                <div class="flex col-[12/13] items-center">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+                </div>   
+            </div>
+        </div>
+    </form>
+    
+    <!-- Buttons-->
+    <div class="{{theme.formActions}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+                <button id="btn_calculateVar" class="{{theme.buttonBasic}}" type="button" onclick="calculateVariants()">
+                    Calculate Variants
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!--Variants Table-->
+    <form method="POST" id="variantForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-7 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant Name
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Quantity
+                    </div>
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Description
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-7 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="VariantCode">
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" name="Quantity">
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="Description">
+                </div>
+                <div class="flex col-[7/8] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script> //To change view based on selected button
+        const tableIds = ['variantTable',];
+
+        function changeView(tableId){
+            let tables = [];
+
+            for (let i=0;i<tableIds.length;i++) {
+                tables[i] = document.getElementById (tableIds[i]);
+                const button = document.getElementById('btn_'+tableIds[i]);
+                if (tableId === tableIds[i]){
+                    tables[i].style.display = "";
+                    button.className = `{{theme.buttonSelected}}`;
+                } else {
+                    tables[i].style.display = "none";
+                    button.className = `{{theme.buttonBasic}}`;
+                }
+                
+            }
+        }
+
+    </script>
+
+    <script> //To run after page loads.
+        window.addEventListener('load', async () => {
+            //Show loading animation to user
+            showLoadingIcon();
+
+            //Styles Dropdown
+            let response = await fetch('/options/styles');
+            const styles = await response.json();
+            const newRow = { "value": '', "text": "-----------" };
+            styles.unshift(newRow);
+            await appendOptions('id_Style', styles);
+            
+            //Customer dropdown
+            response = await fetch('/options/customers');
+            const customers = await response.json();
+            
+            customers.unshift(newRow);
+            await appendOptions('id_Customer', customers);
+
+            //Order Types dropdown
+            response = await fetch('/options/ordertypes');
+            const orderTypes = await response.json();
+            await appendOptions('id_Type', orderTypes, selected='Export');
+
+            //Currencies dropdown
+            response = await fetch('/options/currencies');
+            const currencies = await response.json();
+            await appendOptions('id_Currency', currencies, selected='USD');
+
+            delete response;
+
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script> //To set customer based on the customer in style.
+        async function getCustomerForStyle(source) {
+            const style = source.value;
+            const styleSelect = document.getElementById('id_Style');
+            
+            const customer = Array.from(styleSelect.options).find(option => option.value === style).text.split(' -')[0].trim();
+
+            response = await fetch(`/options/customers?search=${customer}`);
+            const customers = await response.json();
+            await appendOptions('id_Customer', customers, customer);
+        
+            await calculateVariants();
+        }
+    </script>
+
+    <script> //To Generate Variants from selected style
+        async function calculateVariants() {
+            const styleCode = document.getElementById('id_Style').value;
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            data = JSON.stringify(styleCode);
+            
+            const objects = document.getElementById('variantForm').children[0].children;
+            const variantTableRows = Array.from(objects).slice(1);
+            
+            for (let i=1; i<variantTableRows.length; i++) {
+                variantTableRows[i].remove();
+            }
+
+            const rowToCopy = variantTableRows[0];
+            const table = rowToCopy.parentElement;
+            
+            //Delete previous data from the row to copy.
+            const cols = rowToCopy.children;
+            for (const col of cols) {
+                col.children[0].value = null;
+            }
+
+            const response = await fetch('/workorder/variants/calculate', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });  
+            const variants = await response.json();
+
+            rowToCopy.children[0].children[0].value = variants?.[0] ?? null;
+
+            for (let i=1; i<variants.length; i++) {
+                const copy = rowToCopy.cloneNode(true);
+                copy.setAttribute("row",i+1);
+
+                const variantBox = copy.children[0].children[0];
+                variantBox.value = variants[i];
+            
+                table.appendChild(copy);
+            }
+        }
+
+    </script>
+
+    <script> //To send data to server
+        function submitForms() {
+            const allForms = document.forms;
+
+            const orderForm = allForms['orderForm']; 
+            const variantForm = allForms['variantForm'];
+            
+            const order = orderForm.elements;
+
+            let data = {};
+             
+            //Prepare the data for Style Group
+            let group = 'order';
+            for (const element of order) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+
+            //Prepare the data for variant Group
+            data = formToTable('variant', variantForm, data);
+            submitData(data);
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const data = JSON.stringify(obj);
+            
+            const response = await fetch('', {
+              method: 'POST',
+              body: data,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.status == 200) {
+                const woNumber = await response.text();
+                window.location.href = woNumber+'/edit';
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+        }
+
+        function formToTable(group, form, data){
+            let rows = form.querySelectorAll('[row]');
+            //Remove unnecesary rows
+            rows = dropElements(rows);
+
+            for (const row of rows) {
+                let rowNum = row.getAttribute('row');
+                let cols = row.children;
+                //Remove unnecessary columns
+                cols = dropElements(cols, cols.length-1, cols.length-1);
+
+                for (const col of cols) {
+                    name = col.firstElementChild.name+'_'+rowNum;
+                    value = col.firstElementChild.value;
+                    data[group+'_'+name] = value;                    
+                }
+            }
+            return data;
+        }
+
+        function dropElements(obj, startFrom=0, endAt=0) {
+            const arr = Object.values(obj);
+
+            arr.splice(startFrom, endAt - startFrom + 1);
+
+            return arr;
+        }
+    </script>
+{% endblock %}

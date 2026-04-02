@@ -1,0 +1,798 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Scan Report
+{% endblock title %}
+
+{% block content %}
+    <!--The filters-->
+    <div class="{{theme.border}}">
+        <form action="{% url 'PM:serials' %}" method="get" autocomplete="off" id="filters">
+            <div class="grid grid-cols-6 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/2] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Worker:</span>
+                    <select id="worker" name="worker" class="{{theme.dropdown}}" onchange="this.form.submit()" onclick="showSearchBox(this, '/options/workers', refreshFilters)"></select>
+                </div>
+                <div class="flex flex-col col-[2/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Line:</span>
+                    <select id="line" name="line" class="{{theme.dropdown}}" onchange="refreshFilters()">
+                        <option value="">All</option>
+                        <option value="Blue" {% if line == "Blue" %}selected{% endif %}>Blue</option>
+                        <option value="Green" {% if line == "Green" %}selected{% endif %}>Green</option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Section:</span>
+                    <select id="section" name="section" class="{{theme.dropdown}}" onchange="refreshFilters()"></select>
+                </div>
+                <div class="flex flex-col col-[4/5] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Work Order:</span>
+                    <select id="workOrder" name="workOrder" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/workorders', refreshFilters)"></select>
+                </div>
+                <div class="flex flex-col col-[5/6] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Over Time:</span>
+                    <select id="overTime" name="overTime" class="{{theme.dropdown}}" onchange="refreshFilters()">
+                        <option value="">---------</option>
+                        <option value="true" {% if overTime == True %}selected{% endif %}>Yes</option>
+                        <option value="false" {% if overTime == False %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[6/7] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Operation:</span>
+                    <select id="operation" name="operation" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/operations', refreshFilters, true)"></select>
+                </div>
+                <div class="flex flex-col col-[1/3] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Scan Date:</span>
+                    <div class="flex items-center" id="date-range-picker" date-rangepicker datepicker-format="yyyy-mm-dd">
+                        <input id="startDate" name="startDate" type="text" class="{{theme.textInput}}" placeholder="Start Date" value="{{startDate}}">
+                        <input id="endDate" name="endDate" type="text" class="{{theme.textInput}}" placeholder="End Date" value="{{endDate}}">
+                    </div>
+                </div>
+                <div class="flex flex-col col-[3/6] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Summary:</span>
+                    <input id="summary" type="text" class="{{theme.textInput}}" name="summary" value="{{summary}}" placeholder="This will be summary" readonly>
+                </div>
+                <div class="flex col-[6/7] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!--The Charts-->   
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex flex-col col-[1/2] items-center">
+                <div id="workAscending" class="w-full h-96"></div>
+            </div>
+            <div class="flex flex-col col-[2/3] items-center">
+                <div id="workDescending" class="w-full h-96"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="{{theme.border}}">
+        <div id="scanTable" class="mt-6">
+            <table class="{{theme.table}}">
+                <tr class = "{{theme.tableHead}}">
+                    <th scope="col">Day</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Line</th>
+                    <th scope="col">Section</th>
+                    <th scope="col">W/O</th>
+                    <th scope="col">Operation</th>
+                    <th scope="col">SAM</th>
+                    <th scope="col">Rate</th>
+                    <th scope="col">Qty</th>
+                    <th scope="col">Vld. Wrk</th>
+                    <th scope="col">Wage</th>
+                </tr>
+                <tbody id="tableData" class = "{{theme.tableBody}}">
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td>Day</td>
+                        <td>WorkerCode</td>
+                        <td>WorkerName</td>
+                        <td>Line</td>
+                        <td>Section</td>
+                        <td>WorkOrder</td>
+                        <td>OperationCode: OperationName</td>
+                        <td>SMV</td>
+                        <td>Rate</td>
+                        <td>Quantity</td>
+                        <td>ValidWork</td>
+                        <td>Wage</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="{{theme.border}}">
+        <div class="grid grid-cols-3 {{theme.justify}} {{theme.align}}">
+            <div class="flex flex-col col-[1/3] items-center">
+                <div id="attendance" class="w-full h-96"></div>
+            </div>
+            <div class="flex flex-col col-[3/4] items-center">
+                <div id="wages" class="w-full h-96"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>    //To make work ascending chart
+        async function makeAscendingWorkChart(chartInstance, filters) {
+            const params = new URLSearchParams(filters);
+            const url = "{% url 'PM:getWorkSummary' %}";
+            const response = await fetch(`${url}?${params.toString()}`);
+            const data = await response.json();
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function (params) {
+                        const dataIndex = params[0].dataIndex;
+
+                        // Worker Name as heading of tool tip
+                        let tooltipContent = `<b>${data.WorkerName[dataIndex]}</b><br/>`;
+
+                        // Add remaining fields
+                        tooltipContent += `Code: ${data.WorkerCode[dataIndex]}<br/>`;
+                        tooltipContent += `Section: ${data.Section[dataIndex]}<br/>`;
+                        tooltipContent += `Valid Work: ${data.ValidWork[dataIndex].toFixed(2)}<br/>`;
+                        tooltipContent += `Wage: ${data.Wage[dataIndex].toFixed(2)}<br/>`;
+
+                        return tooltipContent;
+                    }
+                },
+                xAxis: {
+                    type: 'value',
+                    name: 'Valid Work',
+                    nameLocation: 'middle',
+                    nameGap: 20,
+                    min: 0,
+                },
+                yAxis: {
+                    type: 'category',
+                    data: data.WorkerCode,
+                    inverse: true,
+                    name: 'Worker Code',
+                    nameLocation: 'start',
+                },
+                series: [
+                    {
+                        name: 'ValidWork',
+                        type: 'bar',
+                        data: data.ValidWork,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.Color && data.Color[params.dataIndex] ? data.Color[params.dataIndex] : '#228B22';
+                                
+                                //To offset the color by the given percentage
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 0, 1, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    }
+                ],
+                //Apply zoom on mouse wheel/pinch
+                dataZoom: [{
+                    type: 'inside',
+                    yAxisIndex: 0, // Apply to the first (and only) y-axis
+                    start: 0,      // Start percentage of the data to display
+                    end: 50,       // End percentage of the data to display (e.g., show 50% of data initially)
+                }],
+            };
+            chartInstance.setOption(option, true);
+        }
+    </script>
+
+    <script>    //To make work descending chart
+        async function makeDescendingWorkChart(chartInstance, filters) {
+            const params = new URLSearchParams(filters);
+            const url = "{% url 'PM:getWorkSummary' %}";
+            const response = await fetch(`${url}?${params.toString()}`);
+            const data = await response.json();
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function (params) {
+                        const dataIndex = params[0].dataIndex;
+
+                        // Worker Name as heading of tool tip
+                        let tooltipContent = `<b>${data.WorkerName[dataIndex]}</b><br/>`;
+
+                        // Add remaining fields
+                        tooltipContent += `Code: ${data.WorkerCode[dataIndex]}<br/>`;
+                        tooltipContent += `Section: ${data.Section[dataIndex]}<br/>`;
+                        tooltipContent += `Valid Work: ${data.ValidWork[dataIndex].toFixed(2)}<br/>`;
+                        tooltipContent += `Wage: ${data.Wage[dataIndex].toFixed(2)}<br/>`;
+
+                        return tooltipContent;
+                    }
+                },
+                xAxis: {
+                    type: 'value',
+                    name: 'Valid Work',
+                    nameLocation: 'middle',
+                    nameGap: 20,
+                    min: 0,
+                    axisLabel: {
+                        formatter: '{value}'
+                    }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: data.WorkerCode,
+                    name: 'Worker Code',
+                    nameLocation: 'end',
+                },
+                series: [
+                    {
+                        name: 'ValidWork',
+                        type: 'bar',
+                        data: data.ValidWork,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.Color && data.Color[params.dataIndex] ? data.Color[params.dataIndex] : '#228B22';
+                                
+                                //To lighten or darken a color
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 0, 1, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    }
+                ],
+                //Apply zoom on mouse wheel/pinch
+                dataZoom: [{
+                    type: 'inside',
+                    yAxisIndex: 0, // Apply to the first (and only) y-axis
+                    start: 0,      // Start percentage of the data to display
+                    end: 50,       // End percentage of the data to display (e.g., show 50% of data initially)
+                }],
+            };
+            chartInstance.setOption(option, true);
+        }
+    </script>
+
+    <script>    //To make details table
+        async function makeDetailsTable(table, filters) {
+            const tableBody = table.querySelector("#tableData");
+            tableBody.innerHTML = '';
+
+            const params = new URLSearchParams(filters);
+            const url = "{% url 'PM:getWorkDetail' %}";
+            const response = await fetch(`${url}?${params.toString()}`);
+            const data = await response.json();
+
+            if (data.length === 0) {
+                tableBody.innerHTML = `
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td colspan="11" style="text-align: center;">No data available.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            //Helper function to add a clickable cell
+            const createClickableCell = (text, onClickHandler) => {
+                const cell = document.createElement('td');
+                cell.textContent = text;
+                cell.style.cursor = 'pointer';
+                cell.addEventListener('click', onClickHandler);
+                return cell;
+            };
+
+            for (const rowData of data) {
+                const row = document.createElement('tr');
+                row.classList.add('{{theme.tableBodyRow}}');
+
+                // Helper function to create a clickable cell with filter logic
+                const appendFilterCell = (cellValue, filterProperty, rowDataProperty, filterElement) => {
+                    row.appendChild(createClickableCell(cellValue, () => {
+                        currentFilters[filterProperty] = (currentFilters[filterProperty] === rowDataProperty) ? '' : rowDataProperty;
+                        filterElement.value = currentFilters[filterProperty];
+                        updateAllCharts();
+                    }));
+                };
+
+                // Helper function for cells that don't apply filters
+                const appendStaticCell = (cellValue) => {
+                    row.appendChild(createClickableCell(cellValue, () => {}));
+                };
+
+                // Add the day
+                appendStaticCell(rowData.Day);
+
+                // Add worker code, worker name, section, work order and operation
+                appendFilterCell(rowData.WorkerCode, 'worker', rowData.WorkerCode, workerFilter);
+                appendFilterCell(rowData.WorkerName, 'worker', rowData.WorkerCode, workerFilter);
+                appendFilterCell(rowData.Line, 'line', rowData.Line, lineFilter);
+                appendFilterCell(rowData.Section, 'section', rowData.SectionCode, sectionFilter);
+                appendFilterCell(rowData.WorkOrder, 'workOrder', rowData.WorkOrder, workOrderFilter);
+                appendFilterCell(`${rowData.OperationCode} - ${rowData.OperationName}`, 'operation', rowData.OperationCode, operationFilter);
+
+                // Round off Valid Work and Wage to two decimals
+                const validWork = parseFloat(rowData.ValidWork).toFixed(2);
+                const wage = parseFloat(rowData.Wage).toFixed(2);
+
+                // Add SAM, Rate, Qty, Valid Work and Wage
+                appendStaticCell(rowData.SMV);
+                appendStaticCell(rowData.Rate);
+                appendStaticCell(rowData.Quantity);
+                appendStaticCell(validWork);
+                appendStaticCell(wage);
+
+                //Add the row to the table body
+                tableBody.appendChild(row);
+            }
+        }
+    </script>
+
+    <script>    //To make attendance chart
+        async function makeAttendanceChart(chartInstance, filters) {
+            const params = new URLSearchParams(filters);
+            const url = "{% url 'PM:getAttendanceDetail' %}";
+            const response = await fetch(`${url}?${params.toString()}`);
+            const data = await response.json();
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function (params) {
+                        const dataIndex = params[0].dataIndex;
+
+                        // Worker Name as heading of tool tip
+                        let tooltipContent = `<b>${data.WorkerName[dataIndex]}</b><br/>`;
+
+                        // Add remaining fields
+                        tooltipContent += `Code: ${data.WorkerCode[dataIndex]}<br/>`;
+                        tooltipContent += `Section: ${data.Section[dataIndex]}<br/>`;
+                        tooltipContent += `Login: ${data.LoginTime[dataIndex]}<br/>`;
+                        tooltipContent += `Logout: ${data.LogoutTime[dataIndex]}<br/>`;
+                        tooltipContent += `Delay: ${data.Late[dataIndex].toFixed(2)}hr<br/>`;
+
+                        return tooltipContent;
+                    }
+                },
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: data.Date,
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Time',
+                        nameLocation: 'middle',
+                        nameGap: 25,
+                        min: 0,
+                    },
+                ],
+                series: [
+                    {
+                        name: 'Time',
+                        type: 'bar',
+                        data: data.Duration,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.DurationColor && data.DurationColor[params.dataIndex] ? data.DurationColor[params.dataIndex] : '#228B22';
+                                
+                                //To lighten or darken a color
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 1, 0, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: -Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    },
+                ],
+            }
+            chartInstance.setOption(option, true);
+        }
+    </script>
+
+    <script>    //To make wages chart
+        async function makeWagesChart(chartInstance, filters) {
+            const params = new URLSearchParams(filters);
+            const url = "{% url 'PM:getWageSummary' %}";
+            const response = await fetch(`${url}?${params.toString()}`);
+            const data = await response.json();
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function (params) {
+                        const dataIndex = params[0].dataIndex;
+
+                        // Worker Name as heading of tool tip
+                        let tooltipContent = `<b>${data.WorkerName[dataIndex]}</b><br/>`;
+
+                        // Add remaining fields
+                        tooltipContent += `Code: ${data.WorkerCode[dataIndex]}<br/>`;
+                        tooltipContent += `Days: ${data.Days[dataIndex]}<br/>`;
+                        tooltipContent += `Wage: ${data.Wage[dataIndex].toFixed(2)}<br/>`;
+
+                        return tooltipContent;
+                    }
+                },
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: data.WorkerCode,
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'Days',
+                        nameLocation: 'middle',
+                        nameGap: 25,
+                        min: 0,
+                    },
+                    {
+                        type: 'value',
+                        name: 'Wage',
+                        nameLocation: 'middle',
+                        nameGap: 20,
+                        min: 0,
+                    },
+                ],
+                series: [
+                    {
+                        name: 'Days',
+                        type: 'bar',
+                        data: data.Days,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.TimeSpentColor && data.TimeSpentColor[params.dataIndex] ? data.TimeSpentColor[params.dataIndex] : '#228B22';
+                                
+                                //To lighten or darken a color
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 1, 0, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: -Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    },
+                    {
+                        name: 'Wage',
+                        type: 'bar',
+                        yAxisIndex: 1,
+                        data: data.Wage,
+                        itemStyle: {
+                            color: function (params) {
+                                const baseColor = data.WageColor && data.WageColor[params.dataIndex] ? data.WageColor[params.dataIndex] : '#228B22';
+                                
+                                //To lighten or darken a color
+                                const shadeColor = (color, percent) => {
+                                    let f = parseInt(color.slice(1), 16),
+                                        t = percent < 0 ? 0 : 255,
+                                        p = percent < 0 ? percent * -1 : percent,
+                                        R = f >> 16,
+                                        G = (f >> 8) & 0x00ff,
+                                        B = f & 0x0000ff;
+                                    return (
+                                        "#" +
+                                        (
+                                            0x1000000 +
+                                            (Math.round((t - R) * p) + R) * 0x10000 +
+                                            (Math.round((t - G) * p) + G) * 0x100 +
+                                            (Math.round((t - B) * p) + B)
+                                        )
+                                        .toString(16)
+                                        .slice(1)
+                                    );
+                                };
+                                const lightColor = shadeColor(baseColor, 0.2); // Lighten by 20%
+                                const darkColor = shadeColor(baseColor, -0.2); // Darken by 20%
+
+                                return new echarts.graphic.LinearGradient(
+                                    0, 1, 0, 0, // Gradient from left to right
+                                    [
+                                        { offset: 0, color: darkColor },    // Darker shade at the start
+                                        { offset: 0.5, color: lightColor },  // Base color in the middle
+                                        { offset: 1, color: darkColor }   // Lighter shade at the end
+                                    ]
+                                );
+                            },
+                            decal: {
+                                symbol: 'arrow',
+                                symbolSize: 1,
+                                dashArrayX: [1, 0],
+                                rotation: -Math.PI / 4,
+                            },
+                            borderColor: '#eee',
+                            borderWidth: 1,
+                            shadowBlur: 5,
+                            shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        },
+                    },
+                ],
+                //Apply zoom on mouse wheel/pinch
+                dataZoom: [{
+                    type: 'inside',
+                    start: 0,      // Start percentage of the data to display
+                    end: 100,       // End percentage of the data to display (e.g., show 50% of data initially)
+                }],
+            };
+            chartInstance.setOption(option, true);
+        }
+    </script>
+
+    <script>    //To handle the charts on the page.
+        //Get all the charts and initalise them with echarts
+        const workAscendingChart = echarts.init(document.getElementById('workAscending'));
+        const workDescendingChart = echarts.init(document.getElementById('workDescending'));
+        const workDetailTable = document.getElementById('scanTable');
+        const attendanceChart = echarts.init(document.getElementById('attendance'));
+        const wagesChart = echarts.init(document.getElementById('wages'));
+
+        //Get all the filters
+        const workerFilter = document.getElementById('worker');
+        const lineFilter = document.getElementById('line');
+        const sectionFilter = document.getElementById('section');
+        const workOrderFilter = document.getElementById('workOrder');
+        const OTFilter = document.getElementById('overTime');
+        const operationFilter = document.getElementById('operation');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+
+        //Global Filters
+        let currentFilters = {
+            worker: '{{worker}}',
+            line: '{{line}}',
+            section: '{{section}}',
+            workOrder: '{{workOrder}}',
+            overTime: '{{overTime}}',
+            operation: '{{operation}}',
+            startDate: '{{startDate}}',
+            endDate: '{{endDate}}',
+        };
+
+        function updateAllCharts() {
+            makeAscendingWorkChart(workAscendingChart, currentFilters);       
+            makeDescendingWorkChart(workDescendingChart, currentFilters);  
+            makeDetailsTable(workDetailTable, currentFilters);
+            makeAttendanceChart(attendanceChart, currentFilters);
+            makeWagesChart(wagesChart, currentFilters);
+        }
+        
+        //Toggle worker code if there is a click on workAscendingCart
+        workAscendingChart.on('click',(params) => {
+            const clickedWorker = params.name;
+
+            // If already filtered by this worker, clear the filter; otherwise, apply it
+            currentFilters.worker = (currentFilters.worker === clickedWorker) ? '' : clickedWorker;
+            workerFilter.value = currentFilters.worker;
+            
+            updateAllCharts();
+        });
+
+        //Toggle worker code if there is a click on workAscendingCart
+        workDescendingChart.on('click',(params) => {
+            const clickedWorker = params.name;
+
+            // If already filtered by this worker, clear the filter; otherwise, apply it
+            currentFilters.worker = (currentFilters.worker === clickedWorker) ? '' : clickedWorker;
+            workerFilter.value = currentFilters.worker;
+            
+            updateAllCharts();
+        });
+        
+        //Toggle Worker code if there is a click on wagesChart
+        wagesChart.on('click', (params) => {
+            const clickedWorker = params.value;
+
+            // If already filtered by this worker, clear the filter; otherwise, apply it
+            currentFilters.worker = (currentFilters.worker === clickedWorker) ? '' : clickedWorker;
+            workerFilter.value = currentFilters.worker;
+
+            updateAllCharts();
+        });
+
+    </script>
+
+    <script>    //To refresh data when filters change
+        function refreshFilters(source) {
+            const form = document.getElementById('filters');
+
+            form.submit();
+        }
+    </script>
+
+    <script>    //This will run after the page loads.
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            updateAllCharts();
+
+            let response = await fetch(`/options/workers?code=${"{{worker}}"}`);
+            const workers = await response.json();
+            appendOptions('worker', workers, '{{worker}}');
+
+            response = await fetch('/options/operations/sections');
+            const sections = await response.json();
+            appendOptions('section', sections, '{{section}}');
+
+            response = await fetch(`/options/workorders?order=${"{{workOrder}}"}`);
+            const workOrders = await response.json();
+            appendOptions('workOrder', workOrders, '{{workOrder}}');
+
+            response = await fetch(`/options/operations?code=${"{{operation}}"}`);
+            const operations = await response.json();
+            const newOperation = { "value": null, "text": "-----------" };
+            operations.unshift(newOperation);
+            appendOptions('operation', operations, '{{operation}}');
+
+            hideLoadingIcon();
+        });
+    </script>
+{% endblock content %}

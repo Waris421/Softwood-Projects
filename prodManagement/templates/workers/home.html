@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Worker List
+{% endblock title %}
+
+{% block content %}
+    <div class="{{theme.border}}">
+        <form action="{% url 'PM:workers' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/5] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="search" value="{{search}}" placeholder="">
+                </div>
+                <div class="flex flex-col col-[5/8] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Department:</span>
+                    <select name="department" class="{{theme.dropdown}}" id="department" onchange="this.form.submit()"></select>
+                </div>
+                <div class="flex flex-col col-[8/11] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Status:</span>
+                    <select name="status" class="{{theme.dropdown}}" id="status" onchange="this.form.submit()">
+                        <option value="null">---------</option>
+                        <option value="Working">Working</option>
+                        <option value="Left">Left</option>
+                    </select>
+                </div>
+                <div class="flex col-[11/13] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonBasic}}" href="{% url 'PM:addWorker' %}" role="button">Add</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div id="WorkerTable" class="mt-6">
+        <table class="{{theme.table}}">
+            <tr class = "{{theme.tableHead}}">
+                <th scope="col">Code</th>
+                <th scope="col">Name</th>
+                <th scope="col">Department</th>
+                <th scope="col">Section</th>
+                <th scope="col">Status</th>
+                <th scope="col">Time Since Hire</th>
+            </tr>
+            <tbody id="tableData" class = "{{theme.tableBody}}">
+                {% for data in workers %}
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td class="{{theme.hyperLink}}"> <a href="{% url 'PM:editWorker' pk=data.WorkerCode %}">{{ data.WorkerCode }}</a></td>
+                        <td>{{ data.WorkerName }}</td>
+                        <td>{{ data.Department }}</td>
+                        <td>{{ data.Section }}</td>
+                        <td>{{ data.Status }}</td>
+                        <td>{{ data.TimePassed }}</td>
+                    </tr>
+                {% endfor %}                    
+            </tbody>
+        </table>
+    </div>
+
+    <div class="{{ theme.pagination }}">
+        <div class="btn-group">
+            {% if page_obj.has_previous %}
+                <a href="?page=1&search={{search}}&department={{department}}&status={{status}}" class="btn btn-sm">First</a>
+                <a href="?page={{ page_obj.previous_page_number }}&search={{search}}&department={{department}}&status={{status}}" class="btn btn-sm">Previous</a>
+            {% else %}
+                <button class="btn btn-sm" disabled>First</button>
+                <button class="btn btn-sm" disabled>Previous</button>
+            {% endif %}
+    
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&search={{search}}&department={{department}}&status={{status}}" class="btn btn-sm">Next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}&search={{search}}&department={{department}}&status={{status}}" class="btn btn-sm">Last</a>
+            {% else %}
+                <button class="btn btn-sm" disabled>Next</button>
+                <button class="btn btn-sm" disabled>Last</button>
+            {% endif %}
+        </div>
+    </div>
+{% endblock content %}

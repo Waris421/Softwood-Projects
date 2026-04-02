@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Call History
+{% endblock title %}
+
+{% block content %}
+    <div class="{{theme.border}}">
+        <form action="{% url 'marketing:corresponanceHistory' %}" method="get">
+            <div class="grid grid-cols-10 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/6] items-center" id="date-range-picker" date-rangepicker datepicker-buttons datepicker-autoselect-today datepicker-format="yyyy-mm-dd">
+                    <input id="datepicker-range-start" name="startDate" type="text" class="{{theme.textInput}}" placeholder="Start Date" value="{{startDate}}">
+                    <input id="datepicker-range-end" name="endDate" type="text" class="{{theme.textInput}}" placeholder="End Date" value="{{endDate}}">
+                </div>   
+                <div class="flex col-[6/8]">
+                    <select name="customerFilter" class="{{theme.dropdown}}" id="customer" onchange="this.form.submit()">
+                        <option value="None">All</option>
+                        {% for option in customers %}
+                            <option value="{{option.id}}"
+                                {% if customerFilter|add:0 == option.id %} selected {% endif %}
+                            >{{option.Name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex col-[8/10]">
+                    <input class="{{theme.textInput}}" name="search" value="{{search}}" placeholder="Search">
+                </div>
+                <div class="flex col-[10/11] btn-group {{theme.align}} justify-end">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                </div>
+            </div>
+        </form>
+    </div>
+{% endblock content %}
+    

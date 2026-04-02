@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Machines Addition
+{% endblock title %}
+
+{% block content %}
+    <form method="POST" id="machineForm" autocomplete="off">
+        {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Machine Id:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="MachineId" required>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Machine Type:&nbsp; </label>
+                    <select id="id_Type" class="{{theme.dropdown}}" name="Type" required> </select>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Functioning?&nbsp; </label>
+                    <select id="id_Status" class="{{theme.dropdown}}" name="FunctionStatus" required>
+                        <option value="null">--------</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                        <option value="Sold">Sold</option>
+                        <option value="Dead">Dead</option>
+                    </select>
+                </div>
+                <div class="flex col-[4/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Manufacturer:&nbsp; </label>
+                    <select id="id_Manufacturer" class="{{theme.dropdown}}" name="Manufacturer" required> </select>    
+                </div>
+            </div>
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Model Number:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="ModelNumber">
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Serial Number:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="SerialNumber">
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Department:&nbsp; </label>
+                    <select id="id_Department" class="{{theme.dropdown}}" name="Department"> </select>    
+                </div>
+                <div class="flex col-[4/5] items-center">
+                    <button type="submit" class="{{theme.buttonBasic}} mx-2" >Save</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>    //This script runs after page is loaded
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            let response = await fetch('/options/machines/types');
+            const machineTypes = await response.json();
+            await appendOptions('id_Type', machineTypes);
+
+            response = await fetch('/options/machines/manufacturers');
+            const manufacturers = await response.json();
+            await appendOptions('id_Manufacturer', manufacturers);
+
+            response = await fetch('/options/departments');
+            const departments = await response.json();
+            await appendOptions('id_Department', departments);
+
+            hideLoadingIcon();
+        });
+    </script>
+{% endblock content %}

@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Requisition Form
+{% endblock %}
+
+{% block content %}
+    {% csrf_token %}
+
+    <!-- Selection Form -->
+    <form method="GET" id="reqForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Group:&nbsp; </label>
+                    <select id="id_Group" class="{{theme.dropdown}}" name="Group" onchange="changeInvDropdown(this)"></select>
+                </div>
+                <div class="flex col-[2/3] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Inventory:&nbsp; </label>
+                    <select id="id_Inventory" class="{{theme.dropdown}}" name="Inventory" onclick="showSearchBox(this, '/options/inventories')"></select>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Department:&nbsp; </label>
+                    <select id="id_Department" class="{{theme.dropdown}}" name="Department"></select>
+                </div>
+                <div class="flex col-[4/5] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <button type="submit" class="{{theme.buttonBasic}}">Refresh</button>
+                    <button class="{{theme.buttonSecondary}}" onclick="addToCart()" type="button">Add to Cart</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Inventory Selection Table -->
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-7 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
+                    </div>
+                </div>
+                <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Receipt#
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Receipt Date
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Supplier
+                    </div>
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Available
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        To Request
+                    </div>
+                </div>
+            </div>
+            {% for data in entries %}
+                <div class="grid grid-cols-7 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}">
+                    </div>
+                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.ReceiptNumber}}" name="ReceiptNo" readonly>
+                    </div>
+                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                        <input value="{{data.ReceiptDate|date:'Y-m-d'}}" class="{{theme.textInput}}" name="ReceiptDate" readonly>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
+                    </div>
+                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Supplier}}" name="Supplier" readonly>
+                    </div>
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Available}}" name="Available" readonly>
+                    </div>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                        <input type="number" max="{{data.Available}}" class="{{theme.textInput}}" value="{{data.Available}}" name="Requested" onchange="checkQty(this)">
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <!-- Cart Section -->
+    <div id="cartSection" class="mt-6 hidden">
+        <div class="{{theme.border}}">
+            <table class="{{theme.table}}">
+                <tr class="{{theme.tableHead}}">
+                    <th scope="col">Inventory</th>
+                    <th scope="col">Variant</th>
+                    <th scope="col">Receipt#</th>
+                    <th scope="col">Available</th>
+                    <th scope="col">Quantity</th>
+                    <th scope="col">Action</th>
+                </tr>
+                <tbody id="cartBody" class="{{theme.tableBody}}">
+                </tbody>
+            </table>
+            <div class="flex justify-end my-2 mx-2">
+                <button onclick="submitRequisition()" class="{{theme.buttonSecondary}}">Submit Requisition</button>
+            </div>
+        </div>
+    </div>
+
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            //Inventory group dropdown
+            let response = await fetch('/options/groups/inventory');
+            const groups = await response.json();
+            await appendOptions('id_Group', groups, '{{selectedGroup}}');
+
+            //Inventory dropdown
+            let url = '/options/inventories';
+            if ('{{selectedInv}}' != 'None') {
+                url += `?search={{selectedInv}}`;
+            } else {
+                url += '?group={{selectedGroup}}';
+            }
+            response = await fetch(url);
+            const inventories = await response.json();
+            await appendOptions('id_Inventory', inventories, "{{selectedInv}}");
+
+            //Departments dropdown
+            response = await fetch('/options/departments');
+            const departments = await response.json();
+            await appendOptions('id_Department', departments, "{{department}}");
+
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script> //To change inventory dropdown based on group
+        async function changeInvDropdown(source) {
+            showLoadingIcon();
+            const group = source.value;
+            const response = await fetch("/options/inventories?group="+group);
+            const inventories = await response.json();
+            await appendOptions('id_Inventory', inventories);
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script> //To select all visible rows
+        function selectAll(box) {
+            const checkStatus = box.checked;
+            const table = box.parentElement.parentElement.parentElement.parentElement.parentElement;
+            const numberOfRows = table.children[0].children.length;
+            for (let i=1; i<numberOfRows;i++) {
+                const row = table.querySelector('[row="'+i+'"]');
+                const rowCheck = row.children[0].children[0];
+                const filterStatus = (row.style.display === '');
+                rowCheck.checked = false;
+                if (filterStatus) {
+                    rowCheck.checked = checkStatus;
+                }
+            }
+        }
+    </script>
+
+    <script> //Cart management
+        let cart = JSON.parse(localStorage.getItem('requisitionCart') || '[]');
+
+        // Restore cart display on page load
+        window.addEventListener('load', () => renderCart());
+
+        function saveCart() {
+            localStorage.setItem('requisitionCart', JSON.stringify(cart));
+        }
+
+        function addToCart() {
+            const invSelect = document.getElementById('id_Inventory');
+            const inventoryCode = invSelect.value;
+            const inventoryName = invSelect.options[invSelect.selectedIndex]?.text || inventoryCode;
+
+            if (!inventoryCode || inventoryCode === 'null') {
+                showMessage('Please select an inventory item first');
+                return;
+            }
+
+            const inventoryForm = document.getElementById('inventoryForm');
+            const rows = inventoryForm.querySelectorAll('[row]');
+
+            let anyChecked = false;
+            for (const row of rows) {
+                const rowNum = row.getAttribute('row');
+                if (rowNum == 0) continue;
+
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                if (!checkbox || !checkbox.checked) continue;
+
+                anyChecked = true;
+
+                const receiptNo = row.querySelector("[name='ReceiptNo']").value;
+                const variant = row.querySelector("[name='Variant']").value;
+                const available = row.querySelector("[name='Available']").value;
+                const quantity = row.querySelector("[name='Requested']").value;
+
+                const key = `${inventoryCode}|${receiptNo}|${variant}`;
+                const existingIndex = cart.findIndex(item => item.key === key);
+
+                if (existingIndex >= 0) {
+                    cart[existingIndex].quantity = quantity;
+                } else {
+                    cart.push({ key, inventoryCode, inventoryName, receiptNo, variant, available, quantity });
+                }
+            }
+
+            if (!anyChecked) {
+                showMessage('No rows are selected');
+                return;
+            }
+
+            saveCart();
+            renderCart();
+        }
+
+        function renderCart() {
+            const cartSection = document.getElementById('cartSection');
+            const cartBody = document.getElementById('cartBody');
+
+            if (cart.length === 0) {
+                cartSection.classList.add('hidden');
+                return;
+            }
+
+            cartSection.classList.remove('hidden');
+            cartBody.innerHTML = '';
+
+            cart.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = '{{theme.tableBodyRow}}';
+                tr.innerHTML = `
+                    <td class="px-2 py-1">${item.inventoryName}</td>
+                    <td class="px-2 py-1">${item.variant || '-'}</td>
+                    <td class="px-2 py-1">${item.receiptNo}</td>
+                    <td class="px-2 py-1">${item.available}</td>
+                    <td class="px-2 py-1">
+                        <input type="number" value="${item.quantity}" min="0.01" max="${item.available}"
+                            class="{{theme.textInput}}"
+                            onchange="updateCartQty(${index}, this.value)">
+                    </td>
+                    <td class="px-2 py-1">
+                        <button class="{{theme.buttonBasic}}" onclick="removeCartItem(${index})">Remove</button>
+                    </td>
+                `;
+                cartBody.appendChild(tr);
+            });
+        }
+
+        function updateCartQty(index, value) {
+            cart[index].quantity = value;
+            saveCart();
+        }
+
+        function removeCartItem(index) {
+            cart.splice(index, 1);
+            saveCart();
+            renderCart();
+        }
+
+        async function submitRequisition() {
+            if (cart.length === 0) {
+                showMessage('Cart is empty');
+                return;
+            }
+
+            const department = document.getElementById('id_Department').value;
+            if (!department || department === 'null') {
+                showMessage('Please select your department first');
+                return;
+            }
+
+            const items = cart.map(item => ({
+                inventory: item.inventoryCode,
+                variant: item.variant,
+                quantity: parseFloat(item.quantity)
+            }));
+
+            const data = JSON.stringify({ department, items });
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf }
+            });
+
+            if (response.ok) {
+                localStorage.removeItem('requisitionCart');
+                window.location.reload();
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+        }
+    </script>
+
+    <script> //Prevent requesting more than available
+        function checkQty(source) {
+            const qty = parseFloat(source.value);
+            const maxQty = parseFloat(source.getAttribute('max'));
+            if (maxQty < qty) {
+                source.value = maxQty;
+            }
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,646 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Style Card Update
+{% endblock %} 
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    
+    <!-- The main style form-->
+    <form method="POST" id="styleForm" autocomplete="off" class="{{theme.formHeading}}">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{style.StyleCode}}" name="StyleCode" readonly>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{style.StyleName}}" name="StyleName" required>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Notes:&nbsp; </label>
+                    <input type="text" class="{{theme.textInput}}" value="{{style.Notes}}" name="Notes">
+                </div>
+                <div class="flex col-[1/2] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Customer:&nbsp; </label>
+                    <select id="id_Customer" class="{{theme.dropdown}}" name="Customer" onclick="showSearchBox(this, '/options/customers')" required> </select>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
+                    <select id="id_Category" class="{{theme.dropdown}}" name="Category" required> </select>
+                </div>  
+                <div class="flex col-[3/4] items-center">
+                    <button type="button" class="{{theme.buttonSecondary}} mx-2" onclick="submitForms()">Save</button>
+                </div>  
+            </div>
+        </div>
+    </form>
+
+    <!-- Buttons to go to each of a style's detail table-->
+    <div class="{{theme.formActions}}">
+        <div class="grid grid-cols-1 my-2 {{theme.justify}} {{theme.align}}">
+            <div class="flex col-[1/2] btn-group {{theme.align}} justify-end ml-1">
+                <button id="btn_variantsForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('variantsForm')">Variant</button>
+                <button id="btn_consumptionForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('consumptionForm')">Consumption</button>
+                <button id="btn_routeBox" class="{{theme.buttonBasic}}" type="button" onclick="changeView('routeBox')">Route</button>
+                <button id="btn_attachmentForm" class="{{theme.buttonBasic}}" type="button" onclick="changeView('attachmentForm')">Attachments</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Variants Table -->
+    <form method="POST" id="variantsForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% for data in var %}
+            <div class="grid grid-cols-3 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.VariantCode}}" name="Variant" required> 
+                </div>
+                <div class="flex col-[3/4] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </form>
+
+    <!--Consumption Table-->
+    <form method="POST" id="consumptionForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-12 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Consumption
+                    </div>
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Cons. Unit
+                    </div>
+                </div>
+                <div class="flex col-[7/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Type
+                    </div>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variants?
+                    </div>
+                </div>
+                <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Size Details
+                    </div>
+                </div>
+                <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% for data in cons %}
+            <div class="grid grid-cols-12 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+                <div>
+                    <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                </div>
+                <div class="flex col-[1/4] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.InventoryCode}}" name="InvCode" required hidden>
+                    <input type="text" class="{{theme.textInput}}" value="{{data.InventoryName}}" name="InvName" readonly>
+                    <button type="button" class="material-symbols-outlined" onclick="openInvSearch(this)">search</button>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <input type="number" step="any" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption">
+                </div>
+                <div class="flex col-[5/7] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_Unit_{{forloop.counter}}" name="Unit">
+                    </select>
+                </div>
+                <div class="flex col-[7/9] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_ConsType_{{forloop.counter}}" name="Type">
+                    </select>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_HasVariant_{{forloop.counter}}" name="HasVariant">
+                    </select>
+                </div>
+                <div class="flex col-[10/12] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" value="{{data.SizeDetails}}" name="SizeDetails">
+                </div>
+                <div class="flex col-[12/13] {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </form>
+
+    <!--Production Route Table-->
+    <div id="routeBox" hidden>
+        <form method="POST" id="routeForm" autocomplete="off">
+            <div class="{{theme.border}}">
+                <div class="grid grid-cols-1 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+                    <div class="flex col-[1/2] items-center relative">
+                        <label class="mx-2 whitespace-nowrap">Route Type:&nbsp; </label>
+                        <select id="routePreset" class="{{theme.dropdown}}" name="RoutePreset" onclick="showSearchBox(this, '/options/preset-routes', resetRoute)"> </select>
+                    </div>
+                </div>
+            </div>
+        </form>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 mt-4 x-3 {{theme.border}} {{theme.tableHead}}">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Stage
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Pre-Requisites
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--Attachment Form Table-->
+    <form method="POST" id="attachmentForm" autocomplete="off" hidden>
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Description
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Add/Modify
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            {% for data in attachments %}
+                <div class="grid grid-cols-4 x-3 {{theme.border}} {{theme.tableHead}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="text" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                    </div>
+                    <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Description}}" name="Description">
+                        <button type="button" class="material-symbols-outlined {{theme.hyperLink}}" onclick="window.open('{{ data.FileUrl }}');">open_in_new</button>
+                    </div>
+                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                        <input type="file" class="{{theme.fileInput}}" name="File">
+                    </div>
+                    <div class="flex col-[4/5] space-x-1 {{theme.align}} {{theme.justify}}">
+                        <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                            <span>+</span>
+                        </button>
+                        <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                            <span>-</span>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <!--Inventory search dialog box-->
+    <input type="checkbox" id="invSearchTableToggle" class="modal-toggle" />
+    <div class="modal" id="invSearchTable">
+        <div class="{{theme.dialogBox}}">
+            <div class="{{theme.dialogBoxHeader}}">
+                <h3 class="{{theme.dialogBoxTitle}}" id="modalLabel">
+                    Inventory Cards
+                </h3>
+                <label for="invSearchTableToggle" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</label>
+            </div>
+            <div class="{{theme.dialogBoxBody}}">
+                <div class="grid grid-cols-3 gap-4 mb-2 bg-gray-800 text-white p-2 rounded-md">
+                    <div class="text-center font-semibold">Code</div>
+                    <div class="text-center font-semibold">Name</div>
+                    <div class="text-center font-semibold">Group</div>
+                </div>
+                <div id="invBoxSearchContainer" class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="handleSearchInput(this)">
+                    <div hidden>
+                        <input readonly />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Search by code" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Search by name" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Search by group" class="input input-bordered w-full" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer user-select-none"
+                    onclick="selectInv(this)"
+                    id="templateRow"
+                    style="display: none;"
+                >
+                <div hidden>
+                    <span></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+
+            </div>
+            <div id="inventoryListContainer"></div>
+        </div>
+        </div>
+    </div>
+
+    <script> //To change view based on selected button
+        const formIds = ['consumptionForm', 'variantsForm','routeBox', 'attachmentForm'];
+
+        function changeView(formId){
+            let forms = [];
+
+            for (let i=0;i<formIds.length;i++) {
+                forms[i] = document.getElementById (formIds[i]);
+                const button = document.getElementById(`btn_${formIds[i]}`);
+                if (formId === formIds[i]){
+                    forms[i].hidden = false;
+                    button.className = `{{theme.buttonSelected}}`;
+                } else {
+                    forms[i].hidden = true;
+                    button.className = `{{theme.buttonBasic}}`;
+                }
+            }
+        }
+    </script>
+
+    <script>    //To reset the route based on selected preset
+        async function resetRoute(source) {
+            showLoadingIcon();
+            const selectedPreset = source.value;
+            const response = await fetch(`/style/route-preset/details?id=${selectedPreset}`);
+
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                showMessage(errorMessage,`{{theme.errorBox}}`);
+
+                hideLoadingIcon();
+                return ;
+            }
+
+            const stages = await response.json();
+            const routeTable = document.getElementById('routeBox').children[1];
+            
+            while (routeTable.children.length > 1) {
+                routeTable.removeChild(routeTable.children[1]);
+            }
+            
+            const fragment = document.createDocumentFragment();
+            for (const stage of stages) {
+                const row = document.createElement('div');
+                row.innerHTML = `
+                    <div class="grid grid-cols-4 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}">
+                        <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                            <input type="text" class="{{theme.textInput}}" value="${stage.Stage}" name="Stage" readonly>
+                        </div>
+                        <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                            <input type="text" class="{{theme.textInput}}" value="${stage.PreReqs.join(', ')}" name="PreReqs" readonly>
+                        </div>
+                    </div>
+                `
+                fragment.appendChild(row);
+            }
+            routeTable.appendChild(fragment);
+
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script>    //To update options of the route
+        function updateOptions(source, presetRoute=null) {
+            const rows = Array.from(source.parentElement.children);
+            rows.shift();
+
+            let stagesFromPreviousRows = [];
+
+            rows.forEach((row, index) => {
+                const stageElement = row.querySelector('select[name^="type"]');
+                const prereqDropdownList = row.querySelector('.dropdown-content.menu');
+                const dropdownButton = row.querySelector('.dropdown .btn');
+
+                let currentSelectedPrereqs = Array.from(prereqDropdownList.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(checkbox => checkbox.value);
+
+                if (presetRoute) {
+                    const currentStagePreset = presetRoute[index];
+                    if (currentStagePreset.Stage === stageElement.value) {
+                        currentSelectedPrereqs = currentStagePreset.PreReqs;
+                    }
+                }
+
+                prereqDropdownList.innerHTML = '';
+
+                stagesFromPreviousRows.forEach(stage => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <label class="label cursor-pointer z-50">
+                            <span class="label-text">${stage}</span>
+                            <input type="checkbox" name="prereqs" value="${stage}" class="checkbox" ${currentSelectedPrereqs.includes(stage) ? 'checked' : ''}>
+                        </label>
+                    `;
+                    prereqDropdownList.appendChild(li);                    
+                });
+                if (stageElement.value && stageElement.value !== '-----------') {
+                    stagesFromPreviousRows.push(stageElement.value);
+                }
+            });
+        }
+    </script>
+    
+    <script>    //This code runs when the page is fully loaded.
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            //Customer dropdown
+            let response = await fetch('/options/customers?search={{style.Customer}}');
+            const customers = await response.json();
+            await appendOptions('id_Customer', customers, "{{style.Customer}}");
+            
+            //Style Categories dropdown
+            response = await fetch('/options/categories');
+            const categories = await response.json();
+            await appendOptions('id_Category', categories, "{{style.Category}}");
+            
+            //Consumptions data, that was passed as JSON from view
+            const consumptionData = {{ consJson|safe }};
+            
+            //Units dropdown
+            response = await fetch('/options/units');
+            const units = await response.json();
+
+            //Consumption Types dropdowns
+            response = await fetch('/options/constypes');
+            const consTypes = await response.json();
+
+            //Yes or No dropdown
+            response = await fetch('/options/yesorno')
+            const yesOrNo = await response.json();
+
+            //Apply the relevant dropdowns on all rows of consumption
+            for (const [index, data] of consumptionData.entries()) {
+                await appendOptions(`id_Unit_${index+1}`, units, data.Unit);
+                await appendOptions(`id_ConsType_${index+1}`, consTypes, data.Type);
+                await appendOptions(`id_HasVariant_${index+1}`, yesOrNo, data.HasVariant);
+            }
+
+            response = await fetch('/options/preset-routes');
+            const routePresets = await response.json();
+            appendOptions('routePreset', routePresets, "{{style.RoutePreset}}");
+
+            await resetRoute(document.getElementById('routePreset'));
+
+            changeView ('consumptionForm');
+
+            hideLoadingIcon();
+            });
+
+    </script>
+
+    <script>    //To handle inventory search box
+        async function openInvSearch(source) {
+            const invTableRowNum = source.parentElement.parentElement.getAttribute('row');
+
+            const searchContainer = document.getElementById('invBoxSearchContainer');
+
+            // Pre-fill search with the current inventory code from this row
+            const currentCode = source.parentElement.children[0].value;
+            searchContainer.children[1].querySelector('input').value = '';
+
+            await applySearch(searchContainer);
+
+            //Show the search table
+            document.getElementById('invSearchTableToggle').checked = true;
+
+            const modalLabelElement = document.getElementById('modalLabel');
+            if (modalLabelElement) {
+                modalLabelElement.setAttribute('data-row-number', invTableRowNum);
+            }
+
+            //Put cursor in the first search box
+            searchContainer.children[1].querySelector('input').focus();
+        }
+
+        function appendInventories(inventories) {
+            const templateRow = document.getElementById('templateRow');
+            const inventoryListContainer = document.getElementById('inventoryListContainer');
+
+            inventoryListContainer.innerHTML = '';
+
+            for (const inventory of inventories) {
+                const newRow = templateRow.cloneNode(true);
+                newRow.style.display = 'grid';
+                newRow.removeAttribute('id');
+
+                const namePart = inventory.text.split(' - ')[0];
+                const codePart = inventory.value;
+                newRow.children[0].children[0].textContent = codePart;
+                newRow.children[1].children[0].textContent = codePart;
+                newRow.children[2].children[0].textContent = namePart;
+                newRow.children[3].children[0].textContent = '';
+
+                inventoryListContainer.appendChild(newRow);
+            }
+        }
+
+        function selectInv(source) {
+            const selectedCode = source.children[0].children[0].textContent;
+            const selectedName = source.children[1].children[0].textContent;
+
+            const consTableRowNum = parseInt(document.getElementById('modalLabel').getAttribute('data-row-number'));
+            
+            const consTableRow = document.getElementById('consumptionForm').children[consTableRowNum];
+            
+            const invCodeBox = consTableRow.children[1].children[0];
+            const invNameBox = consTableRow.children[1].children[1];
+            
+            invCodeBox.value = selectedCode;
+            invNameBox.value = selectedName;
+
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = false;
+
+            //Put the cursor in the first editable input box
+            consTableRow.children[2].querySelector('input').focus();
+        }
+
+        //Wait for half a second after user types to avoid multiple server queries
+        let searchTimeout;
+        const DEBOUNCE_DELAY = 500;
+        async function handleSearchInput(source) {
+            // Clear any existing timeout to reset the timer
+            clearTimeout(searchTimeout);
+
+            // Set a new timeout
+            searchTimeout = setTimeout(async () => {
+                await applySearch(source);
+            }, DEBOUNCE_DELAY);
+        }
+        
+    async function applySearch(source) { 
+        showLoadingIcon();           
+        const columns = source.children;
+        
+        let searchTerms = [];
+        for (const column of columns) {
+            searchTerms.push(column.children[0].value.toLowerCase());
+        }
+
+        let url = `{% url 'apparelManagement:InventoryList' %}`;
+        const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
+        url = `${url}?${queryString}`;
+        
+        try {
+            const response = await fetch(url);
+            const inventories = await response.json();
+            inventories.shift();
+            appendInventories(inventories);
+        } catch (error) {
+            console.error('Inventory search failed:', error);
+        }
+        hideLoadingIcon();
+    }
+
+        
+    </script>
+
+    <script> //To send data to server
+        async function submitForms() {
+            showLoadingIcon();
+            
+            //Get all the forms in the page
+            const allForms = document.forms;
+
+            //Make sure that there are no invalid inputs
+            let formsValidityFlag = true;
+            for (const form of allForms) {
+                if (!form.checkValidity()) {
+                    formsValidityFlag = false;
+                    console.log(form);
+                    break;
+                }
+            }
+            if (!formsValidityFlag) {
+                hideLoadingIcon();
+                showMessage('Some required fields are missing', 5, `{{theme.errorBox}}`);
+                return;
+            }
+
+            //Get the forms that we need to send to backend.
+            const styleForm = allForms['styleForm']; 
+            const variantsForm = allForms['variantsForm'];
+            const consumptionForm = allForms['consumptionForm'];
+            const routeForm = allForms['routeForm'];
+            const attachmentForm = allForms['attachmentForm'];
+
+            const style = styleForm.elements;
+            const route = routeForm.elements;
+
+            let data = {};
+             
+            //Prepare the data for Style Group
+            let group = 'style';
+            for (const element of style) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+            group = 'route';
+            for (const element of route) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }  
+            }
+
+            //Prepare the data for each Group
+            data = formToTable('variant', variantsForm, data);
+            data = formToTable('cosumption', consumptionForm, data);
+            data = formToTable('attachment', attachmentForm, data);
+            
+            const response = await submitData(data);
+
+            if (response.ok) {
+                showMessage('Saved Successfully', 3, `{{theme.successBox}}`);
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage,`{{theme.errorBox}}`);
+            }
+
+            hideLoadingIcon();            
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const formData = new FormData();
+            for (const key in obj) {
+                const value = obj[key];
+
+                if (value instanceof File || value instanceof Blob) {
+                    formData.append(key, value, value.name);
+                } else if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        formData.append(key, item);
+                    });
+                } else {
+                    formData.append(key, value);
+                }
+            }
+            
+            const response = await fetch('', {
+              method: 'POST',
+              body: formData,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            return response;
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Order Initial Plan
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <!-- The main filter form-->
+    <div class="{{theme.border}} {{theme.formHeading}}">
+        <form action="{% url 'apparelManagement:initialPlan' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/2] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Filter By:</span>
+                    <select id="typeFilter" name="typeFilter" class="{{theme.dropdown}}" onchange="this.form.submit()">
+                        <option value="unplanned" 
+                            {% if typeFilter == 'unplanned' %}
+                                selected
+                            {% endif %}
+                            >Unplanned Orders</option>
+                        <option value="all"
+                            {% if typeFilter == 'all' %}
+                                selected
+                            {% endif %}
+                            >All Orders</option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[2/3] items-center relative">
+                    <span class="text-sm text-gray-500 mb-1">Customer:</span>
+                    <select id="customerFilter" name="customerFilter" class="{{theme.dropdown}}" onclick="showSearchBox(this, '/options/customers')"></select>
+                </div>
+                <div class="flex flex-col col-[3/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Delivery Date:</span>
+                    <div class="flex items-center" id="date-range-picker" date-rangepicker datepicker-format="yyyy-mm-dd">
+                        <input id="startDate" name="startDate" type="text" class="{{theme.textInput}}" placeholder="Start" value="{{startDate}}">
+                        <input id="endDate" name="endDate" type="text" class="{{theme.textInput}}" placeholder="End" value="{{endDate}}">
+                    </div>
+                </div>
+                <div class="flex col-[4/5] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonBasic}}" role="button" onclick="submitForms()">Save</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Initial Plan Table -->
+    <form method="POST" id="planForm" autocomplete="off">
+        <div class="{{theme.border}} overflow-x-auto">
+            <div class="grid grid-cols-9 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        WO
+                    </div>
+                </div>
+                <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Style
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Buyer
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        DD
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Qty
+                    </div>
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Fab. ETA
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        BW Trim
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        AW Trim
+                    </div>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Pull Back
+                    </div>
+                </div>
+            </div>
+            {% for data in plan %}
+                <div class="grid grid-cols-9 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div>
+                        <input type="number" class="{{theme.textInput}}" value="{{data.id}}" name="id" hidden>
+                    </div>
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.WorkOrder}}" name="OrderNumber" readonly>
+                    </div>
+                    <div class="flex col-[2/3] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.StyleCode}}" name="StyleCode" readonly>
+                    </div>
+                    <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Customer}}" name="Customer" readonly>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" value="{{data.DeliveryDate|date:'d-M'}}" class="{{theme.textInput}}" name="DeliveryDate" readonly>
+                    </div>
+                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Quantity}}" name="Quantity" readonly>
+                    </div>
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                        <input id="FabricETA_{{forloop.counter}}" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" value="{{data.FabricETA|date:'Y-m-d'}}" class="{{theme.textInput}}" name="FabricETA">
+                    </div>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                        <input id="BWTrim_{{forloop.counter}}" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" value="{{data.BWTrimETA|date:'Y-m-d'}}" class="{{theme.textInput}}" name="BWTrim">
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <input id="AWTrim_{{forloop.counter}}" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" value="{{data.AWTrimETA|date:'Y-m-d'}}" class="{{theme.textInput}}" name="AWTrim">
+                    </div>
+                    <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                        <input type="number" value="{{data.PullBack}}" class="{{theme.textInput}}" name="PullBack">
+                    </div>
+                    <div class="flex col-[10/10] hidden">
+                        <input name="Placeholder">
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <script> //To send data to server
+        async function submitForms() {
+            showLoadingIcon();
+
+            const allForms = document.forms;
+
+            const planForm = allForms['planForm'];
+
+            const data = formToTable('plan', planForm, {});
+
+            await submitData(data);
+
+            hideLoadingIcon();
+        }
+
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+        }
+    </script>
+
+    <script>//To run when the page loads
+      window.addEventListener('load', async () => {
+        //Customer dropdown
+        let response = await fetch('/options/customers?search={{customerFilter}}');
+        const customers = await response.json();
+        const newRow = { "value": '', "text": "-----------" };
+        customers.unshift(newRow);
+        await appendOptions('customerFilter', customers, '{{customerFilter}}');
+      });
+    </script>
+{% endblock content %}

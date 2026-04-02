@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Bundles Assignment
+{% endblock title %}
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <form method="POST" id="selectionForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-3 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Work Order:&nbsp; </label>
+                    <select id="id_WorkOrder" class="{{theme.dropdown}}" name="WorkOrder" onclick="showSearchBox(this, '/options/workorders', fetchCuts)">
+                    </select>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Cut:&nbsp; </label>
+                    <select id="id_Cut" class="{{theme.dropdown}}" name="Cut">
+                    </select>
+                </div>
+                <div class="flex col-[3/4] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="SendForms()">Save</button>
+                    <a class="{{theme.buttonBasic}}" role="button" onclick="showSummary()">Refresh</a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <form method="POST" id="assignmentForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-5 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Bundle
+                    </div>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Group Number
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-5 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <select id="id_Bundle_1" class="flex-grow {{theme.dropdown}}" name="Bundle">
+                    </select>
+                </div>
+                <div class="flex col-[3/5] {{theme.align}} {{theme.justify}}">
+                    <select id="id_Group_1" class="flex-grow {{theme.dropdown}}" name="Group">
+                    </select>
+                </div>
+                <div class="flex col-[5/6] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>    //To get the cut numbers for a work order
+        async function fetchCuts(source){
+            await showLoadingIcon();
+            orderNumber = source.value;
+
+            url = `/options/core-sheet/cuts?orderNumber=${orderNumber}`;
+            const response = await fetch(url);
+            const cuts = await response.json();
+
+            await appendOptions('id_Cut', cuts);
+            await hideLoadingIcon();
+        }
+    </script>
+    
+    <script>    //To get the bundles for a cut
+        const cutSelect = document.getElementById('id_Cut');
+        let previousValue = cutSelect.value;
+
+        cutSelect.onchange = async function () {
+            await showLoadingIcon();
+            const currentValue = cutSelect.value;
+
+            if(currentValue === previousValue) {
+                await hideLoadingIcon();
+                return;
+            }
+
+            previousValue = currentValue;
+            
+            if (currentValue === 'null') {
+                await hideLoadingIcon();
+                return;
+            }
+
+            await fetchBundles(currentValue);
+            await hideLoadingIcon();
+        }
+
+        async function fetchBundles(cutId) {
+            url = `/options/core-sheet/bundles?cutId=${cutId}`;
+
+            let response = await fetch(url);
+            const bundles = await response.json();
+
+            await appendOptions('id_Bundle_1', bundles);
+
+            response = await fetch('/options/bundle-cards/available');
+            const cards = await response.json();
+
+            await appendOptions('id_Group_1', cards);
+        }
+    </script>
+
+    <script>    //To send data to server
+        async function SendForms() {
+            const forms = document.forms;
+
+            const selectionForm = forms['selectionForm'];
+            const assignmentForm = forms['assignmentForm'];
+
+            const headingDetails = selectionForm.elements;
+
+            let data = {};
+            let group = 'heading';
+
+            for (const element of headingDetails) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+
+            data = formToTable('assignment', assignmentForm, data);
+
+            await submitData(data);
+        }
+
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const data = JSON.stringify(obj);
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok){
+                const reply = await response.text();
+                showMessage(reply, 3, '{{theme.successBox}}');
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+                return
+            }
+        }
+
+
+        function formToTable(group, form, data){
+            let rows = form.querySelectorAll('[row]');
+            //Remove unnecesary rows
+            rows = dropElements(rows);
+            
+
+            for (const row of rows) {
+                let rowNum = row.getAttribute('row');
+                let cols = row.children;
+                //Remove unnecessary columns
+                cols = dropElements(cols, cols.length-1, cols.length-1);
+
+                for (const col of cols) {
+                    name = col.firstElementChild.name+'_'+rowNum;
+                    value = col.firstElementChild.value;
+                    data[group+'_'+name] = value;               
+                }
+            }
+            return data;
+        }
+
+        function dropElements(obj, startFrom=0, endAt=0) {
+            const arr = Object.values(obj);
+
+            arr.splice(startFrom, endAt - startFrom + 1);
+
+            return arr;
+        }
+    </script>
+{% endblock content %}

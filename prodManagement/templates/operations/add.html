@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Operation Addition
+{% endblock title %}
+
+{% block content %}
+    <form method="POST" id="operationForm" autocomplete="off">
+        {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Name:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="Name" required>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Secton:&nbsp; </label>
+                    <select id="id_Section" class="{{theme.dropdown}}" name="Section" required> </select>
+                </div>
+                <div class="flex col-[4/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Category:&nbsp; </label>
+                    <select id="id_Category" class="{{theme.dropdown}}" name="Category" required> </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/2] items-center">
+                    <label class="mx-2 whitespace-nowrap">Level:&nbsp; </label>
+                    <select class="{{theme.dropdown}}" name="Level" required>
+                        {% for i in "1234" %}
+                            <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex col-[2/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">SAM:&nbsp; </label>
+                    <input type="number" min="0" step="any" class="flex-grow {{theme.textInput}}" name="SMV" required>
+                </div>
+                <div class="flex col-[3/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Rate:&nbsp; </label>
+                    <input type="number" min="0" step="any" class="flex-grow {{theme.textInput}}" name="Rate" required>
+                </div>
+                <div class="flex col-[4/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Code:&nbsp; </label>
+                    <input type="text" class="flex-grow {{theme.textInput}}" name="Code">
+                </div>
+            </div>
+            <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/4] items-center">
+                    <label class="mx-2 whitespace-nowrap">Type:&nbsp; </label>
+                    <select id="id_Type" class="{{theme.dropdown}}" name="Type" required> </select>
+                </div>
+                <div class="flex col-[4/5] items-center">
+                    <button type="submit" class="{{theme.buttonBasic}} mx-2" >Save</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            let response = await fetch(`{% url 'PM:opSecs' %}`);
+            const sections = await response.json();
+            await appendOptions('id_Section', sections);
+
+            response = await fetch(`{% url 'PM:opCats' %}`);
+            const operationCategories = await response.json();
+            await appendOptions('id_Category', operationCategories);
+
+            response = await fetch(`{% url 'PM:machTypes' %}`);
+            const machineTypes = await response.json();
+            await appendOptions('id_Type', machineTypes);
+
+            hideLoadingIcon();
+        });
+    </script>
+{% endblock content %}

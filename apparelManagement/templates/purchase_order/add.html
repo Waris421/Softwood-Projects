@@ -1,0 +1,361 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Purchase Order Addition
+{% endblock %} 
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    
+    <!-- The main Order form-->
+    <form method="POST" id="orderForm" autocomplete="off" class="{{theme.formHeading}}">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-6 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center relative">
+                    <label class="mx-2 whitespace-nowrap">Supplier:&nbsp; </label>
+                    <select id="id_Supplier" class="{{theme.dropdown}}" name="Supplier" onclick="showSearchBox(this, '/options/suppliers')"> </select>
+                </div>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Delivery Date:&nbsp; </label>
+                    <input id="DeliveryDate" datepicker datepicker-autohide datepicker-format="yyyy-mm-dd" type="text" class="{{theme.textInput}}" name="DeliveryDate">
+                </div>
+                <div class="flex col-[5/6] items-center">
+                    <label class="mx-2 whitespace-nowrap">Tax %:&nbsp; </label>
+                    <input type="number" name="Tax" class="{{theme.textInput}}">
+                </div>
+                <div class="flex col-[6/7] items-center">
+                    <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
+                </div>   
+            </div>
+        </div>
+    </form>
+    
+    <!--Inventory Table-->
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-8 mt-4 px-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Inventory
+                    </div>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Quantity
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Price
+                    </div>
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Currency
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Forex
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Actions
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-8 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="1">
+                <div hidden>
+                    <input class="{{theme.textInput}}" name="InventoryCode">
+                </div> 
+                <div class="flex col-[1/3] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="InventoryName" readonly>
+                    <span class="material-symbols-outlined" onclick="openInvSearch(this)">search</span>
+                </div>
+                <div class="flex col-[3/4] {{theme.align}} {{theme.justify}}">
+                    <input type="text" class="{{theme.textInput}}" name="VariantCode">
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" name="Quantity">
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" name="Price">
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <select class="{{theme.dropdown}}" id="id_Currency_1" name="Currency"></select>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <input type="number" class="{{theme.textInput}}" name="Forex">
+                </div>
+                <div class="flex col-[8/9] space-x-1 {{theme.align}} {{theme.justify}}">
+                    <button class="{{theme.plusButton}}" type="button" onclick="addRow(this)">
+                        <span>+</span>
+                    </button>
+                    <button class="{{theme.minusButton}}" type="button" onclick="removeRow(this)">
+                        <span>-</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!--Inventory search dialog box-->
+    <input type="checkbox" id="invSearchTableToggle" class="modal-toggle" />
+    <div class="modal" id="invSearchTable">
+        <div class="{{theme.dialogBox}}">
+            <div class="{{theme.dialogBoxHeader}}">
+                <h3 class="{{theme.dialogBoxTitle}}" id="modalLabel">
+                    Inventory Cards
+                </h3>
+                <label for="invSearchTableToggle" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</label>
+            </div>
+            <div class="{{theme.dialogBoxBody}}">
+                <div class="grid grid-cols-3 gap-4 mb-2 bg-gray-800 text-white p-2 rounded-md">
+                    <div class="text-center font-semibold">Filter 1</div>
+                    <div class="text-center font-semibold">Filter 2</div>
+                    <div class="text-center font-semibold">Filter 3</div>
+                </div>
+                <div id="invBoxSearchContainer" class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="handleSearchInput(this)">
+                    <div hidden>
+                        <input readonly />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                    <div>
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer user-select-none"
+                    onclick="selectInv(this)"
+                    id="templateRow"
+                    style="display: none;"
+                >
+                <div hidden>
+                    <span></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+                <div>
+                    <span class="block px-2 py-1"></span>
+                </div>
+            </div>
+            <div id="inventoryListContainer"></div>
+        </div>
+        </div>
+    </div>
+
+    <script> //To run after page loads.
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            //Styles Dropdown
+            let response = await fetch('/options/suppliers');
+            const styles = await response.json();
+            await appendOptions('id_Supplier', styles);
+
+            //Current dropdowns
+            response = await fetch('/options/currencies');
+            const currencies = await response.json();
+            await appendOptions('id_Currency_1', currencies, 'PKR');
+
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script>    //To handle inventory search box
+        async function openInvSearch(source) {
+            const invTableRowNum = source.parentElement.parentElement.getAttribute('row');
+
+            const searchContainer = document.getElementById('invBoxSearchContainer');
+
+            await applySearch(searchContainer);
+
+            const modalLabelElement = document.getElementById('modalLabel');
+            if (modalLabelElement) {
+                modalLabelElement.setAttribute('data-row-number', invTableRowNum);
+            }
+
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = true;
+        }
+
+        function appendInventories(inventories) {
+            const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
+            const templateRow = document.getElementById('templateRow');
+            const inventoryListContainer = document.getElementById('inventoryListContainer');
+
+            inventoryListContainer.innerHTML = '';
+
+            const filterInputs = filterRow.querySelectorAll('input[type="text"]');
+
+            for (const inventory of inventories) {
+                const newRow = templateRow.cloneNode(true);
+                newRow.style.display = 'grid';
+                newRow.removeAttribute('id');
+
+                newRow.children[0].children[0].textContent = inventory.value;
+                newRow.children[1].children[0].textContent = inventory.text;
+                newRow.children[2].children[0].textContent = inventory.text;
+                newRow.children[3].children[0].textContent = inventory.text;
+
+                inventoryListContainer.appendChild(newRow);
+            }            
+        }
+
+        function selectInv(source) {
+            const selectedCode = source.children[0].children[0].textContent;
+            const selectedName = source.children[1].children[0].textContent;
+
+            const consTableRowNum = parseInt(source.parentElement.parentElement.parentElement.children[0].children[0].getAttribute('data-row-number'));
+            
+            const consTableRow = document.getElementById('inventoryForm').children[0].children[consTableRowNum];
+            
+            const invCodeBox = consTableRow.children[0].children[0];
+            const invNameBox = consTableRow.children[1].children[0];
+            
+            invCodeBox.value = selectedCode;
+            invNameBox.value = selectedName;
+
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+            invSearchTableToggle.checked = false;
+        }
+
+        //Wait for half a second after user types to avoid multiple server queries
+        let searchTimeout;
+        const DEBOUNCE_DELAY = 500;
+        async function handleSearchInput(source) {
+            // Clear any existing timeout to reset the timer
+            clearTimeout(searchTimeout);
+
+            // Set a new timeout
+            searchTimeout = setTimeout(async () => {
+                await applySearch(source);
+            }, DEBOUNCE_DELAY);
+        }
+
+        //Allow user to close the search box using escape
+        document.addEventListener('keydown', function(event) {
+            const invSearchTableToggle = document.getElementById('invSearchTableToggle');
+
+            if (event.key == 'Escape' && invSearchTableToggle.checked) {
+                invSearchTableToggle.checked = false;
+            }
+        });
+
+        async function applySearch(source) { 
+            showLoadingIcon();           
+            const columns = source.children;
+            
+            // Get all the search terms
+            let searchTerms = [];
+            for (const column of columns) {
+                //Convert search term to lower case and append to the array
+                searchTerms.push(column.children[0].value.toLowerCase());
+            }
+
+            let url = `{% url 'apparelManagement:InventoryList' %}`;
+            const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
+            url = `${url}?${queryString}`;
+            
+            //Get the inventories from server
+            const response = await fetch(url);
+            const inventories = await response.json();
+            //Remove the frist row, as that is blank
+            inventories.shift();
+
+            appendInventories(inventories);
+            hideLoadingIcon();
+        }
+    </script>
+
+    <script> //To send data to server
+        function submitForms() {
+            const allForms = document.forms;
+
+            const orderForm = allForms['orderForm']; 
+            const inventoryForm = allForms['inventoryForm'];
+            
+            const order = orderForm.elements;
+
+            let data = {};
+             
+            //Prepare the data for Style Group
+            let group = 'order';
+            for (const element of order) {
+                if (element.name) {
+                    data[group+'_'+element.name] = element.value;
+                }   
+            }
+
+            //Prepare the data for inventory Group
+            data = formToTable('inventory', inventoryForm, data);
+            
+            submitData(data)
+        }
+
+        //Convert data to Json and send to server
+        async function submitData(obj) {
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            
+            const data = JSON.stringify(obj);
+            
+            //console.log (csrf);
+            const response = await fetch('', {
+              method: 'POST',
+              body: data,
+              headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.status == 200) {
+                const poNumber = await response.text();
+                window.location.href = poNumber+'/edit';
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+            
+        }
+
+        function formToTable(group, form, data){
+            let rows = form.querySelectorAll('[row]');
+            //Remove unnecesary rows
+            rows = dropElements(rows);
+
+            for (const row of rows) {
+                let rowNum = row.getAttribute('row');
+                let cols = row.children;
+                //Remove unnecessary columns
+                cols = dropElements(cols, cols.length-1, cols.length-1);
+
+                for (const col of cols) {
+                    name = col.firstElementChild.name+'_'+rowNum;
+                    value = col.firstElementChild.value;
+                    data[group+'_'+name] = value;               
+                }
+            }
+            return data;
+        }
+
+        function dropElements(obj, startFrom=0, endAt=0) {
+            const arr = Object.values(obj);
+
+            arr.splice(startFrom, endAt - startFrom + 1);
+
+            return arr;
+        }
+    </script>
+{% endblock %}

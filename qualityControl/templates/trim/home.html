@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Trims Audit
+{% endblock %}
+
+{% block content %}
+    {% csrf_token %}
+    <div class="{{theme.border}}">
+        <form action="{% url 'QC:pendingTrimAudit' %}" method="get" autocomplete="off">
+            <div class="grid grid-cols-12 {{theme.justify}} {{theme.align}}">
+                <div class="flex flex-col col-[1/4] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Work order:</span>
+                    <select id="workOrderFilter" name="workOrder" onchange="this.form.submit()" class="{{theme.dropdown}}">
+                        <option value="">  ---------  </option>
+                    </select>
+                </div>
+                <div class="flex flex-col col-[4/9] items-center">
+                    <span class="text-sm text-gray-500 mb-1">Search:</span>
+                    <input type="text" class="{{theme.textInput}}" name="searchTerm" placeholder="Search" value="{{searchTerm}}">
+                </div>
+                <div class="flex col-[9/13] btn-group {{theme.align}} justify-end ml-1">
+                    <button type="submit" class="{{theme.buttonBasic}}">Search</button>
+                    <a class="{{theme.buttonBasic}}" role="button" onclick="startAudit()">Start Audit</a>
+                </div>
+            </div>
+        </form>
+    </div> 
+
+    <div id="ReceiptsTable">
+        <table class="{{theme.table}}">
+            <tr class = "{{theme.tableHead}}">
+                <th scope="col"><input class="form-check-input" type="checkbox" name="item_checkbox" onclick="selectAll(this)"></th>
+                <th scope="col">Receipt #</th>
+                <th scope="col">Date</th>
+                <th scope="col">Inventory</th>
+                <th scope="col">Supplier</th>
+                <th scope="col">Quantity</th>
+                <th scope="col">Work Order (3 only)</th>
+            </tr>
+            <tbody id="tableData" class = "{{theme.tableBody}}">
+                {% for data in inv %}
+                <tr>
+                    <td><input class="form-check-input" type="checkbox" name="item_checkbox"></td>
+                    <td class="receipt">{{ data.ReceiptNumber }}</td>
+                    <td class="invRecId" hidden>{{ data.RecInvId }}</td>
+                    <td>{{ data.ReceiptDate }}</td>
+                    <td>{{ data.Name }}</td>
+                    <td>{{ data.Supplier }}</td>
+                    <td>{{ data.Quantity }}</td>
+                    <td>{{ data.WorkOrder }}</td>
+                </tr>
+                {% endfor %}                    
+            </tbody>
+        </table>
+    </div>
+
+    <script>    //To run when the page loads
+        window.addEventListener('load', async () => {
+            //Show loading icon to users
+            showLoadingIcon();
+
+            response = await fetch('/options/workorders');
+            const workOrders = await response.json();
+            await appendOptions('workOrderFilter', workOrders, '{{workOrder}}');
+
+            //Remove loading animation
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script>    //Start Audit Button
+        async function startAudit() {
+            const rows = document.getElementById('tableData').children;
+
+            const data = new URLSearchParams();
+            for (let i=0; i<rows.length; i++) {
+                const checked = Boolean(rows[i].children[0].children[0].checked);
+                const receiptInvNumber = rows[i].children[2].textContent;
+
+                if (checked) {
+                    data.append('ref', receiptInvNumber);
+                    data.append('ref', receiptInvNumber);
+                }
+            }      
+            
+            if (data.length == 0) {
+                showMessage('Select an Inventory');
+                return
+            }
+
+            const url = `/trims/audit/add?${data.toString()}`;
+            document.location.href = url;
+        }
+    </script>
+
+    <script>    //To select all visible inventories
+        function selectAll(source) {
+            const checked = Boolean(source.checked);
+
+            const rows = document.getElementById('tableData').children;
+            
+            for (const row of rows) {
+                const checkBox = row.children[0].children[0];
+                checkBox.checked = checked
+            }
+        }
+    </script>
+{% endblock %}

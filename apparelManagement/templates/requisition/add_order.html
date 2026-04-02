@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Requisition Form
+{% endblock %} 
+
+{% block content %}
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
+    <!-- Selection Form -->
+    <form method="GET" id="ordersForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-10 my-2 {{theme.justify}} {{theme.align}}">
+                <div class="flex col-[1/3] items-center">
+                    <label class="mx-2 whitespace-nowrap">Work Order:&nbsp; </label>
+                    <select id="id_Order" class="{{theme.dropdown}}" name="order"></select>
+                </div>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Department:&nbsp; </label>
+                    <select id="id_Department" class="{{theme.dropdown}}" name="Department"></select>
+                </div>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Search:&nbsp; </label>
+                    <input id="id_Search" type="text" class="{{theme.textInput}}" value="{{search}}" name="search">
+                </div>
+                <div class="flex col-[7/9] items-center">
+                    <label class="mx-2 whitespace-nowrap">Inventory:&nbsp; </label>
+                    <div class="dropdown">
+                        <details class="m-1">
+                            <summary class="{{theme.emptyButton}}" id="selectToggle">
+                                <span id="selectCount" class="text-lg">(0 selected)</span>
+                            </summary>
+                            <ul class="dropdown-content menu bg-base-100 rounded-box z-1 w-64 p-2 shadow-sm">
+                            </ul>
+                        </details>
+                    </div>
+                    <input type="hidden" name="inventories" id="selectedInventoriesInput">
+                    <div id="selectedInvs" class="flex flex-wrap gap-2 mt-2"></div>
+                </div>
+                <div class="flex col-[9/11] btn-group {{theme.align}} justify-end ml-1 mt-2">
+                    <button type="submit" class="{{theme.buttonBasic}}">Refresh</button>
+                    <button class="{{theme.buttonSecondary}}" onclick="addRequest()" type="button">
+                        Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Inventory Selection Table -->
+    <form method="POST" id="inventoryForm" autocomplete="off">
+        <div class="{{theme.border}}">
+            <div class="grid grid-cols-10 mt-4 x-3 {{theme.border}} {{theme.tableHead}}" row="0">
+                <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}" onclick="selectAll(this)">
+                    </div>
+                </div>
+                <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Name
+                    </div>
+                </div>
+                <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Variant
+                    </div>
+                </div>
+                <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Cons.
+                    </div>
+                </div>
+                <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Required
+                    </div>
+                </div>
+                <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Received
+                    </div>
+                </div>
+                <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Requested
+                    </div>
+                </div>
+                <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Issued
+                    </div>
+                </div>
+                <div class="flex col-[10/11] {{theme.align}} {{theme.justify}}">
+                    <div class="{{theme.primaryHeading}} {{theme.textJustify}}">
+                        Balance
+                    </div>
+                </div>
+            </div>
+            {% for data in entries %}
+                <div class="grid grid-cols-10 x-3 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
+                    <div class="flex col-[1/2] {{theme.align}} {{theme.justify}}">
+                        <input type="checkbox" class="{{theme.checkbox}}">
+                    </div>
+                    <div class="flex col-[2/4] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.InventoryCode}}" name="InventoryCode" hidden>
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Name}}" name="Name" readonly>
+                    </div>
+                    <div class="flex col-[4/5] {{theme.align}} {{theme.justify}}">
+                        <input type="text" class="{{theme.textInput}}" value="{{data.Variant}}" name="Variant" readonly>
+                    </div>
+                    <div class="flex col-[5/6] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Consumption}}" name="Consumption" readonly>
+                    </div>
+                    <div class="flex col-[6/7] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Required}}" name="Required" readonly>
+                    </div>
+                    <div class="flex col-[7/8] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Received}}" name="Received" readonly>
+                    </div>
+                    <div class="flex col-[8/9] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Requested}}" name="Requested" readonly>
+                    </div>
+                    <div class="flex col-[9/10] {{theme.align}} {{theme.justify}}">
+                        <input type="number" class="{{theme.textInput}}" value="{{data.Issued}}" name="Issued" readonly>
+                    </div>
+                    <div class="flex col-[10/11] {{theme.align}} {{theme.justify}}">
+                        <input type="number" max="{{data.Balance}}" class="{{theme.textInput}}" value="{{data.Balance}}" name="Balance" onchange="checkQty(this)">
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </form>
+
+    <script> //To run when the page loads
+        window.addEventListener('load', async () => {
+            showLoadingIcon();
+
+            //orders Dropdown
+            let response = await fetch('/options/workorders');
+            const orders = await response.json();
+            await appendOptions('id_Order', orders, Number("{{order}}"));
+
+            //departments Dropdown
+            response = await fetch('/options/departments');
+            const departments = await response.json();
+            await appendOptions('id_Department', departments, ("{{department}}"));
+
+            handleInventorySelection();
+
+            hideLoadingIcon();
+        });
+    </script>
+
+    <script> //To select all visible rows
+        function selectAll(box) {
+            const checkStatus = box.checked;
+
+            const table = box.parentElement.parentElement.parentElement.parentElement.parentElement;
+            const numberOfRows = table.children[0].children.length;
+
+            for (let i=1; i<numberOfRows;i++) {
+                const row = table.querySelector('[row="'+i+'"]');
+                const rowCheck = row.children[0].children[0];
+                const filterStatus = (row.style.display === '');
+
+                rowCheck.checked = false;
+
+                if (filterStatus) {
+                    rowCheck.checked = checkStatus;
+                }
+            } 
+        }
+    </script>
+
+    <script>    //To handle inventory selection box
+        function handleInventorySelection() {
+            const form = document.getElementById('ordersForm');
+            const checkboxContainer = form.querySelector('.dropdown-content');
+            const selectedCountSpan = document.getElementById('selectCount');
+            const hiddenInput = document.getElementById('selectedInventoriesInput');
+
+            function updateOptions() {
+                const inventories = {{ invs|safe }};
+
+                checkboxContainer.innerHTML = '';
+                
+                if (!inventories || inventories.length === 0) {
+                    const noDataLi = document.createElement('li');
+                    noDataLi.textContent = 'No inventories available.';
+                    noDataLi.classList.add('p-2', 'text-gray-500');
+                    checkboxContainer.appendChild(noDataLi);
+                    return;
+                }
+                
+                inventories.forEach(inventory => {
+                    const liElement = document.createElement('li');
+
+                    const labelElement = document.createElement('label');
+                    labelElement.classList.add('flex', 'items-center', 'p-2', 'cursor-pointer', 'hover:bg-base-200', 'rounded-md');
+                    
+                    const checkBoxElement = document.createElement('input');
+                    checkBoxElement.type = 'checkbox';
+                    checkBoxElement.classList.add('{{theme.checkbox}}', 'item-checkbox');
+                    checkBoxElement.value = inventory.value;
+                    checkBoxElement.setAttribute('data-label', 'Item2');
+                    checkBoxElement.addEventListener('change', handleCheckboxChange);
+
+                    const spanElement = document.createElement('span');
+                    spanElement.classList.add('ml-2');
+                    spanElement.textContent = inventory.text;
+
+
+                    labelElement.appendChild(checkBoxElement);
+                    labelElement.appendChild(spanElement);
+                    liElement.appendChild(labelElement);
+
+                    checkboxContainer.appendChild(liElement);
+                });
+            }
+
+            let selectedValues = new Set();
+
+            //Updated the box containg number of selected inventories
+            function updateSelectedDisplay() {
+                selectedCountSpan.textContent = `(${selectedValues.size} selected)`;
+                hiddenInput.value = Array.from(selectedValues).join(',');
+            }
+
+            //Handle the user click on checkbox
+            function handleCheckboxChange(event) {
+                const checkbox = event.target;
+                const value = checkbox.value;
+
+                if (checkbox.checked) {
+                    selectedValues.add(value);
+                } else {
+                    selectedValues.delete(value);
+                }
+                updateSelectedDisplay();
+
+                applyInventoryDropDown();
+            }
+
+            //Filter out the selected inventories
+            function applyInventoryDropDown() {
+                const tableRows = Array.from(document.getElementById('inventoryForm').children[0].children);
+                tableRows.shift();
+
+                tableRows.forEach(row => {
+                    if (selectedValues.size == 0) {
+                        row.style.display = '';
+                    } else {
+                        const code = row.children[1].children[0].value;
+                        const flag = selectedValues.has(code);
+                        row.style.display = flag ? '':'none';
+                    }
+                    const rowCheckBox = row.children[0].children[0];
+                    rowCheckBox.checked = false;
+                });
+            }
+            
+            updateOptions();
+
+            updateSelectedDisplay();
+        }
+    </script>
+
+    <script> //To make requisition for selected items
+        async function addRequest() {
+            const inventoryForm = document.getElementById('inventoryForm');
+            const rows = inventoryForm.children[0].children;
+
+            let selectedRows = [];
+
+            for (const row of rows) {
+                const rowNumber = row.getAttribute('row');
+                const checkStatus = row.children[0].children[0].checked;
+
+                if (rowNumber>0 && checkStatus) {
+                    selectedRows.push(row);
+                }
+            }
+
+            if (selectedRows.length === 0) {
+                alert('No inventory is selected');
+                return
+            }
+            let data = {};
+            for (const row of selectedRows) {
+                data = prepareReqData(row, data);
+            }
+
+            const reqForm = document.getElementById('ordersForm');
+            const orderData = reqForm.children[0].children;
+
+            const workOrder = orderData[0].children[0].children[1].value;
+            if (workOrder === 'null') {
+                alert ('Please select an order');
+                return;
+            }
+
+            const department = orderData[0].children[1].children[1].value;     
+            if (department === 'null') {
+                alert('Please select your department');
+                return;
+            }
+            
+            data['req_WorkOrder'] = workOrder;
+            data['req_Department'] = department;
+
+            data = JSON.stringify(data);
+
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: data,
+                headers: { "X-CSRFToken": csrf},
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const errorMessage = await response.text();
+                showMessage(errorMessage);
+            }
+        }
+
+        function prepareReqData(row, data) {
+            const inventoryCode = row.querySelector("[name='InventoryCode']").value;
+            const variant = row.querySelector("[name='Variant']").value;
+            const Quantity = row.querySelector("[name='Balance']").value;
+            const rowNum = row.getAttribute('row');
+
+            data['data_InventoryCode_'+rowNum] = inventoryCode;
+            data['data_Variant_'+rowNum] = variant;
+            data['data_Quantity_'+rowNum] = Quantity;
+
+
+            return data;
+        }
+
+    </script>
+
+    <script> //This is in response to a bug where would add more qty than received
+        function checkQty(source) {
+            const qty = parseFloat(source.value);
+            const maxQty = parseFloat(source.getAttribute('max'));
+
+            if (maxQty < qty) {
+                source.value = maxQty;
+            }
+        }
+    </script>
+{% endblock %}
