@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from core.services import options_service
 
 app_name = 'HumanResource'
 
@@ -20,4 +21,9 @@ urlpatterns = [
     path('hr/office/<int:pk>/update', views.UpdateOffice.as_view(), name='officeUpdate'),
 
     path('hr/worker/office-assign', views.AssignOffice.as_view(), name='officeAssign'),
+
+    path('hr/attendance', views.GetAttendance.as_view(), name='getAttendance'),
+    path('hr/attendance/add-initial', views.AddUnverifiedAttendance.as_view(), name='addAttendanceUnverified'),
+
+    path('options/workers', options_service.GetWorkers.as_view(), name='workersOptions'),
 ]

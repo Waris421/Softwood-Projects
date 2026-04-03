@@ -5,6 +5,7 @@ from rest_framework.request import Request
 from rest_framework import status
 
 from .services import employee_service, shift_service, holiday_service, location_service
+from .services import attendance_service
 from core.services.auth_service import authenticateUser
 from . import models
 
@@ -395,3 +396,78 @@ class AssignOffice(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+class GetAttendance(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            user = authenticateUser(request, 'HumanResource', 'Attendance', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        employeeCode = request.query_params.get('employeeCode')
+        if employeeCode:
+            employeeCode = int(employeeCode)
+        else:
+            employeeCode = models.Employee.objects.get(User=user).id
+        
+        try:
+            employee = models.Employee.objects.get(id=employeeCode)
+        except:
+            response = {'message': 'Invalid Employee Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        startDate = request.query_params.get('from')
+        endDate = request.query_params.get('to')
+
+        if (not startDate) or (not endDate):
+            response = {'message': 'Invalid Date Range'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            attendance = attendance_service.GetAttendance(employee, startDate, endDate)
+            response = {'data': attendance}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class AddUnverifiedAttendance(APIView):
+    '''
+        Get initial data from user for checking if they can add attendance.
+
+        Expected JSON:
+        {
+            "Latitude": "31.409981",
+            "Longitude": "74.364714",
+            "Type": "in/out"
+        }
+    '''
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            user = authenticateUser(request, 'HumanResource', 'Attendance', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            employee = models.Employee.objects.get(User=user)
+        except:
+            response = {'message': 'User settings issue. Check wth HR'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            responseData = attendance_service.VerifyAttendance(employee, request.data)
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        

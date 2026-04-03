@@ -42,8 +42,11 @@ def UpdateShift(data: Dict[str, any]):
 
     for keys, format, attribute in tasks:
         for key in keys:
-            dateTimeObj = convertStrToDateTime(data[key], format)
-            data[key] = getattr(dateTimeObj, attribute)()
+            if data[key]:
+                dateTimeObj = convertStrToDateTime(data[key], format)
+                data[key] = getattr(dateTimeObj, attribute)()
+            else:
+                data[key] = None
     
     employees = data['Employees']
     startDate = data['StartDate']

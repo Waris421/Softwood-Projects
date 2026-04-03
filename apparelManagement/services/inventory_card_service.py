@@ -377,13 +377,6 @@ def GetFreeStockHistory(inventory: models.Inventory, variant: str):
 
     dfResults = pd.merge(left=dfFreeAtReceipt, right=dfFreeAtIssuance, on='ReceiptNumber', how='outer',
                          suffixes=['_received', '_issued'])
-    print(dfResults)
-
-    #dfFreeAtReceipt['POUrl'] = generateUrlfromPk(dfFreeAtReceipt['PONumber'], 'apparelManagement', 'editPO')
-    #dfFreeAtReceipt['ReceiptUrl'] = generateUrlfromPk(dfFreeAtReceipt['ReceiptNumber'], 'apparelManagement', 'editRec')
-    
-    #dfFreeAtReceipt['ReceiptDate'] = dfFreeAtReceipt['ReceiptDate'].dt.strftime('%d-%b-%Y')
-
     return dfToListOfDicts(dfFreeAtReceipt)
 
 def GetUnorderedInventories(
@@ -447,12 +440,10 @@ def GetUnorderedInventories(
     dfInvRequirement = pd.merge(left=dfInvRequirement, right=dfInvOrdered, on=['WorkOrder', 'Inventory', 'Variant'], how='left')
     del dfInvOrdered
 
-    print(dfInvRequirement)
-
 def GetInventoryStockStatus():
     twoYearsAgo = TODAY.replace(year=TODAY.year - 2)
     filters = Q(ReceiptNumber__ReceiptDate__gte=twoYearsAgo)
-    fields = ['InventoryCode', 'InventoryCode__Name', 'InventoryCode__Group', 'InventoryCode__Unit', 'Variant', 'Quantity', 'ReceiptNumber__Invoice', 'ReceiptNumber__PONumber']
+    fields = ['id', 'InventoryCode', 'InventoryCode__Name', 'InventoryCode__Group', 'InventoryCode__Unit', 'Variant', 'Quantity', 'ReceiptNumber__Invoice', 'ReceiptNumber__PONumber', 'ReceiptNumber__ReceiptDate']
     receiptInventories = models.RecInventory.objects.filter(filters).values(*fields)
     dfReceiptInventories = pd.DataFrame(receiptInventories) if receiptInventories else pd.DataFrame(columns=fields)
     del receiptInventories
@@ -460,28 +451,56 @@ def GetInventoryStockStatus():
         'InventoryCode__Name': 'InventoryName',
         'ReceiptNumber__Invoice': 'InvoiceNumber',
         'ReceiptNumber__PONumber': 'PONumber',
+        'ReceiptNumber__ReceiptDate': 'ReceiptDate',
         'InventoryCode__Group':'Group',
         'InventoryCode__Unit': 'Unit',
     })
 
+    #TODO: remove this line
+    #dfReceiptInventories = dfReceiptInventories[dfReceiptInventories['Group']=='FABRIC'].sort_values(by='Quantity', ascending=False).reset_index().head(100).reset_index() 
+    
+    filters = Q(RecInvId__in=dfReceiptInventories['id'].to_list())
+    fields = ['RecInvId', 'WorkOrder', 'WorkOrder__StyleCode']
+    receiptAllocations = models.RecAllocation.objects.filter(filters).values(*fields)
+    dfReceiptAllocations = pd.DataFrame(receiptAllocations) if receiptAllocations else pd.DataFrame(columns=fields)
+    del receiptAllocations
+    dfReceiptAllocations.rename(inplace=True, columns={
+        'RecInvId': 'id',
+        'WorkOrder__StyleCode': 'StyleCode'
+    })
+
     filters = Q(Issuance__IssuanceDate__gt=twoYearsAgo) & Q(Inventory__in=dfReceiptInventories['InventoryCode'].to_list())
-    fields = ['Inventory', 'Variant', 'Quantity']
+    fields = ['id', 'Inventory', 'Variant', 'Quantity']
     issueInventories = models.IssueInventory.objects.filter(filters).values(*fields)
     dfIssueInventories = pd.DataFrame(issueInventories) if issueInventories else pd.DataFrame(columns=fields)
-    del issueInventories, fields, filters
+    del issueInventories
     dfIssueInventories.rename(inplace=True, columns={
         'Inventory': 'InventoryCode',
         'Quantity': 'IssueQty',
     })
 
+    filters = Q(PONumber__in=dfReceiptInventories['PONumber'].to_list())
     fields = ['PONumber', 'Inventory', 'Variant', 'Quantity', 'Price', 'Forex', 'PONumber__Supplier']
-    poInventories = models.POInventory.objects.filter(PONumber__in=dfReceiptInventories['PONumber'].to_list()).values(*fields)
+    poInventories = models.POInventory.objects.filter(filters).values(*fields)
     dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
-    del poInventories, fields
+    del poInventories, fields, filters
     dfPOInventories.rename(inplace=True, columns={
         'PONumber__Supplier': 'Supplier',
         'Inventory': 'InventoryCode',
     })
+
+    def combineValues(dfSubset:pd.DataFrame, cols:List[str]):
+        return dfSubset[cols].to_dict(orient='records')
+    
+    dfReceiptInventories = pd.merge(left=dfReceiptInventories, right=dfReceiptAllocations, on='id', how='left')
+    del dfReceiptAllocations
+    dfReceiptInventories.drop(inplace=True, columns=['id'])
+    dfReceiptInventories['WorkOrder'] = dfReceiptInventories['WorkOrder'].astype('Int64').astype(str).replace('<NA>', '')
+    dfReceiptInventories = dfReceiptInventories.groupby(['InventoryCode', 'InventoryName', 'Group', 'Unit', 'Variant', 'InvoiceNumber', 'PONumber', 'ReceiptDate']).apply(lambda x: pd.Series({
+        'Quantity': x['Quantity'].iloc[0],
+        'WorkOrders': x['WorkOrder'].unique().tolist(),
+        'Styles': x['StyleCode'].unique().tolist(),
+    })).reset_index()
 
     #Get the quantity weighted price of each inventory in a po
     dfPOInventories['TotalCost'] = dfPOInventories['Quantity'] * dfPOInventories['Price'] * dfPOInventories['Forex']
@@ -504,17 +523,13 @@ def GetInventoryStockStatus():
     dfReceiptInventories['Value'] = dfReceiptInventories['Quantity'] * dfReceiptInventories['Price']
     dfReceiptInventories.drop(inplace=True, columns=['Price'])
 
-    def combineValues(dfSubset:pd.DataFrame, cols:List[str]):
-        return dfSubset[cols].to_dict(orient='records')
-
     dfReceiptInventories = dfReceiptInventories.groupby(['InventoryCode','Variant']).apply(lambda x: pd.Series({
         'InventoryName': x['InventoryName'].iloc[0],
         'Group': x['Group'].iloc[0],
         'Unit': x['Unit'].iloc[0],
         'Quantity': x['Quantity'].sum(),
         'Value': x['Value'].sum(),
-        #'VariantDetails': x.groupby('Variant')['Quantity'].sum().to_dict(),
-        'TransactionDetails': combineValues(x, ['InvoiceNumber', 'PONumber', 'Supplier'])
+        'TransactionDetails': combineValues(x, ['InventoryName', 'ReceiptDate','InvoiceNumber', 'PONumber', 'Supplier', 'WorkOrders', 'Styles', 'Quantity'])
     })).reset_index()
     
     dfReceiptInventories['AveragePrice'] = np.where(
@@ -542,7 +557,7 @@ def GetInventoryStockStatus():
         'InventoryName': x['InventoryName'].iloc[0],
         'Group': x['Group'].iloc[0],
         'Unit': x['Unit'].iloc[0],
-        'Quantity': x['Quantity'].sum(),
+        'Balance': x['Quantity'].sum(),
         'Value': x['Value'].sum(),
         'VariantDetails': combineValues(x, ['Variant', 'Quantity']),
         'TransactionDetails': x['TransactionDetails'].iloc[0],

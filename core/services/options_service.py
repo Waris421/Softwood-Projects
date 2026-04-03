@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
+from rest_framework import status
 import rest_framework
 
 from django_countries import countries
@@ -17,12 +18,14 @@ from numpy import where
 from apparelManagement import models as appModels
 from planning import models as planningModels
 from prodManagement import models as prodModels
+from HumanResource import models as hrModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
 from core.constants.generic import APP_OPTIONS
 from core.services.auth_service import hasPermission, getAPIUser, authenticateUser
 
 from .generic_services import dfToListOfDicts
+from .hr_service import getSubordinates
 
 @login_required(login_url='/login')
 def yesOrNo(request):
@@ -739,51 +742,52 @@ def GetAvailableCardGroups(request: HttpRequest):
 
     return JsonResponse(dfToListOfDicts(dfCards), safe=False)
 
-@login_required(login_url='/login')
-def GetWorkers(request: HttpRequest):
-    if request.method != 'GET':
-        return HttpResponse('Not Allowed', status=405)
+class GetWorkers(APIView):
+    permission_classes = [AllowAny]
 
-    search = request.GET.get('search', '')
-    code = request.GET.get('code', None)
+    def get(self, request: Request):
+        try:
+            manager = authenticateUser(request, 'HumanResource', 'Employee', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
 
-    try:
-        code = int(code)
-    except:
-        code = None
+        search = request.query_params.get('search', '')
+        code = request.query_params.get('code', None)
+        managerOnly = request.query_params.get('restricted', 'Yes')
 
-    filters = Q()
+        try:
+            code = int(code)
+        except:
+            code = None
 
-    if search:
-        filters |= (Q(WorkerCode__icontains=search) | Q(WorkerName__icontains=search))
-    
-    if code:
-        filters &= Q(WorkerCode=code)
-    
-    workers = prodModels.Worker.objects.filter(filters)[:15]
+        filters = Q()
+        if search:
+            filters |= (Q(id__icontains=search) | Q(WorkerName__icontains=search))
+        
+        if code:
+            filters &= Q(WorkerCode=code)
+        
+        fields = ['id', 'WorkerName', 'Department']
+        if (managerOnly == 'No') or (manager.is_staff):
+            employees = hrModels.Employee.objects.filter(filters).values(*fields)
+        else:
+            try:
+                manager = hrModels.Employee.objects.get(User=manager)
+            except:
+                raise PermissionError('Your employee information is incorrect. Check with HR.')
+            employees = getSubordinates(manager, filters, fields)
 
-    fields = ['WorkerCode', 'WorkerName','Department','SubDepartment']
-    workers = workers.values(*fields)
-    dfWorkers = pd.DataFrame(workers) if workers else pd.DataFrame(columns=fields)
-    del workers
+        dfEmployees = pd.DataFrame(employees) if employees else pd.DataFrame(columns=fields)
+        del employees
+        
+        dfEmployees['WorkerName'] = dfEmployees['WorkerName'].astype(str)+' ('+dfEmployees['Department'].astype(str)+')'
+        dfEmployees.drop(inplace=True, columns=['Department'])
+        dfEmployees.rename(inplace=True, columns={'id': 'value', 'WorkerName': 'label'})
 
-    dfSubDepartments = pd.DataFrame(operationSections)
-    
-    dfWorkers = pd.merge(left=dfWorkers, right=dfSubDepartments, left_on='SubDepartment', right_on='value', how='left')
-    del dfSubDepartments
-    dfWorkers.drop(inplace=True, columns=['SubDepartment','value'])
-    dfWorkers.rename(inplace=True, columns={'text':'Section'})
-
-    dfWorkers['text'] = dfWorkers['WorkerCode'].astype(str)+' - '+dfWorkers['WorkerName'].astype(str)
-    dfWorkers['text'] = dfWorkers['text']+' - '+dfWorkers['Department']+' - '+dfWorkers['Section']
-    dfWorkers.drop(inplace=True, columns=['WorkerName','Department','Section'])
-    dfWorkers.rename(inplace=True, columns={'WorkerCode':'value'})
-
-    emptyRow = {'value': None, 'text': '-------------'}
-    dfWorkers = pd.concat([pd.DataFrame([emptyRow]), dfWorkers]).reset_index(drop=True)
-
-    return JsonResponse(dfToListOfDicts(dfWorkers), safe=False)
-
+        return Response(data=dfToListOfDicts(dfEmployees), status=status.HTTP_200_OK)
+        
 @login_required(login_url='/login')
 def GetCapacities(request: HttpRequest):
     if request.method != 'GET':

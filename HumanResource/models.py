@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.timezone import now
 
 from apparelManagement.models import Department
 
@@ -85,3 +86,18 @@ class WorkingShift(models.Model):
         indexes = [
             models.Index(fields=['Employee'])
         ]
+
+class Attendance(models.Model):
+    id = models.AutoField(primary_key=True)
+    Employee = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    TimeDate = models.DateTimeField(default=now)
+    Type = models.CharField(max_length=10)
+    Latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    Longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    Details = models.CharField (max_length=255, blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Employee']),
+            models.Index(fields=['TimeDate']),
+        ] 

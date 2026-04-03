@@ -52,6 +52,19 @@ def Login(request: HttpRequest):
         return render(request, 'login.html', context)
 
 class APILogin(APIView):
+    '''
+        Log's in a user via API.
+
+        Expected JSON:
+        {
+            "username": "jon.doe",
+            "password": "1234",
+        }
+        or
+        {
+            "token": "token"
+        }
+    '''
     permission_classes = [AllowAny]
     def post (self, request:Request):
         username = request.data.get('username')

@@ -66,6 +66,9 @@ def authenticateUser(
         modelName: str|None,
         type: Literal["view", "add", "change", "delete"]|None
 ) -> User:
+    '''
+        Check if the user is authenticated. Compatible with both browser and api.
+    '''
     user = request.user
     
     #This implements when a user is accessing via
