@@ -52,6 +52,19 @@ def Login(request: HttpRequest):
         return render(request, 'login.html', context)
 
 class APILogin(APIView):
+    '''
+        Log's in a user via API.
+
+        Expected JSON:
+        {
+            "username": "jon.doe",
+            "password": "1234"
+        }
+        or
+        {
+            "token": "token"
+        }
+    '''
     permission_classes = [AllowAny]
     def post (self, request:Request):
         username = request.data.get('username')
@@ -59,7 +72,12 @@ class APILogin(APIView):
         token = request.data.get('token')
 
         if token:
-            user = Token.objects.get(key=token)
+            try:
+                user = Token.objects.get(key=token)
+            except Token.DoesNotExist:
+                response = {'message': 'Invalid Credentials'}
+                status = rest_framework.status.HTTP_401_UNAUTHORIZED
+                return Response (data=response, status=status)
             if (user):
                 response = {
                     'message': 'Login was successful',
@@ -77,9 +95,10 @@ class APILogin(APIView):
             user = authenticate(username=username, password=password)
 
             if user is not None:
+                token, created = Token.objects.get_or_create(user=user)  # ✅ new line
                 response = {
                     "message": "Login was successful",
-                    "token": user.auth_token.key,
+                    "token": token.key,
                     'fullName': user.get_full_name()
                 }
                 status = rest_framework.status.HTTP_200_OK
