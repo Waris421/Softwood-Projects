@@ -141,6 +141,20 @@ class InventoryCodePart3 (models.Model):
     Name = models.CharField(max_length=40)
     Part2 = models.ForeignKey (InventoryCodePart2, on_delete=models.PROTECT)
 
+class InventoryStock(models.Model):
+    id = models.AutoField(primary_key=True)
+    Inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE)
+    Variant = models.CharField(max_length=50, blank=True, null=True)
+    StockQuantity = models.DecimalField(default=0, max_digits=15, decimal_places=2)
+    StockValue = models.DecimalField(default=0, max_digits=15, decimal_places=2)
+    FreeStockQuantity = models.DecimalField(default=0, max_digits=15, decimal_places=2)
+    FreeStockValue = models.DecimalField(default=0, max_digits=15, decimal_places=2)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Inventory'])
+        ]
+
 class UnitGroup (models.Model):
     """Data model for handling Main Unit Categories."""
 
