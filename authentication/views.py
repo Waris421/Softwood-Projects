@@ -55,7 +55,7 @@ class APILogin(APIView):
     '''
         Log's in a user via API.
 
-        Expected JSON:
+        Expected JSON in POST method:
         {
             "username": "jon.doe",
             "password": "1234",
@@ -72,27 +72,29 @@ class APILogin(APIView):
         token = request.data.get('token')
 
         if token:
-            user = Token.objects.get(key=token)
-            if (user):
-                response = {
-                    'message': 'Login was successful',
-                    'token': token,
-                    'fullName': user.user.get_full_name(),
-                }
-                
-                status = rest_framework.status.HTTP_200_OK
-                return Response (data=response, status=status)
-            else:
-                response = {'message': 'Invalid Credentials'}
-                status = rest_framework.status.HTTP_404_NOT_FOUND
-                return Response (data=response, status=status)
+            try:
+                tokenObj = Token.objects.get(key=token)
+            except Token.DoesNotExist:
+                response = {'detail': 'Invalid Credentials'}
+                return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+            
+            response = {
+                'message': 'Login was successful',
+                'token': token,
+                'fullName': tokenObj.user.get_full_name(),
+            }
+            
+            status = rest_framework.status.HTTP_200_OK
+            return Response (data=response, status=status)
         else:
             user = authenticate(username=username, password=password)
 
             if user is not None:
+                token, _ = Token.objects.get_or_create(user=user)
+
                 response = {
                     "message": "Login was successful",
-                    "token": user.auth_token.key,
+                    "token": token.key,
                     'fullName': user.get_full_name()
                 }
                 status = rest_framework.status.HTTP_200_OK

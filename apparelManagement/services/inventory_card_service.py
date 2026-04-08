@@ -546,6 +546,7 @@ def GetInventoryStockStatus():
 
     dfReceiptInventories = pd.merge(left=dfReceiptInventories, right=dfIssueInventories, on=['InventoryCode', 'Variant'], how='left')
     del dfIssueInventories
+    print(dfReceiptInventories[dfReceiptInventories['InventoryCode']=='FABDNMIND001'])
 
     dfReceiptInventories['Quantity'] = dfReceiptInventories['Quantity'] - dfReceiptInventories['IssueQty'].fillna(0)
     dfReceiptInventories['Value'] = dfReceiptInventories['Quantity'] * dfReceiptInventories['AveragePrice']

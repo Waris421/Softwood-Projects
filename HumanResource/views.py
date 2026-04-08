@@ -398,6 +398,14 @@ class AssignOffice(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
 class GetAttendance(APIView):
+    '''
+        Get a user's attendance within the specified date range.
+
+        Expected GET method parameters
+        from: yyyy-mm-dd
+        to: yyyy-mm-dd
+        employeeCode: (optional)
+    '''
     permission_classes = [AllowAny]
 
     def get(self, request: Request):
@@ -440,11 +448,11 @@ class AddUnverifiedAttendance(APIView):
     '''
         Get initial data from user for checking if they can add attendance.
 
-        Expected JSON:
+        Expected JSON in POST method:
         {
-            "Latitude": "31.409981",
-            "Longitude": "74.364714",
-            "Type": "in/out"
+            "Latitude": "float (required)",
+            "Longitude": "float (required)",
+            "Type": "in/out (required)"
         }
     '''
     permission_classes = [AllowAny]
@@ -470,4 +478,40 @@ class AddUnverifiedAttendance(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class AddVerifiedAttendance(APIView):
+    '''
+        Add user's attendance.
+
+        Expected JSON in POST method:
+        {
+            "Latitude": "float (required)",
+            "Longitude": "float (required)",
+            "Type": "in/out (required)"
+            "Details": "(required, but can be empty)"
+        }
+    '''
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            user = authenticateUser(request, 'HumanResource', 'Attendance', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
         
+        try:
+            employee = models.Employee.objects.get(User=user)
+        except:
+            response = {'message': 'User settings issue. Check wth HR'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            attendance_service.AddAttendance(employee, request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)

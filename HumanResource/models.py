@@ -101,3 +101,147 @@ class Attendance(models.Model):
             models.Index(fields=['Employee']),
             models.Index(fields=['TimeDate']),
         ] 
+
+class AdjustmentHeader(models.Model):
+    id = models.AutoField(primary_key=True)
+    Employee = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    Type = models.CharField(max_length=31)
+    Approval = models.BooleanField(null=True, blank=True)
+    ManagerComments = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Employee']),
+            models.Index(fields=['Type']),
+            models.Index(fields=['Approval']),
+        ]
+
+class LeaveAdjustmentHeader(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(AdjustmentHeader, on_delete=models.CASCADE, related_name='LeaveInfo')
+    LeaveType = models.CharField(max_length=31)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['LeaveType']),
+        ]
+
+class SickLeaveAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(LeaveAdjustmentHeader, on_delete=models.CASCADE, related_name='SickLeaveInfo')
+    StartDate = models.DateField(auto_now=False, auto_now_add=False)
+    EndDate = models.DateField(auto_now=False, auto_now_add=False, blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['StartDate']),
+            models.Index(fields=['EndDate']),
+        ]
+
+class CasualLeaveAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(LeaveAdjustmentHeader, on_delete=models.CASCADE, related_name='CasualLeaveInfo')
+    StartDate = models.DateField(auto_now=False, auto_now_add=False)
+    EndDate = models.DateField(auto_now=False, auto_now_add=False, blank=True, null=True)
+    Reason = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['StartDate']),
+            models.Index(fields=['EndDate']),
+        ]
+
+class AnnualLeaveAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(LeaveAdjustmentHeader, on_delete=models.CASCADE, related_name='AnnualLeaveInfo')
+    StartDate = models.DateField(auto_now=False, auto_now_add=False)
+    EndDate = models.DateField(auto_now=False, auto_now_add=False)
+    Reason = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['StartDate']),
+            models.Index(fields=['EndDate']),
+        ]
+
+class ShortLeaveAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(LeaveAdjustmentHeader, on_delete=models.CASCADE, related_name='ShortLeaveInfo')
+    StartDateTime = models.DateTimeField(auto_now=False, auto_now_add=False)
+    Duration = models.PositiveSmallIntegerField()
+    Reason = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['StartDateTime']),
+        ]
+
+class AttendanceAdjustmentHeader(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(AdjustmentHeader, on_delete=models.CASCADE, related_name='AttendanceAdjustmentInfo')
+    AdjustmentType = models.CharField(max_length=31)
+    Date = models.DateField(auto_now=False, auto_now_add=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['AdjustmentType']),
+            models.Index(fields=['Date']),
+        ]
+
+class LocationAdjustmentHeader(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(AttendanceAdjustmentHeader, on_delete=models.CASCADE, related_name='LocationAdjustmentInfo')
+    LocationType = models.CharField(max_length=31)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['LocationType']),
+        ]
+
+class InLocationAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(LocationAdjustmentHeader, on_delete=models.CASCADE, related_name='InLocationAdjustmentInfo')
+    InLocation = models.CharField(max_length=255)
+    Reason = models.CharField(max_length=255)
+
+class OutLocationAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(LocationAdjustmentHeader, on_delete=models.CASCADE, related_name='OutLocationAdjustmentInfo')
+    OutLocation = models.CharField(max_length=255)
+    Reason = models.CharField(max_length=255)
+
+class TimeAdjustmentHeader(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(AttendanceAdjustmentHeader, on_delete=models.CASCADE, related_name='TimeAdjustmentInfo')
+    TimeType = models.CharField(max_length=31)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['TimeType']),
+        ]
+
+class InTimeAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(TimeAdjustmentHeader, on_delete=models.CASCADE, related_name='InTimeAdjustmentInfo')
+    InTime = models.TimeField(auto_now=False, auto_now_add=False)
+    Reason = models.CharField(max_length=255)
+
+class OutTimeAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(TimeAdjustmentHeader, on_delete=models.CASCADE, related_name='OutTimeAdjustmentInfo')
+    OutTime = models.TimeField(auto_now=False, auto_now_add=False)
+    Reason = models.CharField(max_length=255)
+
+class TravelAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(AdjustmentHeader, on_delete=models.CASCADE, related_name='TravelAdjustmentInfo')
+    StartDate = models.DateField(auto_now=False, auto_now_add=False)
+    EndDate = models.DateField(auto_now=False, auto_now_add=False)
+    Destination = models.CharField(max_length=31)
+    Reason = models.CharField(max_length=255)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['StartDate']),
+            models.Index(fields=['EndDate']),
+        ]
