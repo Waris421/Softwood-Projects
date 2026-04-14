@@ -4,4 +4,6 @@ from . import views
 
 urlpatterns = [
     path('alloc/export', views.ExportPOAllocation.as_view(), name='exportPOAlloc'),
+
+    path('integration/machine-attendance', views.ImportMachineAttendance.as_view(), name='importMachineAttendance'),
 ]

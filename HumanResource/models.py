@@ -17,7 +17,7 @@ class Employee(models.Model):
     DateOfLeaving = models.DateField(blank=True, null=True)
     Status = models.CharField(max_length=31)
     Gender = models.CharField(max_length=7)
-    User = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
+    User = models.OneToOneField(User, on_delete=models.PROTECT, blank=True, null=True, related_name='employeeUser')
 
     class Meta:
         indexes = [
@@ -244,4 +244,15 @@ class TravelAdjustment(models.Model):
         indexes = [
             models.Index(fields=['StartDate']),
             models.Index(fields=['EndDate']),
+        ]
+
+class OverTimeAdjustment(models.Model):
+    id = models.AutoField(primary_key=True)
+    Header = models.OneToOneField(AdjustmentHeader, on_delete=models.CASCADE, related_name='OverTimeAdjsutmentInfo')
+    Date = models.DateField(auto_now=False, auto_now_add=False)
+    Reason = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Date'])
         ]

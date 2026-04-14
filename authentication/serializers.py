@@ -9,3 +9,6 @@ class APIPasswordResetConfirm(serializers.Serializer):
             raise serializers.ValidationError({"password": "Passwords do not match."})
         
         return attrs
+
+class APIPasswordResetRequest(serializers.Serializer):
+    email = serializers.EmailField()

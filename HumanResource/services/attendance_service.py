@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import Dict
 import googlemaps
 from datetime import date
@@ -182,36 +183,66 @@ def verifyAttendaceTimes(dfAttendance: pd.DataFrame, dfStandardTimes: pd.DataFra
 
     return df
 
-def adjustWeekend(df: pd.DataFrame, offSaturday: date|None):    
-    df['WeekendFlag'] = False
-
-    isSunday = df['Date'].dt.dayofweek == 6
-    df.loc[isSunday, 'WeekendFlag'] = True
+def adjustWeekend(df: pd.DataFrame, offSaturday: date|None):
+    isWeekend = df['Date'].dt.dayofweek == 6
     
     if offSaturday is not None:
         offSatDT = pd.to_datetime(offSaturday)
         daysDiff = (df['Date'] - offSatDT).dt.days
-
         isOffSaturday = (df['Date'].dt.dayofweek == 5) & (daysDiff % 14 == 0)
-
-        df.loc[isOffSaturday, 'WeekendFlag'] = True
+        isWeekend |= isOffSaturday
+    
+    return isWeekend
         
-    return df
+def adjustHolidays(dfAttendance: pd.DataFrame, dfHolidays: pd.DataFrame):
+    if dfHolidays.empty:
+        dfResults = dfAttendance.copy()
+
+        dfResults['HolidayFlag'] = False
+        dfResults['HolidayDetails'] = None
+
+        return dfResults[['HolidayFlag', 'HolidayDetails']]
+
+    dfHolidays = dfHolidays.sort_values('StartDate')
+
+    dfResults = pd.merge_asof(
+        dfAttendance.sort_values('Date'), 
+        dfHolidays, 
+        left_on='Date', 
+        right_on='StartDate', 
+        direction='backward'
+    )
+
+    isHoliday = (dfResults['Date'] >= dfResults['StartDate']) & (dfResults['Date'] <= dfResults['EndDate'])
+    dfResults['HolidayFlag'] = isHoliday
+    dfResults['HolidayDetails'] = dfResults['Description'].where(isHoliday, None) 
+    
+    return dfResults[['HolidayFlag', 'HolidayDetails']]
+
+def markAbsentism(dfAttendance: pd.DataFrame):
+    absentFlag = (
+        dfAttendance['InTime'].isna() & 
+        dfAttendance['OutTime'].isna() & 
+        (dfAttendance['WeekendFlag'] == False) & 
+        (dfAttendance['HolidayFlag'] == False) &
+        (dfAttendance['Date'].dt.date < TODAY.date())
+    )
+    return absentFlag
 
 def GetAttendance(employee: models.Employee, startDate: str, endDate: str):
     dateRange = pd.date_range(start=startDate, end=endDate)
     dfDateRange = pd.DataFrame({'Date': dateRange})
 
     filters = Q(TimeDate__date__range=(startDate, endDate)) & Q(Employee=employee)
-    schema = {
+    attSchema = {
         'TimeDate': 'datetime64[ns, UTC]',
         'Type': 'string',
         'Latitude': 'float64',
         'Longitude': 'float64',
         'Details': 'string'
     }
-    attendance = list(models.Attendance.objects.filter(filters).values(*schema.keys()))
-    dfAttendance = pd.DataFrame(attendance) if attendance else pd.DataFrame(columns=schema.keys()).astype(schema)
+    attendance = list(models.Attendance.objects.filter(filters).values(*attSchema.keys()))
+    dfAttendance = pd.DataFrame(attendance) if attendance else pd.DataFrame(columns=attSchema.keys()).astype(attSchema)
     del attendance
 
     assignedLocations = models.Location.objects.filter(locationassignment__Employee=employee).distinct()
@@ -223,6 +254,16 @@ def GetAttendance(employee: models.Employee, startDate: str, endDate: str):
     except:
         offSaturday = None
 
+    schema = {
+        'StartDate': 'datetime64[ns, UTC]',
+        'EndDate': 'datetime64[ns, UTC]',
+        'Description': 'string',
+    }
+    filters = Q(StartDate__lte=endDate) & Q(EndDate__gte=startDate) & Q(Department=employee.Department)
+    holidays = models.Holiday.objects.filter(filters).values(*schema.keys())
+    dfHolidays = pd.DataFrame(holidays) if holidays else pd.DataFrame(columns=schema.keys()).astype(schema)
+    del holidays, filters, schema
+
     #Separate the date and time from datetime.
     dfAttendance['TimeDate'] = dfAttendance['TimeDate'].dt.tz_convert(LOCAL_TIMEZONE)
     dfAttendance['Date'] = pd.to_datetime(dfAttendance['TimeDate'].dt.date)
@@ -232,20 +273,29 @@ def GetAttendance(employee: models.Employee, startDate: str, endDate: str):
     #Make sure the first lates of in/out is capitalised
     dfAttendance['Type'] = dfAttendance['Type'].str.capitalize()
     
-    dfAttendance['Location'] = dfAttendance.apply(lambda row: getLocation(row['Latitude'], row['Longitude']), axis=1)
+    #Vectorize the get location function, this reduces over head for large number of rows
+    vectorizedGetLocation = np.vectorize(getLocation, otypes=[models.Location])
+    dfAttendance['Location'] = vectorizedGetLocation(dfAttendance['Latitude'], dfAttendance['Longitude'])
     dfAttendance['LocationFlag'] = dfAttendance['Location'].isin(assignedLocations)
     del assignedLocations
 
-    dfResults = expandAttendance(dfAttendance, dfDateRange, schema)
+    #Convert attendance log to separate cols and all rows in the date range
+    dfResults = expandAttendance(dfAttendance, dfDateRange, attSchema)
     del dfAttendance, dfDateRange
 
+    #Check the login/logout times and share any descripancies
     dfResults[['InTimeDiff', 'OutTimeDiff', 'InTimeFlag', 'OutTimeFlag']] = verifyAttendaceTimes(dfResults[['Date', 'InTime', 'OutTime']], dfShifts)
 
-    dfResults = adjustWeekend(dfResults, offSaturday)
+    #Add the flag for weekends and off saturdays
+    dfResults['WeekendFlag'] = adjustWeekend(dfResults, offSaturday)
+    del offSaturday
 
-    print(dfResults)
+    dfResults[['HolidayFlag', 'HolidayDetails']] = adjustHolidays(dfResults, dfHolidays)
 
     #TODO: Take adjustments in to account
+    
+
+    dfResults['AbsentFlag'] = markAbsentism(dfResults)
     
     #Data formatting for front end
     locationCols = ['InLocation', 'OutLocation']
@@ -257,7 +307,13 @@ def GetAttendance(employee: models.Employee, startDate: str, endDate: str):
     
     timeCols = ['InTime', 'OutTime']
     for col in timeCols:
+        #For the data from app
         tempDt = pd.to_datetime(dfResults[col], format='%H:%M:%S.%f', errors='coerce')
+        
+        #For the data from machines
+        tempDt = tempDt.fillna(pd.to_datetime(dfResults[col], format='%H:%M:%S', errors='coerce'))
+        
+        #Format the time to AM/PM format
         dfResults[col] = tempDt.dt.strftime('%I:%M %p')
 
     return dfToListOfDicts(dfResults)

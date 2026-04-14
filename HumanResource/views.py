@@ -5,7 +5,7 @@ from rest_framework.request import Request
 from rest_framework import status
 
 from .services import employee_service, shift_service, holiday_service, location_service
-from .services import attendance_service
+from .services import attendance_service, correction_service
 from core.services.auth_service import authenticateUser
 from . import models
 
@@ -511,6 +511,27 @@ class AddVerifiedAttendance(APIView):
             attendance_service.AddAttendance(employee, request.data)
             response = {'message': 'Saved Successfully'}
             return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+class AddCorrection(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            user = authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        params = request.query_params.dict()
+
+        try:
+            formData = correction_service.GetDataForCorrection(user, params)
+            return Response(data=formData, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}

@@ -58,7 +58,7 @@ class APILogin(APIView):
         Expected JSON in POST method:
         {
             "username": "jon.doe",
-            "password": "1234",
+            "password": "1234"
         }
         or
         {
@@ -84,8 +84,7 @@ class APILogin(APIView):
                 'fullName': tokenObj.user.get_full_name(),
             }
             
-            status = rest_framework.status.HTTP_200_OK
-            return Response (data=response, status=status)
+            return Response (data=response, status=status.HTTP_200_OK)
         else:
             user = authenticate(username=username, password=password)
 
@@ -97,19 +96,19 @@ class APILogin(APIView):
                     "token": token.key,
                     'fullName': user.get_full_name()
                 }
-                status = rest_framework.status.HTTP_200_OK
+                return Response (data=response, status=status.HTTP_200_OK)
             else:
                 response = {"message": "Invalid Credentials"}
-                status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            
-            return Response (data=response, status=status)
+                return Response (data=response, status=status.HTTP_401_UNAUTHORIZED)
 
 class APIPasswordResetRequest(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request):
-        userEmail = request.data.get('email')
+        serializer = serializers.APIPasswordResetRequest(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
+        userEmail = serializer.validated_data['email']
         user = User.objects.filter(email=userEmail).first()
 
         if user:
@@ -120,12 +119,10 @@ class APIPasswordResetRequest(APIView):
                 'token': token,
                 'uid': uid,
             }
-            status = rest_framework.status.HTTP_200_OK
+            return Response(data=response, status=status.HTTP_200_OK)
         else:
             response = {"message": "User does not exist"}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
-
-        return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
 
 class APIPasswordResetConfirm(APIView):
     permission_classes = [AllowAny]
