@@ -109,7 +109,7 @@ def GetMachines(
         dfMachines = pd.DataFrame(columns=fields)
     del machines, fields, filters
 
-    dfMachineTypes = pd.DataFrame(generic_services.machineTypes)
+    dfMachineTypes = pd.DataFrame(prod.machineTypes)
 
     dfMachines = pd.merge(left=dfMachines, right=dfMachineTypes, left_on='Type', right_on='value', how='left')
     del dfMachineTypes
