@@ -55,7 +55,7 @@ class APILogin(APIView):
     '''
         Log's in a user via API.
 
-        Expected JSON:
+        Expected JSON in POST method:
         {
             "username": "jon.doe",
             "password": "1234"
@@ -73,29 +73,25 @@ class APILogin(APIView):
 
         if token:
             try:
-                user = Token.objects.get(key=token)
+                tokenObj = Token.objects.get(key=token)
             except Token.DoesNotExist:
-                response = {'message': 'Invalid Credentials'}
-                status = rest_framework.status.HTTP_401_UNAUTHORIZED
-                return Response (data=response, status=status)
-            if (user):
-                response = {
-                    'message': 'Login was successful',
-                    'token': token,
-                    'fullName': user.user.get_full_name(),
-                }
-                
-                status = rest_framework.status.HTTP_200_OK
-                return Response (data=response, status=status)
-            else:
-                response = {'message': 'Invalid Credentials'}
-                status = rest_framework.status.HTTP_404_NOT_FOUND
-                return Response (data=response, status=status)
+                response = {'detail': 'Invalid Credentials'}
+                return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+            
+            response = {
+                'message': 'Login was successful',
+                'token': token,
+                'fullName': tokenObj.user.get_full_name(),
+            }
+            
+            status = rest_framework.status.HTTP_200_OK
+            return Response (data=response, status=status)
         else:
             user = authenticate(username=username, password=password)
 
             if user is not None:
-                token, created = Token.objects.get_or_create(user=user)  # ✅ new line
+                token, _ = Token.objects.get_or_create(user=user)
+
                 response = {
                     "message": "Login was successful",
                     "token": token.key,
