@@ -9,6 +9,10 @@ from typing import Dict
 from .. import models
 from core.services import generic_services
 
+from core.constants import prod
+from datetime import datetime
+
+
 def calculateTimePassed(row: pd.Series):
     if row['YearsPassed'] > 0:
         return f"{row['YearsPassed']} years"
@@ -70,7 +74,7 @@ def GetWorkers(department: str, status:str):
         dfWorkers = pd.DataFrame(columns=fields)
     del workers, fields
 
-    dfSections = pd.DataFrame(generic_services.operationSections)
+    dfSections = pd.DataFrame(prod.operationSections)
 
     dfWorkers = pd.merge(left=dfWorkers, right=dfSections, left_on='SubDepartment', right_on='value', how='left')
     del dfSections
@@ -79,7 +83,7 @@ def GetWorkers(department: str, status:str):
 
     #Calculate days/months/years passed since joining
     dfWorkers['DateOfJoining'] = pd.to_datetime(dfWorkers['DateOfJoining'], format='%Y-%m-%d')
-    dfWorkers['TimePassed'] = pd.to_timedelta(generic_services.NOW.date() - dfWorkers['DateOfJoining'].dt.date)
+    dfWorkers['TimePassed'] = pd.to_timedelta(datetime.now().date() - dfWorkers['DateOfJoining'].dt.date)
     dfWorkers['DaysPassed']  = dfWorkers['TimePassed'].dt.days
     dfWorkers['MonthsPassed'] = (dfWorkers['DaysPassed'] / 30.44).round().astype(int)
     dfWorkers['YearsPassed'] = (dfWorkers['DaysPassed'] / 365.25).round().astype(int)
