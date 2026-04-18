@@ -79,6 +79,61 @@ def Inventory (request: HttpRequest):
                'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
     return render (request, 'inventory/home.html',context)
 
+class APIInvenotory(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventoryData = inventory_card_service.GetInventories(group='', stockFilter='', inUseFilter=None)
+            return Response(data=inventoryData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)            
+
+class APIInventoryAdd(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            formData = inventory_card_service.GetDataForInvCardAddition()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            addedCode = inventory_card_service.AddAPIInventory(request.data)
+            response = {'code': addedCode}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
 @login_required(login_url = '/login')
 def AddInv (request: HttpRequest): 
     if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='add'):
@@ -104,6 +159,25 @@ def AddInv (request: HttpRequest):
         
         return render (request, 'inventory/add.html', context)
 
+class GenerateInventoryCodeAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            responseData = inventory_card_service.GenerateInvCode(request.data)
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def GenerateInventoryCode (request: HttpRequest):
     if request.method != 'POST':
@@ -118,6 +192,29 @@ def GenerateInventoryCode (request: HttpRequest):
         print(e)
         return HttpResponse(e, status=400)
 
+class CheckInventoryCodeForAddition(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        code = request.query_params.get('code', None)
+        if code is None:
+            response = {'message': 'Invalid Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            models.Inventory.objects.get(Code=code)
+            response = {'message': 'Code Exists'}
+            return Response(data=response, status=status.HTTP_409_CONFLICT)
+        except:
+            response = {'message': 'OK'}
+            return Response(data=response, status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def CheckInventoryCodeExists(request: HttpRequest, pk: str):
     if request.method != 'GET':
@@ -128,6 +225,56 @@ def CheckInventoryCodeExists(request: HttpRequest, pk: str):
         return HttpResponse('Code already exists', status=400)
     except:
         return HttpResponse('OK', status=200)
+
+class APIInventoryUpdate(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventory = models.Inventory.objects.get(Code=pk)
+        except:
+            response = {'message': 'Resource not found'};
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        del pk
+
+        try:
+            formData = inventory_card_service.GetDataForInvCardUpdate(inventory)  
+            return Response(data=formData, status=status.HTTP_200_OK) 
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventory = models.Inventory.objects.get(Code=pk)
+        except:
+            response = {'message': 'Resource not found'};
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        del pk
+
+        try:
+            inventory_card_service.UpdateInventory(inventory, request.data)
+            response = {'message': 'Saved'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def UpdateInv(request: HttpRequest, pk: str):
@@ -555,7 +702,7 @@ class WorkOrders(APIView):
 
     def post(self, request: Request):
         try:
-            authenticateUser(request, 'apparelManagement', 'WOrkOrder', 'view')
+            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
         except Exception as e:
             print(e)
             response = {'message': str(e)}

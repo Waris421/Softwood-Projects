@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 
 from django.db.models import Q
+from django.db import IntegrityError
+from django.forms.models import model_to_dict
 
 from typing import Dict, List
 
@@ -80,17 +82,16 @@ def getApprovalStatus(row: pd.Index):
 
     return f"Rejected - {row['QualityComments']}"
 
-def GetInventories (group: str, stockFilter: str):
+def GetInventories (group: str, stockFilter: str, inUseFilter=True):
+    filters = Q()
     if group:
-        inventories = models.Inventory.objects.filter(Group=group)
-    else:
-        inventories = models.Inventory.objects.all()
-    inventories = inventories.filter(InUse=True).values('Code','Name','Group','Unit','InUse')
+        filters &= Q(Group = group)
+    if inUseFilter is not None:
+        filters &= Q(InUse=inUseFilter)
     
-    if inventories:
-        dfInventory = pd.DataFrame(inventories)
-    else:
-        dfInventory = pd.DataFrame(columns=['Code','Name','Group','Unit','InUse'])
+    fields = ['Code','Name','Group','Unit','InUse']
+    inventories = models.Inventory.objects.filter(filters).values(*fields)    
+    dfInventory = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
     del inventories
 
     dfInventory = dfInventory.sort_values (by='Code')
@@ -98,6 +99,134 @@ def GetInventories (group: str, stockFilter: str):
     
     return dfToListOfDicts(dfInventory)
 
+def GetDataForInvCardAddition():
+    unitGroupsRaw = models.UnitGroup.objects.all().values('Name')
+    unitGroups = []
+    for group in unitGroupsRaw:
+        unitGroups.append({'value':group['Name'],'label':group['Name'],})
+    del unitGroupsRaw
+
+    currenciesRaw = models.Currency.objects.all().values('Code','Name')
+    currencies = []
+    for currency in currenciesRaw:
+        currencies.append({'value':currency['Code'],'label':currency['Name'],})
+    del currenciesRaw
+
+    codeP1Raw = models.InventoryCodePart1.objects.all().values('Code','Name')
+    codeP1 = []
+    for code in codeP1Raw:
+        codeP1.append({'value':code['Code'],'label':code['Name'],})
+    del codeP1Raw
+    
+    result = {
+        'unitGroups': unitGroups,
+        'currencies': currencies,
+        'codeP1': codeP1
+    }
+    return result
+
+def GenerateInvCode(jsonData: Dict[str, str]):
+    part1 = jsonData['part1']
+    part2 = jsonData['part2']
+    part3 = jsonData['part3']
+
+    if not part1:
+        raise ValueError('Part 1 of the code is required')
+    
+    data = {}
+    part2s = models.InventoryCodePart2.objects.filter(Part1=part1).values('Code','Name')
+    temp = []
+    for item in part2s:
+        temp.append({'value':item['Code'],'label':item['Name'],})
+    part2s = temp
+    del temp
+
+    data['part2s'] = part2s
+
+    if not part2:
+        try:
+            part2 = part2s[0]['value']
+        except:
+            part2 = None
+
+    if part2:
+        data['part2'] = part2
+        try:
+            part2 = models.InventoryCodePart2.objects.get(Code=part2, Part1=part1)
+        except:
+            part2 = models.InventoryCodePart2.objects.filter(Part1=part1).first()
+        part3s = models.InventoryCodePart3.objects.filter(Part2=part2).values('Code','Name')
+        temp = []
+        for item in part3s:
+            temp.append({'value':item['Code'],'label':item['Name'],})
+        part3s = temp
+        del temp
+        data['part3s'] = part3s
+    
+    if part3:
+        data['part3'] = part3
+
+    return data
+
+def AddAPIInventory(data: Dict[str, str|bool]):
+    #Check for any duplicate code
+    code = data['Code']
+    if models.Inventory.objects.filter(Code=code).exists():
+        raise ValueError(f"Inventory Code '{code}' already exists.")
+
+    #Remove unncessory variables
+    data.pop('UnitType', None)
+
+    try:
+        data['Unit'] = models.Unit.objects.get(Name=data.get('Unit'))
+        data['Currency'] = models.Currency.objects.get(Code=data.get('Currency'))
+
+        inventory = models.Inventory.objects.create(**data)
+        return inventory.Code
+    except models.Unit.DoesNotExist:
+        raise ValueError("Invalid unit provided.")
+    except models.Currency.DoesNotExist:
+        raise ValueError('Invalid currency provided.')
+    except IntegrityError as e:
+        raise ValueError(f"Database integrity error: {e}")
+    except Exception as e:
+        raise ValueError(e)
+
+def GetDataForInvCardUpdate(inventory: models.Inventory):
+    result = GetDataForInvCardAddition()
+    result.pop('codeP1', None)
+
+    invDict = model_to_dict(inventory)
+    invDict['UnitType'] = inventory.Unit.Group.Name
+
+    result['inventory'] = invDict
+
+    return result
+
+def UpdateInventory(inventory: models.Inventory, data: Dict[str, str|bool]):
+    fieldsToIgnore = ['UnitType', 'Code']
+    foreignKeyMap = {
+        'Unit': (models.Unit, 'Name'),
+        'Currency': (models.Currency, 'Code'),
+    }
+
+    updateData = {}
+    for key, value in data.items():
+        if key in fieldsToIgnore:
+            continue
+
+        if key in foreignKeyMap:
+            model, lookup = foreignKeyMap[key]
+            value = model.objects.get(**{lookup: value})
+        
+        if hasattr(inventory, key):
+            setattr(inventory, key, value)
+            updateData[key] = value
+    
+    if updateData:
+        inventory.save(update_fields=updateData.keys())
+
+#TODO: This will be obsolete when we shift to next views
 def AddInventory (data: Dict[str, str]):
     '''
     Creates a new inventory card based on the provided data in dataframe.
@@ -121,6 +250,7 @@ def AddInventory (data: Dict[str, str]):
     inventory.save()
     return inventory.Code
 
+#TODO: This will be obsolete when we shift to next views
 def EditInventory (
         data: Dict[str, str],
         inventory: models.Inventory
@@ -134,6 +264,7 @@ def EditInventory (
     inventory = models.Inventory(**data)
     inventory.save()
 
+#TODO: This will be obsolete when we shift to next views
 def getInventoryCardDropDowns ():
     groups = models.InvGroups
     groups = [{'value': item[0], 'text': item[1]} for item in groups]
@@ -171,6 +302,7 @@ def getInventoryCardDropDowns ():
 
     return groups, unitTypes, auditReq, inUse, currencies,  codeP1
 
+#TODO: this will be obsolete when we shoft to next view
 def GenenrateCode (jsonData: Dict[str, str]):
     part1 = jsonData['part_0']
     part2 = jsonData['part_1']

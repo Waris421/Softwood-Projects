@@ -10,6 +10,12 @@ urlpatterns = [
     path('notification/<int:pk>/view', views.GetNotificationDetails, name='notifDetails'),
     path('notification/<int:pk>/read', views.ReadNotification, name='notifRead'),
 
+    path('mmc/inventory', views.APIInvenotory.as_view(), name='apiInv'),
+    path('mmc/inventory/add', views.APIInventoryAdd.as_view(), name='apiInvAdd'),
+    path('mmc/inventory/code-gen', views.GenerateInventoryCodeAPI.as_view(), name='genInvCodeAPI'),
+    path('mmc/inventory/code-check', views.CheckInventoryCodeForAddition.as_view(), name='checkInvCodeExistence'),
+    path('mmc/inventory/<str:pk>/update', views.APIInventoryUpdate.as_view(), name='updateInv'),
+
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
     path('inv/<str:pk>/edit/', views.UpdateInv, name='editInv'),
@@ -109,4 +115,5 @@ urlpatterns = [
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
     path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),
+    path('api/units', options_service.GetInvUnitsForGroup.as_view(), name='apiUnitsFromGroup'),
 ]

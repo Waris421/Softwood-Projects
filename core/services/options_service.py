@@ -425,6 +425,32 @@ def getOpenPOs(request:HttpRequest):
     data = dfToListOfDicts(dfData) 
     return JsonResponse(data, safe=False)
 
+class GetInvUnitsForGroup(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', type='add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+        
+        group = request.query_params.get('group')
+        if group is None:
+            response = {'message': 'Invalid Group'}
+            return Response(data=response, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+        
+        fields = ['Name']
+        units = appModels.Unit.objects.filter(Group=group).values(*fields)
+        dfData = pd.DataFrame(units) if units else pd.DataFrame(columns=fields)
+        
+        dfData['label'] = dfData['Name']
+        dfData.rename(columns={'Name':'value'}, inplace=True)
+
+        return Response(data=dfToListOfDicts(dfData), status=rest_framework.status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def getUnitsForGroup(request: HttpRequest, group: str):
     if request.method == 'GET':
