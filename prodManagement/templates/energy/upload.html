@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Energy Upload</title>
+</head>
+<body>
+
+{% if success %} <!-- Django checks if the view sent success: True. If yes, show the congrats message -->
+    <h1>Congrats you have uploaded your file!</h1>
+{% else %}
+    <h1>Please upload your file</h1>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="file" accept=".csv">
+        <button type="submit">Upload</button>
+    </form>
+{% endif %}
+
+</body>
+</html>

@@ -134,6 +134,10 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Outsource', 'appName': 'prodManagement', 'modelName': 'OutSourceJobContract', 'children': [
             {'label': 'Contract List', 'href': '/productivity/outsource-contracts', 'subtext': 'Manage out-source contracts'},
         ]},
+        # New label for an option for energy consumption
+        {'label': 'Energy Consumption', 'appName': 'prodManagement', 'modelName': 'Serial', 'children': [
+            {'label': 'Upload CSV File', 'href': '/productivity/energy/upload', 'subtext': 'Upload energy consumption data'},
+        ]},
     ],
     'finance': [
         {'label': 'Dashboard', 'href': '/finance', 'appName': 'apparelManagement', 'modelName':'Inventory'},
