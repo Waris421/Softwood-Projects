@@ -3,6 +3,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 
+import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
@@ -809,3 +810,78 @@ def GetWorkOrderRoute(request: HttpRequest):
     
     route = outsource_service.GetWorkOrderRoute(workOrder, source, ignore)
     return JsonResponse(route, safe=False)
+
+# View to upload energy consumption data from excel file. 
+class EnergyUpload(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        # Step 1 — Verify the user is logged in
+        try:
+            user = auth_service.authenticateUser(request, None, None, None)
+        except Exception as e:
+            return Response({'message': str(e)}, status=rest_framework.status.HTTP_401_UNAUTHORIZED)
+
+        # Step 2 — Make sure a file was included
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response({'message': 'No file provided'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Step 3 — Read directly from memory into pandas — no disk involved
+            df = pd.read_excel(uploaded_file)
+
+            # Step 4 — Rename first column to Timestamp, parse into proper datetime
+            df = df.rename(columns={df.columns[0]: 'Timestamp'})
+            df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%a %d/%m/%y %H:%M", errors='coerce')
+            df = df.dropna(subset=['Timestamp'])
+
+            # Step 5 — Check if data for this exact day already exists
+            upload_date = df['Timestamp'].dt.date.min()
+            if models.EnergyReading.objects.filter(Timestamp__date=upload_date).exists():
+                return Response(
+                    {'message': f'Data for {upload_date.strftime("%d %B %Y")} has already been uploaded'},
+                    status=rest_framework.status.HTTP_400_BAD_REQUEST
+                )
+
+            # Step 6 — Log the upload (who uploaded and when) — no file stored
+            upload = models.EnergyConsumption.objects.create(UploadedBy=user)
+
+            # Step 7 — Melt: convert wide format (many columns) to long format (one row per machine per minute)
+            machine_cols = df.columns[1:].tolist()
+            df = df.melt(id_vars=['Timestamp'], value_vars=machine_cols, var_name='MachineName', value_name='Value_kW')
+            df['Value_kW'] = df['Value_kW'].fillna(0)
+
+            # Step 8 — Create any new machines in one pass
+            machine_names = df['MachineName'].unique()
+            machines = {}
+            for name in machine_names:
+                machine, _ = models.EnergyMachine.objects.get_or_create(Name=name)
+                machines[name] = machine
+
+            # Step 9 — Fetch ALL existing timestamp+machine combos in ONE query
+            existing = set(
+                (name, ts.replace(tzinfo=None))
+                for name, ts in models.EnergyReading.objects
+                .filter(Machine__Name__in=machine_names)
+                .values_list('Machine__Name', 'Timestamp')
+            )
+
+            # Step 10 — Filter duplicates and bulk save all new readings
+            readings = []
+            for row in df.itertuples(index=False):
+                key = (row.MachineName, row.Timestamp.to_pydatetime().replace(tzinfo=None))
+                if key not in existing:
+                    readings.append(models.EnergyReading(
+                        Machine=machines[row.MachineName],
+                        Upload=upload,
+                        Timestamp=row.Timestamp,
+                        Value_kW=row.Value_kW
+                    ))
+
+            models.EnergyReading.objects.bulk_create(readings, ignore_conflicts=True)
+
+        except Exception as e:
+            return Response({'message': f'File processing failed: {str(e)}'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'File uploaded successfully'}, status=rest_framework.status.HTTP_200_OK)

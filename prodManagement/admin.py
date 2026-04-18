@@ -62,3 +62,15 @@ class RFIDCardAdmin(admin.ModelAdmin):
     list_display = ('CardId','GroupNumber','GroupStatus')
     list_filter = ('GroupNumber',)
     ordering = ('CardId',)
+
+@admin.register(models.EnergyConsumption)
+class EnergyConsumptionAdmin(admin.ModelAdmin):
+    list_display = ('UploadedBy', 'UploadedAt')
+
+@admin.register(models.EnergyMachine)
+class EnergyMachineAdmin(admin.ModelAdmin):
+    list_display = ('Name',)
+
+@admin.register(models.EnergyReading)
+class EnergyReadingAdmin(admin.ModelAdmin):
+    list_display = ('Machine', 'Timestamp', 'Value_kW')

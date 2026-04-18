@@ -60,4 +60,6 @@ urlpatterns = [
     path('options/workers', options_service.GetWorkers, name='workersDropdown'),
     path('options/api/app-options', options_service.AppOptions.as_view(), name='appOtions'),
     path('options/order-route', views.GetWorkOrderRoute, name='workOrderRoute'),
+    # Path for the energy consumption data upload page
+    path('energy/upload', views.EnergyUpload.as_view(), name='energyUpload'),
 ]
