@@ -842,13 +842,9 @@ class EnergyUpload(APIView):
             df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%a %d/%m/%y %H:%M", errors='coerce')
             df = df.dropna(subset=['Timestamp'])
 
-            # Step 5 — Check if data for this exact day already exists
+            # Step 5 — Check if data for this exact day already exists, but keep going either way
             upload_date = df['Timestamp'].dt.date.min()
-            if models.EnergyReading.objects.filter(Timestamp__date=upload_date).exists():
-                return Response(
-                    {'message': f'Data for {upload_date.strftime("%d %B %Y")} has already been uploaded'},
-                    status=rest_framework.status.HTTP_400_BAD_REQUEST
-                )
+            duplicate_day = models.EnergyReading.objects.filter(Timestamp__date=upload_date).exists()
 
             # Step 6 — Log the upload (who uploaded and when) — no file stored
             upload = models.EnergyConsumption.objects.create(UploadedBy=user)
@@ -890,7 +886,10 @@ class EnergyUpload(APIView):
         except Exception as e:
             return Response({'message': f'File processing failed: {str(e)}'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
+        if duplicate_day:
+            return Response({'message': f'Data for {upload_date.strftime("%d %B %Y")} has already been uploaded'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'File uploaded successfully'}, status=rest_framework.status.HTTP_200_OK)
+
 
 # Returns the earliest and latest date we have readings for
 class EnergyDateRange(APIView):
