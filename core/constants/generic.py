@@ -137,6 +137,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         # New label for an option for energy consumption
         {'label': 'Energy Consumption', 'appName': 'prodManagement', 'modelName': 'Serial', 'children': [
             {'label': 'Upload CSV File', 'href': '/productivity/energy/upload', 'subtext': 'Upload energy consumption data'},
+            {'label': 'Data Visualization', 'href': '/productivity/energy/visualization', 'subtext': 'View energy consumption charts'},
         ]},
     ],
     'finance': [

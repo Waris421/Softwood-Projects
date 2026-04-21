@@ -21,6 +21,12 @@ from .services import  worker_service, serial_service, outsource_service
 
 from . import models
 
+# For energy consumption data visualization
+from django.db.models import Min, Max, Avg, Sum
+from django.db.models.functions import TruncHour
+from datetime import datetime
+
+
 @login_required(login_url='/login')
 def Home (request: HttpRequest):
     if request.method != 'GET':
@@ -885,3 +891,85 @@ class EnergyUpload(APIView):
             return Response({'message': f'File processing failed: {str(e)}'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
         return Response({'message': 'File uploaded successfully'}, status=rest_framework.status.HTTP_200_OK)
+
+# Returns the earliest and latest date we have readings for
+class EnergyDateRange(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        # Step 1 — Verify the user is logged in
+        try:
+            auth_service.authenticateUser(request, None, None, None)
+        except Exception as e:
+            return Response({'message': str(e)}, status=rest_framework.status.HTTP_401_UNAUTHORIZED)
+
+        # Step 2 — Ask the database for the earliest and latest timestamp in one query
+        result = models.EnergyReading.objects.aggregate(
+            min_date=Min('Timestamp'),
+            max_date=Max('Timestamp')
+        )
+
+        # Step 3 — If no data exists at all, tell the frontend
+        if not result['min_date']:
+            return Response({'message': 'No data available'}, status=rest_framework.status.HTTP_404_NOT_FOUND)
+
+        # Step 4 — Return just the date part as a plain string eg "2026-04-18"
+        return Response({
+            'min_date': result['min_date'].date().isoformat(),
+            'max_date': result['max_date'].date().isoformat()
+        })
+
+
+# Returns raw readings per machine for a chosen date range
+class EnergyReadings(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        # Step 1 — Verify the user is logged in
+        try:
+            auth_service.authenticateUser(request, None, None, None)
+        except Exception as e:
+            return Response({'message': str(e)}, status=rest_framework.status.HTTP_401_UNAUTHORIZED)
+
+        # Step 2 — Read the from and to dates from the URL eg ?from=2026-04-18&to=2026-04-23
+        from_date = request.query_params.get('from')
+        to_date = request.query_params.get('to')
+
+        if not from_date or not to_date:
+            return Response({'message': 'from and to parameters are required'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+
+        # Step 3 — Convert the date strings into real Python datetime objects the database understands
+        try:
+            from_dt = datetime.strptime(from_date, '%Y-%m-%d')
+            to_dt = datetime.strptime(to_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        except ValueError:
+            return Response({'message': 'Invalid date format. Use YYYY-MM-DD'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+
+        # Step 4 — Get all machines from the database
+        machines = models.EnergyMachine.objects.all()
+        result = []
+
+        for machine in machines:
+            # Step 5 — Fetch all readings for this machine within the selected range
+            readings = (
+                models.EnergyReading.objects
+                .filter(Machine=machine, Timestamp__range=(from_dt, to_dt))
+                .values('Timestamp', 'Value_kW')
+                .order_by('Timestamp')
+            )
+
+            # Step 6 — Skip this machine if it has no data in the selected range
+            if not readings.exists():
+                continue
+
+            # Step 7 — Add this machine's data to the result list
+            result.append({
+                'machine': machine.Name,
+                'readings': [
+                    {'timestamp': r['Timestamp'].isoformat(), 'value_kw': r['Value_kW']}
+                    for r in readings
+                ]
+            })
+
+        # Step 8 — Return the full list, one entry per machine
+        return Response(result)
