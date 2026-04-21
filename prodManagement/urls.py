@@ -62,4 +62,6 @@ urlpatterns = [
     path('options/order-route', views.GetWorkOrderRoute, name='workOrderRoute'),
     # Path for the energy consumption data upload page
     path('energy/upload', views.EnergyUpload.as_view(), name='energyUpload'),
+    path('energy/date-range', views.EnergyDateRange.as_view(), name='energyDateRange'),
+    path('energy/readings', views.EnergyReadings.as_view(), name='energyReadings'),
 ]
