@@ -217,7 +217,10 @@ def UpdateInventory(inventory: models.Inventory, data: Dict[str, str|bool]):
 
         if key in foreignKeyMap:
             model, lookup = foreignKeyMap[key]
-            value = model.objects.get(**{lookup: value})
+            if value:
+                value = model.objects.get(**{lookup: value})
+            else:
+                value = None
         
         if hasattr(inventory, key):
             setattr(inventory, key, value)
@@ -225,6 +228,22 @@ def UpdateInventory(inventory: models.Inventory, data: Dict[str, str|bool]):
     
     if updateData:
         inventory.save(update_fields=updateData.keys())
+
+def DuplicateInventory(sourceCode: str, targetCode: str):
+    try:
+        source = models.Inventory.objects.get(Code=sourceCode)
+    except:
+        raise LookupError('Source code not found')
+    
+    try:
+        models.Inventory.objects.get(Code=targetCode)
+        raise ValueError('The target inventory code already exists')
+    except models.Inventory.DoesNotExist:
+        pass
+
+    target = source
+    target.Code = targetCode
+    target.save()
 
 #TODO: This will be obsolete when we shift to next views
 def AddInventory (data: Dict[str, str]):

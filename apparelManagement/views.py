@@ -313,6 +313,32 @@ def UpdateInv(request: HttpRequest, pk: str):
         }
         return render (request, 'inventory/edit.html', context)
 
+class APIInventoryDelete(APIView):
+    permission_classes = [AllowAny]
+
+    def delete(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventory = models.Inventory.objects.get(Code=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            inventory.delete()
+            response = {'message': 'Saved successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
 @login_required(login_url = '/login')
 def DeleteInv(request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='delete'):
@@ -336,6 +362,33 @@ def DeleteInv(request: HttpRequest, pk: int):
     else:
         context = {'object':inv, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/delete.html', context)
+
+class APIInventoryCopy(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        sourceCode = request.data.get('Source', None)
+        targetCode = request.data.get('Target', None)
+
+        if None in [sourceCode, targetCode]:
+            response = {'message': 'Incomplete Data Provided'}
+            return Response(data=response, status=status.HTTP_409_CONFLICT)
+
+        try:
+            inventory_card_service.DuplicateInventory(sourceCode, targetCode)
+            response = {'message': 'Added Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def CopyInv (request: HttpRequest, pk: str): 
@@ -474,6 +527,25 @@ def InventoryFreeStockHistory(request: HttpRequest):
         return HttpResponse(e, status=400)
     
     return JsonResponse(history, safe=False)
+
+class StyleCards(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'StyleCard', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            styles = style_card_service.GetStyleCards()
+            return Response(data=styles, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):

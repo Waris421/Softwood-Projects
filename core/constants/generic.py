@@ -162,6 +162,13 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Manage Cards', 'href': '/mmc/inventory', 'subtext': 'Manage Inventory Cards in the database'},
         ]},
     ],
+    'merchandising': [
+        {'label': 'Dashboard', 'href': '/merchandising', 'appName': 'apparelManagement', 'modelName': 'WorkOrder'},
+        {'label': 'Presets', 'appName': 'apparelManagement', 'modelName': 'StyleCard', 'children': [
+            {'label': 'Style Cards', 'href': '/merchandising/style', 'subtext': 'Manage style Cards in the database'},
+            {'label': 'Work Orders', 'href': '/merchandising/work-order', 'subtext': 'Manage work orders in the database'},
+        ]}
+    ],
 }
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')

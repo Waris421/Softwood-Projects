@@ -12,41 +12,6 @@ from .. import models
 from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts, convertTextToBool
 from core.constants.prod import threadCounts
 
-def getStyleCard (customer:str):
-    filters = Q()
-    if customer:
-        filters &= Q(Customer=customer)
-    fields = ['StyleCode','Customer','Category']
-    styles = models.StyleCard.objects.filter(filters).values(*fields)
-    dfStyles = pd.DataFrame(styles) if styles else pd.DataFrame(columns=fields)
-    del styles
-
-    fields = ['Style','InventoryCode']
-    fabricsCodes = models.StyleConsumption.objects.filter(Style__in=dfStyles['StyleCode'].to_list()).filter(Type='Fab').values(*fields)
-    dfFabricCodes = pd.DataFrame(fabricsCodes) if fabricsCodes else pd.DataFrame(columns=fields)
-    del fabricsCodes
-
-    fields = ['Code', 'Name']
-    fabrics = models.Inventory.objects.filter(Code__in=dfFabricCodes['InventoryCode'].to_list()).values(*fields)
-    dfFabrics = pd.DataFrame(fabrics) if fabrics else pd.DataFrame(columns=fields)
-    
-    dfFabrics = pd.merge(left=dfFabricCodes, right=dfFabrics, left_on='InventoryCode', right_on='Code', how='right')
-    del dfFabricCodes
-    dfFabrics.drop(inplace=True, columns=['InventoryCode','Code'])
-
-    dfStyles = pd.merge(left=dfStyles, right=dfFabrics, left_on='StyleCode', right_on='Style', how='left')
-    del dfFabrics
-    dfStyles.drop(inplace=True, columns=['Style'])
-    dfStyles.rename(inplace=True, columns={'Name':'FabricName'})
-
-    dfStyles = dfStyles.groupby('StyleCode').agg(
-        Customer=('Customer', 'first'),
-        Category=('Category', 'first'),
-        Fabric=('FabricName', 'first')
-        ).reset_index().sort_values(by=['Customer', 'StyleCode'])
-
-    return dfToListOfDicts(dfStyles)
-
 def normalizePreReqs(value):
     if isinstance(value, list):
         return value
@@ -116,6 +81,66 @@ def flagColGroupMismatch(df: pd.DataFrame) -> bool:
     flag = (df['ConsUnitGroup'].notna()) & (df['InvUnitGroup'].notna()) & (df['ConsUnitGroup'] != df['InvUnitGroup'])
 
     return flag.any()
+
+def GetStyleCards():
+    fields = ['StyleCode', 'StyleName', 'Customer', 'Category', 'RoutePreset__Name']
+    styles = models.StyleCard.objects.all().values(*fields)
+    dfStyles = pd.DataFrame(styles) if styles else pd.DataFrame(columns=fields)
+    del styles
+
+    fields = ['Style','InventoryCode__Name']
+    fabricsCodes = models.StyleConsumption.objects.filter(Style__in=dfStyles['StyleCode'].to_list()).filter(Type='Fab').values(*fields)
+    dfFabricCodes = pd.DataFrame(fabricsCodes) if fabricsCodes else pd.DataFrame(columns=fields)
+    del fabricsCodes
+
+    #Remove the style card of sampling
+    dfStyles = dfStyles[dfStyles['StyleCode'] != 'GEN-Sampling']
+
+    dfStyles.rename(inplace=True, columns={'StyleCode': 'Code', 'StyleName': 'Name', 'RoutePreset__Name': 'Route'})
+    dfFabricCodes.rename(inplace=True, columns={'Style': 'Code', 'InventoryCode__Name': 'Fabric'})
+    
+    #Take only first fabric code as that is normally the main fabric
+    dfFabricCodes = dfFabricCodes.drop_duplicates(subset=['Code'], keep='first')
+
+    dfStyles = pd.merge(left=dfStyles, right=dfFabricCodes, on='Code', how='left')
+    
+    return dfToListOfDicts(dfStyles)
+
+#TODO: This would be obsolete when we shift to next
+def getStyleCard (customer:str):
+    filters = Q()
+    if customer:
+        filters &= Q(Customer=customer)
+    fields = ['StyleCode','Customer','Category']
+    styles = models.StyleCard.objects.filter(filters).values(*fields)
+    dfStyles = pd.DataFrame(styles) if styles else pd.DataFrame(columns=fields)
+    del styles
+
+    fields = ['Style','InventoryCode']
+    fabricsCodes = models.StyleConsumption.objects.filter(Style__in=dfStyles['StyleCode'].to_list()).filter(Type='Fab').values(*fields)
+    dfFabricCodes = pd.DataFrame(fabricsCodes) if fabricsCodes else pd.DataFrame(columns=fields)
+    del fabricsCodes
+
+    fields = ['Code', 'Name']
+    fabrics = models.Inventory.objects.filter(Code__in=dfFabricCodes['InventoryCode'].to_list()).values(*fields)
+    dfFabrics = pd.DataFrame(fabrics) if fabrics else pd.DataFrame(columns=fields)
+    
+    dfFabrics = pd.merge(left=dfFabricCodes, right=dfFabrics, left_on='InventoryCode', right_on='Code', how='right')
+    del dfFabricCodes
+    dfFabrics.drop(inplace=True, columns=['InventoryCode','Code'])
+
+    dfStyles = pd.merge(left=dfStyles, right=dfFabrics, left_on='StyleCode', right_on='Style', how='left')
+    del dfFabrics
+    dfStyles.drop(inplace=True, columns=['Style'])
+    dfStyles.rename(inplace=True, columns={'Name':'FabricName'})
+
+    dfStyles = dfStyles.groupby('StyleCode').agg(
+        Customer=('Customer', 'first'),
+        Category=('Category', 'first'),
+        Fabric=('FabricName', 'first')
+        ).reset_index().sort_values(by=['Customer', 'StyleCode'])
+
+    return dfToListOfDicts(dfStyles)
 
 def GetRoutePresetStages(routePreset: models.RoutePreset):
     fields = ['id', 'Stage', 'PreReqs__Stage']
