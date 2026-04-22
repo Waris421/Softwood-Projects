@@ -571,6 +571,26 @@ def Style (request: HttpRequest):
     else:
         return generic_services.showMessageResponse(request, 'Not Allowed', 403)
 
+class AddStyleCard(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'StyleCard', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            formData = style_card_service.GetDataForStyleCardAddition()
+            response = {'data': formData}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url = '/login')
 def AddStyle (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='add'):

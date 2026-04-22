@@ -28,6 +28,7 @@ urlpatterns = [
     path ('', include ('authentication.urls')),
     path ('', include ('integration.urls')),
     path ('', include ('HumanResource.urls')),
+    path ('', include ('Finance.urls')),
 ]
 
 if settings.DEBUG:

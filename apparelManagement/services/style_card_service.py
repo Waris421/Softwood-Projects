@@ -156,6 +156,31 @@ def GetRoutePresetStages(routePreset: models.RoutePreset):
     
     return dfToListOfDicts(dfStages)
 
+def GetDataForStyleCardAddition():
+    fields = ['Name', 'TradeName']
+    customers = models.Customer.objects.all().values(*fields)
+    dfCustomers = pd.DataFrame(customers) if customers else pd.DataFrame(columns=fields)
+    del customers
+
+    fields = ['id', 'Name']
+    routePresets = models.RoutePreset.objects.all().values(*fields)
+    dfRoutePresets = pd.DataFrame(routePresets) if routePresets else pd.DataFrame(columns=fields)
+    del routePresets
+
+    dfCustomers.rename(inplace=True, columns={'Name':'value', 'TradeName':'label'})
+    dfCustomers['label'] = np.where(
+        dfCustomers['value'].astype(str) != dfCustomers['label'].astype(str),
+        dfCustomers['value'].astype(str) + ' - ' + dfCustomers['label'].astype(str),
+        dfCustomers['label']
+    )
+
+    dfRoutePresets.rename(inplace=True, columns={'id': 'value','Name': 'label'})
+
+    return {
+        'customers': dfToListOfDicts(dfCustomers),
+        'routes': dfToListOfDicts(dfRoutePresets)
+    }
+
 def AddStyleCard(
         dfStyle: pd.DataFrame,
         dfVariants: pd.DataFrame,
