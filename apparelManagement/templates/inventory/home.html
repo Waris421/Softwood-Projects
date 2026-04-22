@@ -11,7 +11,7 @@
         <div class="flex flex-col col-[1/4] items-center">
           <span class="text-sm text-gray-500 mb-1">Group:</span>
           <select name="groupFilter" onchange="this.form.submit()" class="{{theme.dropdown}}">
-            <option value="">  No Filter  </option>
+            <option value="">  ---------  </option>
             {% for data in groups %}
               <option value="{{ data }}"
                 {% if data == selectedGroup %}
@@ -87,16 +87,16 @@
   <div class="{{ theme.pagination }}">
     <div class="btn-group">
       {% if page_obj.has_previous %}
-          <a href="?page=1" class="btn btn-sm">First</a>
-          <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm">Previous</a>
+          <a href="?page=1&groupFilter={{ selectedGroup }}&search_term={{ searchTerm }}" class="btn btn-sm">First</a>
+          <a href="?page={{ page_obj.previous_page_number }}&groupFilter={{ selectedGroup }}&search_term={{ searchTerm }}" class="btn btn-sm">Previous</a>
       {% else %}
           <button class="btn btn-sm" disabled>First</button>
           <button class="btn btn-sm" disabled>Previous</button>
       {% endif %}
 
       {% if page_obj.has_next %}
-          <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
-          <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-sm">Last</a>
+          <a href="?page={{ page_obj.next_page_number }}&groupFilter={{ selectedGroup }}&search_term={{ searchTerm }}" class="btn btn-sm">Next</a>
+          <a href="?page={{ page_obj.paginator.num_pages }}&groupFilter={{ selectedGroup }}&search_term={{ searchTerm }}" class="btn btn-sm">Last</a>
       {% else %}
           <button class="btn btn-sm" disabled>Next</button>
           <button class="btn btn-sm" disabled>Last</button>

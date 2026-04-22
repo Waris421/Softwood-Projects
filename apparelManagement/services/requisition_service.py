@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 
 from django.utils.timezone import localtime
-from django.db.models import Sum
 
 from .. import models
 
@@ -35,7 +34,7 @@ def GetRequisitionList (
             case _:
                 raise ValueError('Invalid Input')
      
-    fields = ['id','DateTime','Department','RequestBy','Confirmation']
+    fields = ['id','DateTime','Department','RequestBy']
     requisitions = requisitions.values(*fields)
     if requisitions:
         dfRequisitions = pd.DataFrame(requisitions)
@@ -43,7 +42,7 @@ def GetRequisitionList (
         dfRequisitions = pd.DataFrame(columns=fields)
     del requisitions
 
-    fields = ['Requisition','Inventory','Quantity']
+    fields = ['Requisition','Inventory']
     reqInvs = models.RequisitionInventory.objects.filter(Requisition__in=dfRequisitions['id'].to_list()).values(*fields)
     if reqInvs:
         dfRequisitionInvs = pd.DataFrame(reqInvs)
@@ -51,91 +50,40 @@ def GetRequisitionList (
         dfRequisitionInvs = pd.DataFrame(columns=fields)
     del reqInvs
 
-    invCodes = dfRequisitionInvs['Inventory'].to_list()
-
     fields = ['Code','Name']
-    invCards = models.Inventory.objects.filter(Code__in=invCodes).values(*fields)
+    invCards = models.Inventory.objects.filter(Code__in=dfRequisitionInvs['Inventory'].to_list()).values(*fields)
     if invCards:
         dfInvCards = pd.DataFrame(invCards)
     else:
         dfInvCards = pd.DataFrame(columns=fields)
-    del invCards, fields
-
-    # Step 1: Total received (ALL receipts, no approval filter)
-    received = models.RecInventory.objects.filter(
-        InventoryCode__in=invCodes
-    ).values('InventoryCode').annotate(TotalReceived=Sum('Quantity'))
-    dfReceived = pd.DataFrame(list(received)) if received else pd.DataFrame(columns=['InventoryCode','TotalReceived'])
-    del received
-
-    # Step 2: Total already physically issued out of the warehouse
-    issued = models.IssueInventory.objects.filter(
-        Inventory__in=invCodes
-    ).values('Inventory').annotate(TotalIssued=Sum('Quantity'))
-    dfIssued = pd.DataFrame(list(issued)) if issued else pd.DataFrame(columns=['Inventory','TotalIssued'])
-    dfIssued.rename(columns={'Inventory': 'InventoryCode'}, inplace=True)
-    del issued
-
-    # Step 3: Total already requisitioned (pending requests that haven't been issued yet)
-    requisitioned = models.RequisitionInventory.objects.filter(
-        Inventory__in=invCodes,
-        Requisition__Confirmation=False
-    ).values('Inventory').annotate(TotalRequisitioned=Sum('Quantity'))
-    dfRequisitioned = pd.DataFrame(list(requisitioned)) if requisitioned else pd.DataFrame(columns=['Inventory','TotalRequisitioned'])
-    dfRequisitioned.rename(columns={'Inventory': 'InventoryCode'}, inplace=True)
-    del requisitioned, invCodes
-
-    # Step 4: Merge all three, fill blanks with 0, subtract to get what's actually free
-    dfStock = pd.merge(dfReceived, dfIssued, on='InventoryCode', how='left')
-    dfStock = pd.merge(dfStock, dfRequisitioned, on='InventoryCode', how='left')
-    dfStock.fillna(0, inplace=True)
-    dfStock['InStock'] = dfStock['TotalReceived'] - dfStock['TotalIssued'] - dfStock['TotalRequisitioned']
-    dfStock = dfStock[['InventoryCode', 'InStock']]
-    del dfReceived, dfIssued, dfRequisitioned
-
-
-
-    dfRequisitionInvs = pd.merge(left=dfRequisitionInvs, right=dfStock, left_on='Inventory', right_on='InventoryCode', how='left')
-    dfRequisitionInvs['InStock'] = dfRequisitionInvs['InStock'].fillna(0)
-    dfRequisitionInvs.drop(inplace=True, columns=['InventoryCode'])
-    del dfStock
+    del invCards, fields    
 
     dfRequisitions = pd.merge(left=dfRequisitions, right=dfRequisitionInvs, left_on='id', right_on='Requisition', how='left')
     del dfRequisitionInvs
     dfRequisitions.drop(inplace=True, columns=['Requisition'])
-
+    
     dfRequisitions = pd.merge(left=dfRequisitions, right=dfInvCards, left_on='Inventory', right_on='Code', how='left')
     del dfInvCards
     dfRequisitions.drop(inplace=True, columns=['Code','Inventory'])
 
+    #Concate rows who have same PO number in common
+    dfRequisitions = dfRequisitions.groupby('id').agg({
+        'DateTime': 'first',
+        'Department': 'first',
+        'RequestBy': 'first',
+        'Name': concatenateValues,
+    }).reset_index()
+
     if not dfRequisitions.empty:
         dfRequisitions['DateTime'] = pd.to_datetime(dfRequisitions['DateTime']).dt.tz_convert(LOCAL_TIMEZONE)
-        dfRequisitions = dfRequisitions.sort_values(by=['DateTime', 'id'])
+
+        dfRequisitions = dfRequisitions.sort_values(by='DateTime', ascending=True)
+
         dfRequisitions['Date'] = dfRequisitions['DateTime'].dt.strftime('%d-%b')
         dfRequisitions['Time'] = dfRequisitions['DateTime'].dt.strftime('%I:%M %p')
     dfRequisitions.drop(inplace=True, columns=['DateTime'])
 
-    # Build nested structure: one dict per requisition with an items list inside
-    unique_ids = list(dict.fromkeys(dfRequisitions['id'].tolist()))
-    result = []
-    for req_id in unique_ids:
-        group = dfRequisitions[dfRequisitions['id'] == req_id]
-        first = group.iloc[0]
-        items = [
-            {'Name': row['Name'], 'Quantity': row['Quantity'], 'InStock': row['InStock']}
-            for _, row in group.iterrows()
-            if pd.notna(row.get('Name'))
-        ]
-        result.append({
-            'id': int(req_id),
-            'Date': str(first['Date']),
-            'Time': str(first['Time']),
-            'Department': str(first['Department']),
-            'RequestBy': str(first['RequestBy']),
-            'Status': 'Closed' if first['Confirmation'] else 'Pending',
-            'items': items
-        })
-    return result
+    return dfToListOfDicts(dfRequisitions)
 
 def PrepareDataForOrderRequitionAdd (order: int):
     try:
@@ -271,34 +219,22 @@ def PrepareDataForOrderRequitionAdd (order: int):
 def PrepareDataForInvRequisitionAdd (code: str):
     fields = ['id','ReceiptNumber','Variant','Quantity']
     receiptInvs = models.RecInventory.objects.filter(InventoryCode=code).values(*fields)
-    if receiptInvs:
-        dfReceiptInvs = pd.DataFrame(receiptInvs)
-    else:
-        dfReceiptInvs = pd.DataFrame(columns=fields)
+    dfReceiptInvs = pd.DataFrame(receiptInvs) if receiptInvs else pd.DataFrame(columns=fields)
     del receiptInvs
     
     fields = ['id','ReceiptDate','Supplier']
     receipts = models.InventoryReciept.objects.filter(id__in=dfReceiptInvs['ReceiptNumber'].to_list()).values(*fields)
-    if receipts:
-        dfReceipts = pd.DataFrame(receipts)
-    else:
-        dfReceipts = pd.DataFrame(columns=fields)
+    dfReceipts = pd.DataFrame(receipts) if receipts else pd.DataFrame(columns=fields)
     del receipts
 
     fields = ['RecInvId','Quantity']
     receiptAlloc = models.RecAllocation.objects.filter(RecInvId__in=dfReceiptInvs['id'].to_list()).values(*fields)
-    if receiptAlloc:
-        dfReceiptAlloc = pd.DataFrame(receiptAlloc)
-    else:
-        dfReceiptAlloc = pd.DataFrame(columns=fields)
+    dfReceiptAlloc = pd.DataFrame(receiptAlloc) if receiptAlloc else pd.DataFrame(columns=fields)
     del receiptAlloc
 
     fields = ['Variant','Quantity']
     previousData = models.RequisitionInventory.objects.filter(Inventory=code).values(*fields)
-    if previousData:
-        dfPreviousData = pd.DataFrame(previousData)
-    else:
-        dfPreviousData = pd.DataFrame(columns=fields)
+    dfPreviousData = pd.DataFrame(previousData) if previousData else pd.DataFrame(columns=fields)
     del previousData, fields
         
     dfReceiptAlloc = dfReceiptAlloc.groupby('RecInvId')['Quantity'].sum().reset_index()
@@ -416,48 +352,36 @@ def AddRequisitionForOrder (
     return requisition.id
 
 def AddRequistionForInv (
-        department: str,
-        items: list,
+        dfRequisition: pd.DataFrame,
+        dfDetails: pd.DataFrame,
         requestBy: str
 ) -> int:
-    if not items:
+    dfDetails['Quantity'] = dfDetails['Quantity'].astype(float)
+    dfDetails = dfDetails[dfDetails['Quantity']>0]
+    
+    if dfDetails.empty:
         raise ValueError('Please select valid inventory')
+    
+    dfRequisition['Department'] = convertTexttoObject(models.Department, dfRequisition['Department'], 'Name')
 
-    dept = models.Department.objects.get(Name=department)
+    requisition = {
+        'Department':dfRequisition['Department'][0],
+        'RequestBy': requestBy,
+        'Confirmation': False,
+        'StoreComments': None
+    }
 
-    requisition = models.Requisition(
-        Department=dept,
-        RequestBy=requestBy,
-        Confirmation=False,
-        StoreComments=None
-    )
+    requisition = models.Requisition(**requisition)
     requisition.save()
 
-    for item in items:
-        quantity = float(item['quantity'])
-        if quantity <= 0:
-            continue
-        inventory = models.Inventory.objects.get(Code=item['inventory'])
-        req_inv = models.RequisitionInventory(
-            Requisition=requisition,
-            Inventory=inventory,
-            Variant=item.get('variant', ''),
-            Quantity=quantity
-        )
-        req_inv.save()
+    dfRequisition['Inventory'] = convertTexttoObject(models.Inventory, dfRequisition['Inventory'], 'Code')
+    dfDetails['Inventory'] = dfRequisition['Inventory'][0]
+    del dfRequisition
+
+    dfDetails['Requisition'] = requisition
+
+    for _, row in dfDetails.iterrows():
+        inv = models.RequisitionInventory(**row)
+        inv.save()
 
     return requisition.id
-
-def DeleteRequisition(requisition_id: int):
-    try:
-        requisition = models.Requisition.objects.get(id=requisition_id)
-    except models.Requisition.DoesNotExist:
-        raise LookupError('Requisition not found')
-
-    # Issuance has on_delete=PROTECT, so we must delete it before the requisition
-    # Deleting Issuance cascades to IssueInventory → IssueAllocation automatically
-    models.Issuance.objects.filter(InventoryRequisition=requisition).delete()
-
-    # Deleting Requisition cascades to RequisitionInventory → RequisitionAllocation automatically
-    # InStock recalculates dynamically so no manual stock update is needed
-    requisition.delete()

@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 
 from django.db.models import Q
+from django.db import IntegrityError
+from django.forms.models import model_to_dict
 
 from typing import Dict, List
 
@@ -80,69 +82,170 @@ def getApprovalStatus(row: pd.Index):
 
     return f"Rejected - {row['QualityComments']}"
 
-def GetInventories (group: str, stockFilter: str):
+def GetInventories (group: str, stockFilter: str, inUseFilter=True):
+    filters = Q()
     if group:
-        inventories = models.Inventory.objects.filter(Group=group)
-    else:
-        inventories = models.Inventory.objects.all()
-    inventories = inventories.filter(InUse=True).values('Code','Name','Group','Unit','InUse')
+        filters &= Q(Group = group)
+    if inUseFilter is not None:
+        filters &= Q(InUse=inUseFilter)
     
-    if inventories:
-        dfInventory = pd.DataFrame(inventories)
-    else:
-        dfInventory = pd.DataFrame(columns=['Code','Name','Group','Unit','InUse'])
+    fields = ['Code','Name','Group','Unit','InUse']
+    inventories = models.Inventory.objects.filter(filters).values(*fields)    
+    dfInventory = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
     del inventories
 
-    receiptInventories = models.RecInventory.objects.filter(InventoryCode__in=dfInventory['Code'].to_list())
-    receiptInventories = receiptInventories.values('InventoryCode','Quantity')
-    if receiptInventories:
-        dfReceiptInventories = pd.DataFrame(receiptInventories)
-    else:
-        dfReceiptInventories = pd.DataFrame(columns=['InventoryCode','Quantity'])
-    del receiptInventories
-
-    issuanceInventories = models.IssueInventory.objects.filter(Inventory__in=dfInventory['Code'].to_list())
-    issuanceInventories = issuanceInventories.values('Inventory','Quantity')
-    if issuanceInventories:
-        dfIssuanceInventories = pd.DataFrame(issuanceInventories)
-    else:
-        dfIssuanceInventories = pd.DataFrame(columns=['Inventory','Quantity'])
-    del issuanceInventories
-
-    dfReceiptInventories = dfReceiptInventories.groupby('InventoryCode')['Quantity'].sum().reset_index()
-
-    dfInventory = pd.merge(left=dfInventory, right=dfReceiptInventories, left_on='Code', right_on='InventoryCode', how='left')
-    del dfReceiptInventories
-    dfInventory.drop(inplace=True, columns=['InventoryCode'])
-    dfInventory.rename(inplace=True, columns={'Quantity':'Received'})
-
-    dfIssuanceInventories.groupby('Inventory')['Quantity'].sum().reset_index()
-
-    dfInventory = pd.merge(left=dfInventory, right=dfIssuanceInventories, left_on='Code', right_on='Inventory', how='left')
-    del dfIssuanceInventories
-    dfInventory.drop(inplace=True, columns=['Inventory'])
-    dfInventory.rename(inplace=True, columns={'Quantity':'Issued'})
-
-    dfInventory['StockLevel'] = dfInventory['Received'] - dfInventory['Issued']
-    dfInventory.drop(inplace=True, columns=['Received','Issued'])
-    dfInventory['StockLevel'] = np.where(dfInventory['StockLevel'].isna(), 0, dfInventory['StockLevel'])
-
-    #TODO: Also make data for free stock quantity
-    
-    if stockFilter == 'InStock':
-        dfInventory = dfInventory[dfInventory['StockLevel'] > 0]
-
-    if dfInventory.empty:
-        return []
-   
-    # Arrange the invnentory cards in order of their group and then by the numeric part of their code in descending order
-    dfInventory['NumericCode'] = dfInventory['Code'].str.extract(r'(\d+)', expand=False).fillna('0').astype(float)
-    dfInventory = dfInventory.sort_values(by=['Group', 'NumericCode'], ascending=[True, False])
-    dfInventory = dfInventory.drop(columns=['NumericCode'])
-
+    dfInventory = dfInventory.sort_values (by='Code')
+    dfInventory = dfInventory.sort_values (by='Group')
     
     return dfToListOfDicts(dfInventory)
 
+def GetDataForInvCardAddition():
+    unitGroupsRaw = models.UnitGroup.objects.all().values('Name')
+    unitGroups = []
+    for group in unitGroupsRaw:
+        unitGroups.append({'value':group['Name'],'label':group['Name'],})
+    del unitGroupsRaw
+
+    currenciesRaw = models.Currency.objects.all().values('Code','Name')
+    currencies = []
+    for currency in currenciesRaw:
+        currencies.append({'value':currency['Code'],'label':currency['Name'],})
+    del currenciesRaw
+
+    codeP1Raw = models.InventoryCodePart1.objects.all().values('Code','Name')
+    codeP1 = []
+    for code in codeP1Raw:
+        codeP1.append({'value':code['Code'],'label':code['Name'],})
+    del codeP1Raw
+    
+    result = {
+        'unitGroups': unitGroups,
+        'currencies': currencies,
+        'codeP1': codeP1
+    }
+    return result
+
+def GenerateInvCode(jsonData: Dict[str, str]):
+    part1 = jsonData['part1']
+    part2 = jsonData['part2']
+    part3 = jsonData['part3']
+
+    if not part1:
+        raise ValueError('Part 1 of the code is required')
+    
+    data = {}
+    part2s = models.InventoryCodePart2.objects.filter(Part1=part1).values('Code','Name')
+    temp = []
+    for item in part2s:
+        temp.append({'value':item['Code'],'label':item['Name'],})
+    part2s = temp
+    del temp
+
+    data['part2s'] = part2s
+
+    if not part2:
+        try:
+            part2 = part2s[0]['value']
+        except:
+            part2 = None
+
+    if part2:
+        data['part2'] = part2
+        try:
+            part2 = models.InventoryCodePart2.objects.get(Code=part2, Part1=part1)
+        except:
+            part2 = models.InventoryCodePart2.objects.filter(Part1=part1).first()
+        part3s = models.InventoryCodePart3.objects.filter(Part2=part2).values('Code','Name')
+        temp = []
+        for item in part3s:
+            temp.append({'value':item['Code'],'label':item['Name'],})
+        part3s = temp
+        del temp
+        data['part3s'] = part3s
+    
+    if part3:
+        data['part3'] = part3
+
+    return data
+
+def AddAPIInventory(data: Dict[str, str|bool]):
+    #Check for any duplicate code
+    code = data['Code']
+    if models.Inventory.objects.filter(Code=code).exists():
+        raise ValueError(f"Inventory Code '{code}' already exists.")
+
+    #Remove unncessory variables
+    data.pop('UnitType', None)
+
+    try:
+        data['Unit'] = models.Unit.objects.get(Name=data.get('Unit'))
+        data['Currency'] = models.Currency.objects.get(Code=data.get('Currency'))
+
+        inventory = models.Inventory.objects.create(**data)
+        return inventory.Code
+    except models.Unit.DoesNotExist:
+        raise ValueError("Invalid unit provided.")
+    except models.Currency.DoesNotExist:
+        raise ValueError('Invalid currency provided.')
+    except IntegrityError as e:
+        raise ValueError(f"Database integrity error: {e}")
+    except Exception as e:
+        raise ValueError(e)
+
+def GetDataForInvCardUpdate(inventory: models.Inventory):
+    result = GetDataForInvCardAddition()
+    result.pop('codeP1', None)
+
+    invDict = model_to_dict(inventory)
+    invDict['UnitType'] = inventory.Unit.Group.Name
+
+    result['inventory'] = invDict
+
+    return result
+
+def UpdateInventory(inventory: models.Inventory, data: Dict[str, str|bool]):
+    fieldsToIgnore = ['UnitType', 'Code']
+    foreignKeyMap = {
+        'Unit': (models.Unit, 'Name'),
+        'Currency': (models.Currency, 'Code'),
+    }
+
+    updateData = {}
+    for key, value in data.items():
+        if key in fieldsToIgnore:
+            continue
+
+        if key in foreignKeyMap:
+            model, lookup = foreignKeyMap[key]
+            if value:
+                value = model.objects.get(**{lookup: value})
+            else:
+                value = None
+        
+        if hasattr(inventory, key):
+            setattr(inventory, key, value)
+            updateData[key] = value
+    
+    if updateData:
+        inventory.save(update_fields=updateData.keys())
+
+def DuplicateInventory(sourceCode: str, targetCode: str):
+    try:
+        source = models.Inventory.objects.get(Code=sourceCode)
+    except:
+        raise LookupError('Source code not found')
+    
+    try:
+        models.Inventory.objects.get(Code=targetCode)
+        raise ValueError('The target inventory code already exists')
+    except models.Inventory.DoesNotExist:
+        pass
+
+    target = source
+    target.Code = targetCode
+    target.save()
+
+#TODO: This will be obsolete when we shift to next views
 def AddInventory (data: Dict[str, str]):
     '''
     Creates a new inventory card based on the provided data in dataframe.
@@ -166,6 +269,7 @@ def AddInventory (data: Dict[str, str]):
     inventory.save()
     return inventory.Code
 
+#TODO: This will be obsolete when we shift to next views
 def EditInventory (
         data: Dict[str, str],
         inventory: models.Inventory
@@ -179,6 +283,7 @@ def EditInventory (
     inventory = models.Inventory(**data)
     inventory.save()
 
+#TODO: This will be obsolete when we shift to next views
 def getInventoryCardDropDowns ():
     groups = models.InvGroups
     groups = [{'value': item[0], 'text': item[1]} for item in groups]
@@ -216,6 +321,7 @@ def getInventoryCardDropDowns ():
 
     return groups, unitTypes, auditReq, inUse, currencies,  codeP1
 
+#TODO: this will be obsolete when we shoft to next view
 def GenenrateCode (jsonData: Dict[str, str]):
     part1 = jsonData['part_0']
     part2 = jsonData['part_1']
@@ -422,13 +528,6 @@ def GetFreeStockHistory(inventory: models.Inventory, variant: str):
 
     dfResults = pd.merge(left=dfFreeAtReceipt, right=dfFreeAtIssuance, on='ReceiptNumber', how='outer',
                          suffixes=['_received', '_issued'])
-    print(dfResults)
-
-    #dfFreeAtReceipt['POUrl'] = generateUrlfromPk(dfFreeAtReceipt['PONumber'], 'apparelManagement', 'editPO')
-    #dfFreeAtReceipt['ReceiptUrl'] = generateUrlfromPk(dfFreeAtReceipt['ReceiptNumber'], 'apparelManagement', 'editRec')
-    
-    #dfFreeAtReceipt['ReceiptDate'] = dfFreeAtReceipt['ReceiptDate'].dt.strftime('%d-%b-%Y')
-
     return dfToListOfDicts(dfFreeAtReceipt)
 
 def GetUnorderedInventories(
@@ -492,12 +591,10 @@ def GetUnorderedInventories(
     dfInvRequirement = pd.merge(left=dfInvRequirement, right=dfInvOrdered, on=['WorkOrder', 'Inventory', 'Variant'], how='left')
     del dfInvOrdered
 
-    print(dfInvRequirement)
-
 def GetInventoryStockStatus():
     twoYearsAgo = TODAY.replace(year=TODAY.year - 2)
     filters = Q(ReceiptNumber__ReceiptDate__gte=twoYearsAgo)
-    fields = ['InventoryCode', 'InventoryCode__Name', 'InventoryCode__Group', 'InventoryCode__Unit', 'Variant', 'Quantity', 'ReceiptNumber__Invoice', 'ReceiptNumber__PONumber']
+    fields = ['id', 'InventoryCode', 'InventoryCode__Name', 'InventoryCode__Group', 'InventoryCode__Unit', 'Variant', 'Quantity', 'ReceiptNumber__Invoice', 'ReceiptNumber__PONumber', 'ReceiptNumber__ReceiptDate']
     receiptInventories = models.RecInventory.objects.filter(filters).values(*fields)
     dfReceiptInventories = pd.DataFrame(receiptInventories) if receiptInventories else pd.DataFrame(columns=fields)
     del receiptInventories
@@ -505,28 +602,56 @@ def GetInventoryStockStatus():
         'InventoryCode__Name': 'InventoryName',
         'ReceiptNumber__Invoice': 'InvoiceNumber',
         'ReceiptNumber__PONumber': 'PONumber',
+        'ReceiptNumber__ReceiptDate': 'ReceiptDate',
         'InventoryCode__Group':'Group',
         'InventoryCode__Unit': 'Unit',
     })
 
+    #TODO: remove this line
+    #dfReceiptInventories = dfReceiptInventories[dfReceiptInventories['Group']=='FABRIC'].sort_values(by='Quantity', ascending=False).reset_index().head(100).reset_index() 
+    
+    filters = Q(RecInvId__in=dfReceiptInventories['id'].to_list())
+    fields = ['RecInvId', 'WorkOrder', 'WorkOrder__StyleCode']
+    receiptAllocations = models.RecAllocation.objects.filter(filters).values(*fields)
+    dfReceiptAllocations = pd.DataFrame(receiptAllocations) if receiptAllocations else pd.DataFrame(columns=fields)
+    del receiptAllocations
+    dfReceiptAllocations.rename(inplace=True, columns={
+        'RecInvId': 'id',
+        'WorkOrder__StyleCode': 'StyleCode'
+    })
+
     filters = Q(Issuance__IssuanceDate__gt=twoYearsAgo) & Q(Inventory__in=dfReceiptInventories['InventoryCode'].to_list())
-    fields = ['Inventory', 'Variant', 'Quantity']
+    fields = ['id', 'Inventory', 'Variant', 'Quantity']
     issueInventories = models.IssueInventory.objects.filter(filters).values(*fields)
     dfIssueInventories = pd.DataFrame(issueInventories) if issueInventories else pd.DataFrame(columns=fields)
-    del issueInventories, fields, filters
+    del issueInventories
     dfIssueInventories.rename(inplace=True, columns={
         'Inventory': 'InventoryCode',
         'Quantity': 'IssueQty',
     })
 
+    filters = Q(PONumber__in=dfReceiptInventories['PONumber'].to_list())
     fields = ['PONumber', 'Inventory', 'Variant', 'Quantity', 'Price', 'Forex', 'PONumber__Supplier']
-    poInventories = models.POInventory.objects.filter(PONumber__in=dfReceiptInventories['PONumber'].to_list()).values(*fields)
+    poInventories = models.POInventory.objects.filter(filters).values(*fields)
     dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
-    del poInventories, fields
+    del poInventories, fields, filters
     dfPOInventories.rename(inplace=True, columns={
         'PONumber__Supplier': 'Supplier',
         'Inventory': 'InventoryCode',
     })
+
+    def combineValues(dfSubset:pd.DataFrame, cols:List[str]):
+        return dfSubset[cols].to_dict(orient='records')
+    
+    dfReceiptInventories = pd.merge(left=dfReceiptInventories, right=dfReceiptAllocations, on='id', how='left')
+    del dfReceiptAllocations
+    dfReceiptInventories.drop(inplace=True, columns=['id'])
+    dfReceiptInventories['WorkOrder'] = dfReceiptInventories['WorkOrder'].astype('Int64').astype(str).replace('<NA>', '')
+    dfReceiptInventories = dfReceiptInventories.groupby(['InventoryCode', 'InventoryName', 'Group', 'Unit', 'Variant', 'InvoiceNumber', 'PONumber', 'ReceiptDate']).apply(lambda x: pd.Series({
+        'Quantity': x['Quantity'].iloc[0],
+        'WorkOrders': x['WorkOrder'].unique().tolist(),
+        'Styles': x['StyleCode'].unique().tolist(),
+    })).reset_index()
 
     #Get the quantity weighted price of each inventory in a po
     dfPOInventories['TotalCost'] = dfPOInventories['Quantity'] * dfPOInventories['Price'] * dfPOInventories['Forex']
@@ -549,17 +674,13 @@ def GetInventoryStockStatus():
     dfReceiptInventories['Value'] = dfReceiptInventories['Quantity'] * dfReceiptInventories['Price']
     dfReceiptInventories.drop(inplace=True, columns=['Price'])
 
-    def combineValues(dfSubset:pd.DataFrame, cols:List[str]):
-        return dfSubset[cols].to_dict(orient='records')
-
     dfReceiptInventories = dfReceiptInventories.groupby(['InventoryCode','Variant']).apply(lambda x: pd.Series({
         'InventoryName': x['InventoryName'].iloc[0],
         'Group': x['Group'].iloc[0],
         'Unit': x['Unit'].iloc[0],
         'Quantity': x['Quantity'].sum(),
         'Value': x['Value'].sum(),
-        #'VariantDetails': x.groupby('Variant')['Quantity'].sum().to_dict(),
-        'TransactionDetails': combineValues(x, ['InvoiceNumber', 'PONumber', 'Supplier'])
+        'TransactionDetails': combineValues(x, ['InventoryName', 'ReceiptDate','InvoiceNumber', 'PONumber', 'Supplier', 'WorkOrders', 'Styles', 'Quantity'])
     })).reset_index()
     
     dfReceiptInventories['AveragePrice'] = np.where(
@@ -576,8 +697,9 @@ def GetInventoryStockStatus():
 
     dfReceiptInventories = pd.merge(left=dfReceiptInventories, right=dfIssueInventories, on=['InventoryCode', 'Variant'], how='left')
     del dfIssueInventories
+    #print(dfReceiptInventories[dfReceiptInventories['InventoryCode']=='FABDNMIND001'])
 
-    dfReceiptInventories['Quantity'] = dfReceiptInventories['Quantity'] - dfReceiptInventories['IssueQty']
+    dfReceiptInventories['Quantity'] = dfReceiptInventories['Quantity'] - dfReceiptInventories['IssueQty'].fillna(0)
     dfReceiptInventories['Value'] = dfReceiptInventories['Quantity'] * dfReceiptInventories['AveragePrice']
     dfReceiptInventories.drop(inplace=True, columns=['AveragePrice', 'IssueQty'])
 
@@ -587,7 +709,7 @@ def GetInventoryStockStatus():
         'InventoryName': x['InventoryName'].iloc[0],
         'Group': x['Group'].iloc[0],
         'Unit': x['Unit'].iloc[0],
-        'Quantity': x['Quantity'].sum(),
+        'Balance': x['Quantity'].sum(),
         'Value': x['Value'].sum(),
         'VariantDetails': combineValues(x, ['Variant', 'Quantity']),
         'TransactionDetails': x['TransactionDetails'].iloc[0],

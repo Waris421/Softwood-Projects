@@ -37,12 +37,9 @@
                     <label class="mx-2 whitespace-nowrap">Currency:&nbsp; </label>
                     <select id="id_Currency" class="{{theme.dropdown}}" name="Currency"></select>
                 </div>
-                <div class="flex flex-col col-[3/5]">
-                    <div class="flex items-center">
-                        <label class="mx-2 whitespace-nowrap">Price:&nbsp;</label>
-                        <input type="number" class="{{theme.textInput}}" value="{{order.Price}}" name="Price">
-                    </div>
-                    <span class="text-xs text-gray-400 mx-2">(Per unit price at which we are selling the finished product)</span>
+                <div class="flex col-[3/5] items-center">
+                    <label class="mx-2 whitespace-nowrap">Price:&nbsp; </label>
+                    <input type="number" class="{{theme.textInput}}" value="{{order.Price}}" name="Price">
                 </div>
                 <div class="flex col-[5/7] items-center">
                     <label class="mx-2 whitespace-nowrap">Wastage%:&nbsp; </label>

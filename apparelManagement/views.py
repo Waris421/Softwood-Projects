@@ -9,7 +9,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
 from rest_framework import status
-import rest_framework
 
 import json
 
@@ -61,7 +60,7 @@ def Inventory (request: HttpRequest):
         return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     searchTerm = request.GET.get('search_term', '')
-    groupFilter = request.GET.get('groupFilter', '')
+    groupFilter = request.GET.get('groupFilter', 'Trim')
     stockFilter = request.GET.get('stockFilter','All')
     pageNumber = request.GET.get('page',1)
     
@@ -70,16 +69,71 @@ def Inventory (request: HttpRequest):
     
     inv = inventory_card_service.GetInventories(group=groupFilter, stockFilter=stockFilter)
     inv = generic_services.applySearch(inv, searchTerm)
-    data = generic_services.paginate(inv, pageNumber, numOfRows=50)  # You can adjust the number of rows per page as needed.
+    data = generic_services.paginate(inv, pageNumber)
 
     groups = sorted([group for group, in models.Inventory.objects.values_list('Group').distinct()])
     
     context = {'inv': data.object_list, 'page_obj': data,
-               'searchTerm': searchTerm, 'groups': groups, 'selectedGroup': groupFilter or '',
+               'searchTerm': searchTerm, 'groups': groups, 'selectedGroup': groupFilter,
                'stockFilter': stockFilter,
                'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
     return render (request, 'inventory/home.html',context)
 
+class APIInvenotory(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventoryData = inventory_card_service.GetInventories(group='', stockFilter='', inUseFilter=None)
+            return Response(data=inventoryData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)            
+
+class APIInventoryAdd(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            formData = inventory_card_service.GetDataForInvCardAddition()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            addedCode = inventory_card_service.AddAPIInventory(request.data)
+            response = {'code': addedCode}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
 @login_required(login_url = '/login')
 def AddInv (request: HttpRequest): 
     if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='add'):
@@ -105,6 +159,25 @@ def AddInv (request: HttpRequest):
         
         return render (request, 'inventory/add.html', context)
 
+class GenerateInventoryCodeAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            responseData = inventory_card_service.GenerateInvCode(request.data)
+            return Response(data=responseData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def GenerateInventoryCode (request: HttpRequest):
     if request.method != 'POST':
@@ -119,6 +192,29 @@ def GenerateInventoryCode (request: HttpRequest):
         print(e)
         return HttpResponse(e, status=400)
 
+class CheckInventoryCodeForAddition(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        code = request.query_params.get('code', None)
+        if code is None:
+            response = {'message': 'Invalid Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            models.Inventory.objects.get(Code=code)
+            response = {'message': 'Code Exists'}
+            return Response(data=response, status=status.HTTP_409_CONFLICT)
+        except:
+            response = {'message': 'OK'}
+            return Response(data=response, status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def CheckInventoryCodeExists(request: HttpRequest, pk: str):
     if request.method != 'GET':
@@ -129,6 +225,56 @@ def CheckInventoryCodeExists(request: HttpRequest, pk: str):
         return HttpResponse('Code already exists', status=400)
     except:
         return HttpResponse('OK', status=200)
+
+class APIInventoryUpdate(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventory = models.Inventory.objects.get(Code=pk)
+        except:
+            response = {'message': 'Resource not found'};
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        del pk
+
+        try:
+            formData = inventory_card_service.GetDataForInvCardUpdate(inventory)  
+            return Response(data=formData, status=status.HTTP_200_OK) 
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'change')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventory = models.Inventory.objects.get(Code=pk)
+        except:
+            response = {'message': 'Resource not found'};
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        del pk
+
+        try:
+            inventory_card_service.UpdateInventory(inventory, request.data)
+            response = {'message': 'Saved'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def UpdateInv(request: HttpRequest, pk: str):
@@ -167,6 +313,32 @@ def UpdateInv(request: HttpRequest, pk: str):
         }
         return render (request, 'inventory/edit.html', context)
 
+class APIInventoryDelete(APIView):
+    permission_classes = [AllowAny]
+
+    def delete(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            inventory = models.Inventory.objects.get(Code=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            inventory.delete()
+            response = {'message': 'Saved successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
 @login_required(login_url = '/login')
 def DeleteInv(request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'Inventory', type='delete'):
@@ -190,6 +362,33 @@ def DeleteInv(request: HttpRequest, pk: int):
     else:
         context = {'object':inv, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'inventory/delete.html', context)
+
+class APIInventoryCopy(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request, pk: str):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        sourceCode = request.data.get('Source', None)
+        targetCode = request.data.get('Target', None)
+
+        if None in [sourceCode, targetCode]:
+            response = {'message': 'Incomplete Data Provided'}
+            return Response(data=response, status=status.HTTP_409_CONFLICT)
+
+        try:
+            inventory_card_service.DuplicateInventory(sourceCode, targetCode)
+            response = {'message': 'Added Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def CopyInv (request: HttpRequest, pk: str): 
@@ -328,6 +527,25 @@ def InventoryFreeStockHistory(request: HttpRequest):
         return HttpResponse(e, status=400)
     
     return JsonResponse(history, safe=False)
+
+class StyleCards(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'StyleCard', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            styles = style_card_service.GetStyleCards()
+            return Response(data=styles, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):
@@ -550,6 +768,27 @@ def WorkOrder (request: HttpRequest):
                'searchTerm': searchTerm, 'selectedCustomer': customerFilter}
 
     return render(request, 'work_order/home.html', context)
+
+class WorkOrders(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+
+        currentOrders = request.data.get('currentOrders')
+        try:
+            orderData = work_order_service.GetOrdersForIntegration(currentOrders)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(data=orderData, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def AddWorkOrder(request: HttpRequest):
@@ -1692,12 +1931,13 @@ def AddRequisitionForInv (request: HttpRequest):
         return HttpResponse('Access Denied', status=403)
 
     if request.method == 'POST':
+        #convert json data to a dict.
         data = json.loads(request.body.decode('utf-8'))
-        department = data.get('department')
-        items = data.get('items', [])
+        
+        dfDetails, dfRequisition = generic_services.refineJson(data)
 
         try:
-            requisitionNumber = requisition_service.AddRequistionForInv(department, items, request.user.username)
+            requisitionNumber = requisition_service.AddRequistionForInv(dfRequisition, dfDetails, request.user.username)
             return HttpResponse(requisitionNumber, status=200)
         except Exception as e:
             return HttpResponse(e, status=400)
@@ -1735,22 +1975,6 @@ def GetRequisitionAllocation(request: HttpRequest):
         return JsonResponse(allocation, safe=False)
     else:
         return HttpResponse('No Allowed', status=405)
-
-@login_required(login_url='login')
-def DeleteRequisition(request: HttpRequest, pk: int):
-    if not hasPermission(request.user, 'apparelManagement', 'Requisition', type='delete'):
-        return HttpResponse('Access Denied', status=403)
-
-    if request.method != 'DELETE':
-        return HttpResponse('Not Allowed', status=405)
-
-    try:
-        requisition_service.DeleteRequisition(pk)
-        return HttpResponse('Deleted', status=200)
-    except LookupError as e:
-        return HttpResponse(str(e), status=404)
-    except Exception as e:
-        return HttpResponse(str(e), status=400)
 
 @login_required(login_url='login')
 def Issuance (request: HttpRequest):
@@ -1796,7 +2020,7 @@ def AddIssuance (request: HttpRequest):
         comments = request.POST.get('Comments')
         try:
             issuance_service.AddIssuance(requisition, comments)
-            return redirect('requisition')
+            return redirect('apparelManagement:requisition')
         except Exception as e:
             print(e)
             return HttpResponse(e, status=400)
@@ -1895,17 +2119,15 @@ class GetPendingThreadConsRequest(APIView):
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
             requests = style_card_service.GetThreadConsRequests('false')
-            return Response(data=requests, status=rest_framework.status.HTTP_200_OK)
+            return Response(data=requests, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, statu=status)
+            return Response(data=response, statu=status.HTTP_400_BAD_REQUEST)
 
 class UpdateThreadConsumption(APIView):
     permission_classes = [AllowAny]
@@ -1916,20 +2138,17 @@ class UpdateThreadConsumption(APIView):
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
         
         try:
             consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
         except:
             response = {'message', 'Resource Not Found'}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
 
         if consRequest.IsClosed:
             response = {'message': 'This resource is closed'}
-            status = rest_framework.status.HTTP_405_METHOD_NOT_ALLOWED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
         
         try:
             consRequest, consThreads, addedData, styles = style_card_service.ProcessThreadConsumptionData(consRequest)
@@ -1938,13 +2157,11 @@ class UpdateThreadConsumption(APIView):
                 'request': consRequest, 'threads': consThreads, 'addedData': addedData,
                 'styles': styles,
             }
-            status = rest_framework.status.HTTP_200_OK
-            return Response(data=responseData, status=status)
+            return Response(data=responseData, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
     def post(self, request:Request, pk: int):
         try:
@@ -1952,33 +2169,29 @@ class UpdateThreadConsumption(APIView):
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
         
         try:
             consRequest = models.ThreadConsumptionRequest.objects.get(id=pk)
         except:
             response = {'message', 'Resource Not Found'}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
 
 
         if consRequest.IsClosed:
             response = {'message': 'This resource is closed'}
-            status = rest_framework.status.HTTP_405_METHOD_NOT_ALLOWED
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
         isFinal = request.data.get('final', False)
         data = request.data.get('items')
 
         try:
             style_card_service.SaveThreadConsumption(consRequest, data, isFinal)
-            return Response(data=[], status=rest_framework.status.HTTP_200_OK)
+            return Response(data=[], status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            status = rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 def ConvertThreadConsumption(request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='change'):

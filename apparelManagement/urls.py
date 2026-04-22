@@ -10,6 +10,16 @@ urlpatterns = [
     path('notification/<int:pk>/view', views.GetNotificationDetails, name='notifDetails'),
     path('notification/<int:pk>/read', views.ReadNotification, name='notifRead'),
 
+    path('mmc/inventory', views.APIInvenotory.as_view(), name='apiInv'),
+    path('mmc/inventory/add', views.APIInventoryAdd.as_view(), name='apiInvAdd'),
+    path('mmc/inventory/code-gen', views.GenerateInventoryCodeAPI.as_view(), name='genInvCodeAPI'),
+    path('mmc/inventory/code-check', views.CheckInventoryCodeForAddition.as_view(), name='checkInvCodeExistence'),
+    path('mmc/inventory/<str:pk>/update', views.APIInventoryUpdate.as_view(), name='updateInv'),
+    path('mmc/inventory/<str:pk>/copy', views.APIInventoryCopy.as_view(), name='duplicateInv'),
+    path('mmc/inventory/<str:pk>/delete', views.APIInventoryDelete.as_view(), name='removeInv'),
+
+    path('merchandising/style', views.StyleCards.as_view(), name='styleCards'),
+
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
     path('inv/<str:pk>/edit/', views.UpdateInv, name='editInv'),
@@ -50,6 +60,7 @@ urlpatterns = [
     path('workorder/requirement/get', views.GetRequirementHistory, name='getRequirementHistory'),
     path('workorder/initial-plan', views.WorkOrderInitialPlan, name='initialPlan'),
     path('purchaseorder/add/fromworkorder/<int:pk>', views.GeneratePOFromWO, name='poFromWO'),
+    path('api/workorders', views.WorkOrders.as_view(), name='apiWOs'),
 
     path('purchaseorder/autogen', views.AutoInventoryRequirement, name='autoReq'),
     path('purchaseorder', views.PurchaseOrder, name='POs'),
@@ -82,7 +93,6 @@ urlpatterns = [
     path('requisition/add/order', views.AddRequisitionForOrder, name='addRequisitionForOrder'),
     path('requisition/add/inv', views.AddRequisitionForInv, name='addRequisitionForInv'),
     path('requisition/alloc/get', views.GetRequisitionAllocation, name='getReqAllocation'),
-    path('requisition/<int:pk>/delete', views.DeleteRequisition, name='deleteRequisition'),
 
     path('issuance', views.Issuance, name='issue'),
     path('issuance/add', views.AddIssuance, name='addIssue'),
@@ -109,4 +119,5 @@ urlpatterns = [
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
     path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),
+    path('api/units', options_service.GetInvUnitsForGroup.as_view(), name='apiUnitsFromGroup'),
 ]

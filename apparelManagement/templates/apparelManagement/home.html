@@ -5,154 +5,7 @@
 {% endblock %} 
 
 {% block content %}
-
-    <!-- TAB BUTTONS - the two category buttons at the top -->
-    <div class="flex gap-3 mx-4 mt-6">
-
-        <!-- Direct Materials button -->
-        <button 
-            id="btn-direct"
-            onclick="showTab('direct')"
-            class="px-6 py-3 rounded-lg font-semibold text-white bg-blue-600 border-2 border-blue-400">
-            Direct Materials
-        </button>
-
-        <!-- Indirect Materials button -->
-        <button 
-            id="btn-indirect"
-            onclick="showTab('indirect')"
-            class="px-6 py-3 rounded-lg font-semibold text-gray-400 bg-gray-800 border-2 border-gray-600">
-            Indirect Materials
-        </button>
-
-    </div>
-
-    <!-- DIRECT MATERIALS PANEL -->
-    <div id="panel-direct" class="mx-4 my-6 p-6 rounded-xl border border-blue-500 bg-blue-950">
-        <h2 class="text-xl font-bold text-blue-300 mb-4">📋 Quick Start Guide — Direct Materials</h2>
-        <p class="text-gray-400 text-sm mb-4">New here? Follow these steps to get started:</p>
-
-        <div class="flex flex-col gap-3">
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">1</span>
-                <div>
-                    <p class="text-white font-semibold">Inventory Check</p>
-                    <p class="text-gray-400 text-sm">When you receive a new order from a customer, check if you have everything in stock before creating its Style Card.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">2</span>
-                <div>
-                    <p class="text-white font-semibold">Add Inventory Items</p>
-                    <p class="text-gray-400 text-sm">If any required fabric/trim items are missing, add them to the inventory first. Here you will choose the suitable units of measurement and the per unit cost. Go to <strong>Inventory → Add Card</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">3</span>
-                <div>
-                    <p class="text-white font-semibold">Create a Style Card</p>
-                    <p class="text-gray-400 text-sm">Once we have the inventory requirement, we calculate the total material consumption to fulfill the order. For this a Style Card in made. Go to <strong>StyleCard → Add Card</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">4</span>
-                <div>
-                    <p class="text-white font-semibold">Create a Work Order</p>
-                    <p class="text-gray-400 text-sm">Once all the requirements are finalized, create a work order. Go to <strong>Work Order → Add New</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">5</span>
-                <div>
-                    <p class="text-white font-semibold">Create an Inventory Order</p>
-                    <p class="text-gray-400 text-sm">Once the work order has been approved by the client create an inventory order for all the required materials. Go to <strong>Inventory Order → Add</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">6</span>
-                <div>
-                    <p class="text-white font-semibold">Receive the Inventory</p>
-                    <p class="text-gray-400 text-sm">Once the goods have been delivered, record the receipt and verify them. Go to <strong>Inventory Receipt → Add</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-900">
-                <span class="text-blue-400 font-bold text-lg">7</span> 
-                <div>
-                    <p class="text-white font-semibold">Issue the Received Goods</p>
-                    <p class="text-gray-400 text-sm">Once all the received goods are verified, issue them for use. Go to <strong>Issuance → Issue For Order</strong>.</p>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- INDIRECT MATERIALS PANEL - hidden by default -->
-    <div id="panel-indirect" class="mx-4 my-6 p-6 rounded-xl border border-gray-600 bg-gray-900" hidden>
-        <h2 class="text-xl font-bold text-gray-300 mb-4">📦 Quick Start Guide — Indirect Materials</h2>
-        <p class="text-gray-400 text-sm mb-4">Indirect materials are anything not directly involved in apparel production — e.g. Stationary, Medicine, etc. Follow these steps to get started:</p>
-
-        <div class="flex flex-col gap-3">
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
-                <span class="text-gray-400 font-bold text-lg">1</span>
-                <div>
-                    <p class="text-white font-semibold">Create an Inventory Card</p>
-                    <p class="text-gray-400 text-sm">Add the material to the inventory with its per unit cost. This is used for cost tracking across all purchases. Go to <strong>Inventory → Add Card</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
-                <span class="text-gray-400 font-bold text-lg">2</span>
-                <div>
-                    <p class="text-white font-semibold">Create a Purchase Demand</p>
-                    <p class="text-gray-400 text-sm">Raise a purchase demand for the required materials. Go to <strong>Purchase Demand → Add</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
-                <span class="text-gray-400 font-bold text-lg">3</span>
-                <div>
-                    <p class="text-white font-semibold">Create a Purchase Order (PO)</p>
-                    <p class="text-gray-400 text-sm">Once the required products are finalized, create a Purchase Order for the supplier. Go to <strong>Purchase Demand → Make PO</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
-                <span class="text-gray-400 font-bold text-lg">4</span>
-                <div>
-                    <p class="text-white font-semibold">Get the Purchase Order Approved</p>
-                    <p class="text-gray-400 text-sm">The PO must be approved before it can be acted upon. Go to <strong>Purchase Demand → Approve</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
-                <span class="text-gray-400 font-bold text-lg">5</span>
-                <div>
-                    <p class="text-white font-semibold">Create an Inventory Order</p>
-                    <p class="text-gray-400 text-sm">Fill in all the order details including quantities and per unit cost. Make sure the per unit cost from the inventory card is used for accurate cost recording. Go to <strong>Inventory Order → Add Order</strong>.</p>
-                </div>
-            </div>
-
-            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
-                <span class="text-gray-400 font-bold text-lg">6</span>
-                <div>
-                    <p class="text-white font-semibold">Record the Delivery</p>
-                    <p class="text-gray-400 text-sm">When products are delivered, enter all delivery details including the delivery vehicle information and delivery fee. Go to <strong>Inventory Receipt → Add</strong>.</p>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- Notifications section (existing) -->
-    <div class="row mx-4">
+    <div class="row">
         <div class="col" id="nofiticationTemplate" style="cursor: pointer;" hidden onclick="openNotification(this)">
             <div class="card">
                 <div class="card-body">
@@ -163,15 +16,18 @@
             </div>
         </div>
     </div>
-
     <div class="modal fade" id="notificationDetail" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
         <div class="{{theme.dialogBox}}">
             <div class="modal-content">
                 <div class="{{theme.dialogBoxHeader}}">
-                    <div class="{{theme.dialogBoxTitle}}" id="modalLabel">Title</div>
+                    <div class="{{theme.dialogBoxTitle}}" id="modalLabel">
+                        Title
+                    </div>
                 </div>
                 <div class="{{theme.dialogBoxBody}}">
-                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}">Body</div>
+                    <div class="row mt-1 {{theme.justify}} {{theme.textJustify}}">
+                        Body
+                    </div>
                 </div>
                 <div class="btn-group {{theme.dialogBoxFooter}}">
                     <button type="button" class="{{theme.buttonBasic}}" data-bs-dismiss="modal">Mark Read</button>
@@ -181,83 +37,77 @@
         </div>
     </div>
 
-    <script>
-        // TAB SWITCHER - runs when a button is clicked
-        function showTab(tabName) {
-
-            // List of all tab names
-            const tabs = ['direct', 'indirect'];
-
-            for (const tab of tabs) {
-                const panel = document.getElementById('panel-' + tab);   // the content box
-                const button = document.getElementById('btn-' + tab);    // the button
-
-                if (tab === tabName) {
-                    // This is the selected tab — show it and highlight the button
-                    panel.removeAttribute('hidden');
-                    button.className = 'px-6 py-3 rounded-lg font-semibold text-white bg-blue-600 border-2 border-blue-400';
-                } else {
-                    // This is NOT the selected tab — hide it and dim the button
-                    panel.setAttribute('hidden', true);
-                    button.className = 'px-6 py-3 rounded-lg font-semibold text-gray-400 bg-gray-800 border-2 border-gray-600';
-                }
-            }
-        }
-    </script>
-
-    <script>
+    <script>    //This code runs when the page is fully loaded.
         window.addEventListener('load', async () => {
             await showNotifications();
         });
     </script>
 
-    <script>
+    <script>    //To handle a notification
         async function openNotification(source) {
             const id = source.getAttribute('id');
+
             const response = await fetch(`notification/${id}/view`);
+
             if (response.ok) {
                 const notification = await response.json();
                 const notificationDetail = document.getElementById('notificationDetail');
+
                 const title = notificationDetail.children[0].children[0].children[0].children[0];
                 const body = notificationDetail.children[0].children[0].children[1].children[0];
                 const buttons = notificationDetail.children[0].children[0].children[2].children;
+
                 title.textContent = notification.title;
                 body.textContent = notification.body;
+
                 buttons[0].setAttribute('onclick', `markRead(${id})`);
                 buttons[1].setAttribute('href', notification.url);
+
                 new bootstrap.Modal(notificationDetail).show();
             } else {
-                showMessage(await response.text());
+                error = response.text();
+                showMessage(error);
             }
         }
 
         async function markRead(id) {
             const response = await fetch(`notification/${id}/read`);
-            if (response.ok) { window.location.reload(); }
-            else { showMessage(await response.text()); }
-        }
-    </script>
-
-    <script>
-        async function showNotifications() {
-            const template = document.getElementById('nofiticationTemplate');
-            const body = template.parentElement;
-            const notifications = {{data|safe}};
-            for (const notification of notifications) {
-                const notificationBox = template.cloneNode(true);
-                notificationBox.removeAttribute('hidden');
-                const widthClass = notificationBox.getAttribute('class');
-                notificationBox.setAttribute('class', `${widthClass}-${notification.width}`);
-                const titleBox = notificationBox.children[0].children[0].children[0];
-                const bodyBox = notificationBox.children[0].children[0].children[1];
-                const footerBox = notificationBox.children[0].children[1];
-                titleBox.textContent = notification.title;
-                bodyBox.textContent = notification.body;
-                footerBox.textContent = `${notification.timePassed} ago`;
-                notificationBox.setAttribute('id', notification.id);
-                body.appendChild(notificationBox);
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                error = response.text();
+                showMessage(error);
             }
         }
     </script>
 
+    <script>    //To show all notifications on the page
+        async function showNotifications() {
+            const template = document.getElementById('nofiticationTemplate');
+            const body = template.parentElement;
+            
+            const notifications = {{data|safe}};
+            
+            for (const notification of notifications) {
+                const notificationBox = template.cloneNode(true);
+                
+                notificationBox.removeAttribute('hidden');
+
+                const widthClass = notificationBox.getAttribute('class');
+                notificationBox.setAttribute('class', `${widthClass}-${notification.width}`);
+
+                const titleBox = notificationBox.children[0].children[0].children[0];
+                const bodyBox = notificationBox.children[0].children[0].children[1];
+                const footerBox = notificationBox.children[0].children[1];
+
+                titleBox.textContent = notification.title;
+                bodyBox.textContent = notification.body;
+                footerBox.textContent = `${notification.timePassed} ago`;
+                notificationBox.setAttribute('id', notification.id);
+
+                body.appendChild(notificationBox);
+
+            }
+        }
+    </script>
 {% endblock %}
