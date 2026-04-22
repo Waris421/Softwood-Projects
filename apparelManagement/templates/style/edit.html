@@ -249,22 +249,22 @@
             </div>
             <div class="{{theme.dialogBoxBody}}">
                 <div class="grid grid-cols-3 gap-4 mb-2 bg-gray-800 text-white p-2 rounded-md">
-                    <div class="text-center font-semibold">Code</div>
-                    <div class="text-center font-semibold">Name</div>
-                    <div class="text-center font-semibold">Group</div>
+                    <div class="text-center font-semibold">Filter 1</div>
+                    <div class="text-center font-semibold">Filter 2</div>
+                    <div class="text-center font-semibold">Filter 3</div>
                 </div>
                 <div id="invBoxSearchContainer" class="grid grid-cols-3 gap-4 mb-4 border border-gray-300 p-2 rounded-md" onkeyup="handleSearchInput(this)">
                     <div hidden>
                         <input readonly />
                     </div>
                     <div>
-                        <input type="text" placeholder="Search by code" class="input input-bordered w-full" />
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
                     </div>
                     <div>
-                        <input type="text" placeholder="Search by name" class="input input-bordered w-full" />
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
                     </div>
                     <div>
-                        <input type="text" placeholder="Search by group" class="input input-bordered w-full" />
+                        <input type="text" placeholder="Type here" class="input input-bordered w-full" />
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4 py-2 border-b border-gray-200 hover:bg-gray-100 cursor-pointer user-select-none"
@@ -284,7 +284,6 @@
                 <div>
                     <span class="block px-2 py-1"></span>
                 </div>
-
             </div>
             <div id="inventoryListContainer"></div>
         </div>
@@ -449,10 +448,6 @@
 
             const searchContainer = document.getElementById('invBoxSearchContainer');
 
-            // Pre-fill search with the current inventory code from this row
-            const currentCode = source.parentElement.children[0].value;
-            searchContainer.children[1].querySelector('input').value = '';
-
             await applySearch(searchContainer);
 
             //Show the search table
@@ -468,22 +463,23 @@
         }
 
         function appendInventories(inventories) {
+            const filterRow = document.querySelector('#invSearchTable .modal-body > div:nth-child(2)');
             const templateRow = document.getElementById('templateRow');
             const inventoryListContainer = document.getElementById('inventoryListContainer');
 
             inventoryListContainer.innerHTML = '';
+
+            const filterInputs = filterRow.querySelectorAll('input[type="text"]');
 
             for (const inventory of inventories) {
                 const newRow = templateRow.cloneNode(true);
                 newRow.style.display = 'grid';
                 newRow.removeAttribute('id');
 
-                const namePart = inventory.text.split(' - ')[0];
-                const codePart = inventory.value;
-                newRow.children[0].children[0].textContent = codePart;
-                newRow.children[1].children[0].textContent = codePart;
-                newRow.children[2].children[0].textContent = namePart;
-                newRow.children[3].children[0].textContent = '';
+                newRow.children[0].children[0].textContent = inventory.value;
+                newRow.children[1].children[0].textContent = inventory.text;
+                newRow.children[2].children[0].textContent = inventory.text;
+                newRow.children[3].children[0].textContent = inventory.text;
 
                 inventoryListContainer.appendChild(newRow);
             }
@@ -522,32 +518,31 @@
                 await applySearch(source);
             }, DEBOUNCE_DELAY);
         }
-        
-    async function applySearch(source) { 
-        showLoadingIcon();           
-        const columns = source.children;
-        
-        let searchTerms = [];
-        for (const column of columns) {
-            searchTerms.push(column.children[0].value.toLowerCase());
-        }
 
-        let url = `{% url 'apparelManagement:InventoryList' %}`;
-        const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
-        url = `${url}?${queryString}`;
-        
-        try {
+        async function applySearch(source) { 
+            showLoadingIcon();           
+            const columns = source.children;
+            
+            // Get all the search terms
+            let searchTerms = [];
+            for (const column of columns) {
+                //Convert search term to lower case and append to the array
+                searchTerms.push(column.children[0].value.toLowerCase());
+            }
+
+            let url = `{% url 'apparelManagement:InventoryList' %}`;
+            const queryString = searchTerms.map(term => `searches=${encodeURIComponent(term)}`).join('&');
+            url = `${url}?${queryString}`;
+            
+            //Get the inventories from server
             const response = await fetch(url);
             const inventories = await response.json();
+            //Remove the frist row, as that is blank
             inventories.shift();
-            appendInventories(inventories);
-        } catch (error) {
-            console.error('Inventory search failed:', error);
-        }
-        hideLoadingIcon();
-    }
 
-        
+            appendInventories(inventories);
+            hideLoadingIcon();
+        }
     </script>
 
     <script> //To send data to server

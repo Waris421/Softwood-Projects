@@ -2,6 +2,7 @@ from django.contrib import admin
 from . import models
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from django.core.cache import cache
 
 # Register your models here.
 
@@ -13,53 +14,29 @@ class ImpExp(ImportExportModelAdmin):
     list_display = ('id','Name')
     resource_class = ImpExpResource """
 
-@admin.register(models.UnitGroup)
-class UnitGroupAdmin(admin.ModelAdmin):
-    list_display = ('Name', 'StandardUnit')
-    ordering = ['Name']
-
+@admin.action(description="Clear entire cache")
+def clearCacheAction(modeladmin, request, queryset):
+    cache.clear()
+    modeladmin.message_user(request, "Cache has been cleared.")
 
 @admin.register(models.Unit)
 class UnitAdmin(admin.ModelAdmin):
-    list_display = ('Name', 'Group', 'Factor', 'factor_meaning')
+    list_display = ('Name','Group')
     list_filter = ('Group',)
-    ordering = ['Group', 'Name']
-    readonly_fields = ('factor_hint',)
+    ordering = ['Group','Name']
 
-    def factor_meaning(self, obj):
-        return f"1 {obj.Name} = {obj.Factor} {obj.Group.StandardUnit}"
-    factor_meaning.short_description = "Meaning"
-
-    def factor_hint(self, obj):
-        from django.utils.safestring import mark_safe
-        import json
-        groups = {g.Name: g.StandardUnit for g in models.UnitGroup.objects.all()}
-        current = f"(1 {obj.Group.StandardUnit})" if (obj and obj.pk and obj.Group) else "Select a Group above"
-        groups_json = json.dumps(groups)
-        html = f"""
-            <span id="factor-hint-text" style="color:#17a2b8; font-weight:bold">{current}</span>
-            <script>
-            (function() {{
-                var unitGroups = {groups_json};
-                var sel = document.getElementById('id_Group');
-                if (sel) {{
-                    sel.addEventListener('change', function() {{
-                        var std = unitGroups[this.value] || '';
-                        var hint = document.getElementById('factor-hint-text');
-                        hint.textContent = std ? '(1 ' + std + ')' : 'Select a Group above';
-                    }});
-                }}
-            }})();
-            </script>
-        """
-        return mark_safe(html)
-    factor_hint.short_description = "Comparing To"
-
-
-@admin.register(models.Currency)
+""" @admin.register(models.Currency)
 class CurrencyAdmin(admin.ModelAdmin):
-    list_display = ('Code', 'Name')
+    list_display = ('Code', 'Name') """
 
+@admin.register(models.InventoryReciept)
+class InventoryReceiptAdmin(admin.ModelAdmin):
+    '''Admin View for InventoryReceipt'''
+
+    list_display = ('id', 'Supplier', 'ReceiptDate')
+    list_filter = ('Supplier',)
+    ordering = ('id',)
+    search_fields = ('id',)
 
 @admin.register(models.Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
@@ -68,6 +45,7 @@ class AttachmentAdmin(admin.ModelAdmin):
     list_display = ('id', 'Description')
     list_filter = ('ContentType',)
     ordering = ('AddedAt',)
+    actions = [clearCacheAction]
 
 @admin.register(models.RoutePreset)
 class RoutePresetAdmin(admin.ModelAdmin):
@@ -84,7 +62,6 @@ class RoutePresetStageAdmin(admin.ModelAdmin):
     list_display = ('Stage','RoutePreset')
     list_filter = ('RoutePreset',)
     ordering = ('id',)
-    filter_horizontal = ('PreReqs',)
 
 @admin.register(models.Supplier)
 class SupplierAdmin(admin.ModelAdmin):

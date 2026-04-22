@@ -19,28 +19,17 @@
                     <label class="mx-2 whitespace-nowrap">Invoice:&nbsp; </label>
                     <input type="text" name="Invoice" class="{{theme.textInput}}">
                 </div>
-                <div class="flex flex-col col-[5/7] items-start">
-                    <div class="flex items-center w-full">
-                        <label class="mx-2 whitespace-nowrap">Vehicle:&nbsp; </label>
-                        <input type="text" name="Vehicle" class="{{theme.textInput}}">
-                    </div>
-                    <span class="mx-2 text-xs opacity-50">(Vehicle registration number / Number plate)</span>
+                <div class="flex col-[5/7] items-center">
+                    <label class="mx-2 whitespace-nowrap">Vehicle:&nbsp; </label>
+                    <input type="text" name="Vehicle" class="{{theme.textInput}}">
                 </div>
-
-                <div class="flex flex-col col-[7/9] items-center">
-                    <div class="flex items-center w-full">
-                        <label class="mx-2 whitespace-nowrap">Bilty#:&nbsp; </label>
-                        <input type="text" name="Bilty" class="{{theme.textInput}}">
-                    </div>
-                    <span class="mx-2 text-xs opacity-50">(Receipt number from the transporter)</span>
-
+                <div class="flex col-[7/9] items-center">
+                    <label class="mx-2 whitespace-nowrap">Bilty#:&nbsp; </label>
+                    <input type="text" name="Bilty" class="{{theme.textInput}}">
                 </div>
-                <div class="flex flex-col col-[9/11] items-center">
-                    <div class="flex items-center w-full">
-                        <label class="mx-2 whitespace-nowrap">Amount#:&nbsp; </label>
-                        <input type="number" name="BiltyValue" class="{{theme.textInput}}">
-                    </div>
-                    <span class="mx-2 text-xs opacity-50">(Quantity of goods ordered)</span>
+                <div class="flex col-[9/11] items-center">
+                    <label class="mx-2 whitespace-nowrap">Amount#:&nbsp; </label>
+                    <input type="number" name="BiltyValue" class="{{theme.textInput}}">
                 </div>
                 <div class="flex col-[11/12] items-center">
                     <button type="button" class="{{theme.buttonBasic}} mx-2" onclick="submitForms()">Save</button>
@@ -78,7 +67,6 @@
                 </div>
             </div>
         </div>
-
         {% for data in inventory %}
             <div class="grid grid-cols-11 {{theme.justify}} {{theme.align}} {{theme.border}}" row="{{forloop.counter}}">
                 <div hidden>
@@ -101,7 +89,6 @@
                     <input type="text" class="{{theme.textInput}}" value="{{data.Unit}}" name="Unit" readonly>
                 </div>
             </div>
-
         {% endfor %}
     </form>
 
@@ -133,7 +120,7 @@
             showLoadingIcon();
 
             //Purchase Order dropdowns
-            response = await fetch('/options/purchaseorders/open');
+            response = await fetch('/options/purchaseorders/open?search={{poNumber}}');
             const pos = await response.json();
             await appendOptions('id_PO', pos, '{{poNumber}}');
 

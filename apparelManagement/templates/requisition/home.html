@@ -33,138 +33,55 @@
                     <button type="submit" class="{{theme.buttonBasic}}">Search</button>
                 </div>
                 <div class="flex col-[1/8] btn-group {{theme.align}} justify-end ml-1 mt-2">
-                    <a class="{{theme.buttonSecondary}} flex-col gap-0" role="button" href="{% url 'apparelManagement:addRequisitionForOrder' %}">
-                        <span>Add For Order</span>
-                        <span class="text-xs font-normal opacity-75">(For Direct Orders)</span>
-                    </a>
-                    <a class="{{theme.buttonSecondary}} flex-col gap-0" role="button" href="{% url 'apparelManagement:addRequisitionForInv' %}">
-                        <span>Add For Inventory</span>
-                        <span class="text-xs font-normal opacity-75">(For Indirect Orders)</span>
-                    </a>
-                    <a id="addIssueButton" class="{{theme.buttonSecondary}} flex-col gap-0" role="button">
-                        <span>Issue</span>
-                        <span class="text-xs font-normal opacity-75">(Finalize And Issue Order)</span>
-                    </a>
-                    <button id="deleteRequisitionButton" onclick="deleteRequisition()" class="flex flex-grow btn rounded-btn h-[4rem] text-lg text-white bg-gradient-to-b from-red-500 to-red-600 hover:opacity-60">Delete</button>
+                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'apparelManagement:addRequisitionForOrder' %}">Add For Order</a>
+                    <a class="{{theme.buttonSecondary}}" role="button" href="{% url 'apparelManagement:addRequisitionForInv' %}">Add For Inventory</a>
+                    <a id="addIssueButton" class="{{theme.buttonSecondary}}" role="button">Issue</a>
                 </div>
             </div>
         </form>
     </div>
 
-    <div id="requisitionTable" class="mt-6">
+    <div id ="requisitionTable" class="mt-6">
         <table class="{{theme.table}}">
-            <tr class="{{theme.tableHead}}">
+            <tr class = "{{theme.tableHead}}">
                 <th scope="col">Select</th>
                 <th scope="col">Requisition#</th>
                 <th scope="col">Date</th>
                 <th scope="col">Time</th>
                 <th scope="col">Department</th>
                 <th scope="col">Demand By</th>
-                <th scope="col">Status</th>
+                <th scope="col">Inventory (Top 3)</th>
             </tr>
-            <tbody id="tableData" class="{{theme.tableBody}}">
+            <tbody id="tableData" class = "{{theme.tableBody}}">
                 {% for data in req %}
-                    <tr class="{{theme.tableBodyRow}}" style="cursor: pointer;" onclick="toggleRibbon(this)">
-                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}" onclick="selectRequisition(this); event.stopPropagation();"></td>
+                    <tr class="{{theme.tableBodyRow}}">
+                        <td><input type="radio" name="item_checkbox" class="{{theme.radio}}"></td>
                         <td class="requisition">{{ data.id }}</td>
                         <td>{{ data.Date }}</td>
                         <td>{{ data.Time }}</td>
                         <td>{{ data.Department }}</td>
                         <td>{{ data.RequestBy }}</td>
-                        <td>
-                            {% if data.Status == 'Closed' %}
-                                <span class="badge badge-error text-white">Closed</span>
-                            {% else %}
-                                <span class="badge badge-warning">Pending</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr class="hidden">
-                        <td colspan="7" class="p-0">
-                            <table class="w-full text-sm">
-                                <thead>
-                                    <tr class="{{theme.tableHead}}">
-                                        <th class="text-center py-1">Item</th>
-                                        <th class="text-center py-1">Qty Ordered</th>
-                                        <th class="text-center py-1">In Stock</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in data.items %}
-                                        <tr class="{{theme.tableBodyRow}}">
-                                            <td class="text-center">{{ item.Name }}</td>
-                                            <td class="text-center">{{ item.Quantity }}</td>
-                                            <td class="text-center">{{ item.InStock }}</td>
-                                        </tr>
-                                    {% empty %}
-                                        <tr>
-                                            <td colspan="3" class="text-center py-2 opacity-50">No items</td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </td>
+                        <td>{{ data.Name }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <script>
-        function toggleRibbon(row) {
-            const ribbonRow = row.nextElementSibling;
-            ribbonRow.classList.toggle('hidden');
-        }
+    <script>//To change the buttons based on selection in radio
+        const dataTable = document.getElementById('tableData');
+        dataTable.addEventListener('click', (event) => {
+            const radio = event.target;
+            const selectedRequistion = radio.closest('tr').querySelector('td.requisition').textContent.trim();
 
-        function selectRequisition(radio) {
-            const selectedRequisition = radio.closest('tr').querySelector('td.requisition').textContent.trim();
-            document.getElementById("addIssueButton").href = '/issuance/add?req=' + selectedRequisition;
-        }
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-        async function deleteRequisition() {
-            const radio = document.querySelector('input[name="item_checkbox"]:checked');
-            if (!radio) {
-                alert('Please select a requisition first.');
-                return;
-            }
-
-            const requisitionId = radio.closest('tr').querySelector('td.requisition').textContent.trim();
-
-            if (!confirm(`Are you sure you want to delete Requisition #${requisitionId}?\n\nThis will permanently remove the requisition and restore the items back to stock.`)) {
-                return;
-            }
-
-            const response = await fetch(`/requisition/${requisitionId}/delete`, {
-                method: 'DELETE',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                const msg = await response.text();
-                alert('Error: ' + msg);
-            }
-        }
+            var button = document.getElementById("addIssueButton");
+            button.href = '/issuance/add?req='+ selectedRequistion;
+        });
     </script>
 
-    <script>
+    <script>//To run when the page loads
         window.addEventListener('load', async () => {
+            //Departments dropdown
             let response = await fetch('/options/departments');
             const departments = await response.json();
             await appendOptions('departmentFilter', departments, '{{selectedDepartment}}');

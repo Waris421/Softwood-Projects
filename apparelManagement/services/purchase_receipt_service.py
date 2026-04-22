@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
+from decimal import Decimal
 
 from django.forms import model_to_dict
 from django.db.models import Q
 from django.db import transaction
-from decimal import Decimal
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
@@ -85,9 +85,8 @@ def GetPOData(purchaseOrder: models.PurchaseOrder):
     dfPOInventories = pd.merge(left=dfPOInventories, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
     del dfInventories
     dfPOInventories.drop(inplace=True, columns=['Code','Inventory'])
-
+    
     return dfToListOfDicts(dfPOInventories)
-
 
 def GetPOContext(poInventory):
     fields = ['WorkOrder', 'Quantity']
@@ -131,20 +130,17 @@ def GetPOContext(poInventory):
     return dfToListOfDicts(dfAllocations)
 
 def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): # Takes the receipt that has info on supplier, PO, vehicle etc
-    # dfReceipt — the main receipt info (supplier, PO number, vehicle, etc.) — like the top section of the form
-    # dfRecInventories — the list of items received (fabric codes, quantities) — like the table at the bottom of the form
     '''
-    Add the receipt from new receipt Form
+    Add the receipt from the receipt Form
     '''
     dfRecInventories['Quantity'] = np.where(dfRecInventories['Quantity'].str.len()>0, dfRecInventories['Quantity'], 0.0) # Cleaning the data. Discards the empty cells
     dfRecInventories['Quantity'] = dfRecInventories['Quantity'].astype(float)
     if dfRecInventories.empty:
         raise ValueError('No Inventory provided')
 
-    purchaseOrder = dfReceipt['PONumber'][0] #ID Number of the PO
+    purchaseOrder = dfReceipt['PONumber'][0]
     purchaseOrder = models.PurchaseOrder.objects.get(id=purchaseOrder)
 
-#  Get work order allocations from the original PO
     fields = ['POInvId','WorkOrder','Quantity']
     poAllocations = models.POAllocation.objects.filter(POInvId__in=dfRecInventories['POInvId'].to_list()).values(*fields)
     if poAllocations:
@@ -153,7 +149,6 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
         dfPOAllocation = pd.DataFrame(columns=fields)
     del poAllocations
 
-# — Get PO inventory details
     fields = ['id','Inventory','Variant','Price','Forex']
     poInventories  = models.POInventory.objects.filter(id__in=dfRecInventories['POInvId'].to_list()).values(*fields)
     if poInventories:
@@ -170,7 +165,7 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
     del purchaseOrder
 
     receiptCard = models.InventoryReciept(**invReceipt)
-    #receiptCard.save() # — THIS IS WHERE THE RECEIPT IS SAVED TO THE DATABASE
+    #receiptCard.save()
     del invReceipt, dfReceipt 
 
     dfRecInventories.drop(inplace=True, columns=['Name','Variant','Price'])
@@ -182,11 +177,8 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
     dfRecInventories['Inventory'] = convertTexttoObject(models.Inventory, dfRecInventories['Inventory'], 'Code')
     dfRecInventories.rename(inplace=True, columns={'Inventory':'InventoryCode'})
    
-    # ── CALCULATE STOCK VALUE ──────────────────────────────────────────
     dfRecInventories['StockValue'] = dfRecInventories['Quantity'] * dfRecInventories['Price'] * dfRecInventories['Forex']
 
-
-    # ── LIST 1: Build RecInventory objects in memory (nothing saved yet) ──
     recInventoryRows = []
     for _, row in dfRecInventories.iterrows():
         recInv = models.RecInventory(
@@ -202,24 +194,15 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
             'POInvId': row['POInvId'],
         })
 
-    print(f"--- LIST 1: RecInventory ({len(recInventoryRows)} items) ---")
-    for item in recInventoryRows:
-        obj = item['object']
-        print(f"  {obj.InventoryCode} | {obj.Variant} | Qty: {obj.Quantity}")
-
-
-    # ── LIST 2: Build RecAllocation data in memory (shortfall logic runs here) ──
     allocationData = []
     for item in recInventoryRows:
         recInv = item['object']
         allocation = dfPOAllocation[dfPOAllocation['POInvId'] == item['POInvId']].copy()
 
         if allocation.empty:
-            print(f"  No allocation for {recInv.Variant} — skipping")
             continue
 
         shortfallPercentage = recInv.Quantity / allocation['Quantity'].sum()
-        print(f"  Shortfall % for {recInv.Variant}: {shortfallPercentage:.2%}")
 
         if shortfallPercentage < 1:
             allocation['Quantity'] = allocation['Quantity'] * shortfallPercentage
@@ -235,48 +218,29 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
                 'recInvRef': recInv,
             })
 
-    print(f"--- LIST 2: RecAllocations ({len(allocationData)} items) ---")
-    for item in allocationData:
-        print(f"  WO: {item['WorkOrder']} | Qty: {item['Quantity']}")
-
-
-    # ── LIST 3: Stock update data ──────────────────────────────────────
     stockUpdates = dfRecInventories[['InventoryCode','Variant','Quantity','StockValue']].to_dict('records')
 
-    print(f"--- LIST 3: Stock Updates ({len(stockUpdates)} items) ---")
-    for s in stockUpdates:
-        print(f"  {s['InventoryCode']} | {s['Variant']} | +Qty: {s['Quantity']} | +Value: {s['StockValue']}")
-
-
-    # ── SAVE EVERYTHING IN ONE ATOMIC BLOCK ───────────────────────────
     with transaction.atomic():
-
-        # Step 1: Save receipt header
+        #Save receipt header
         receiptCard.save()
-        print(f"--- Receipt saved: ID {receiptCard.id} ---")
 
-        # Step 2: Link all RecInventory objects to the saved receipt
         for item in recInventoryRows:
-            item['object'].ReceiptNumber = receiptCard
-
-        # Step 3: Bulk save all RecInventory at once
-        recInventoryObjects = [item['object'] for item in recInventoryRows]
-        models.RecInventory.objects.bulk_create(recInventoryObjects)
-        print(f"--- RecInventory bulk saved ({len(recInventoryObjects)} items) ---")
-
-        # Step 4: Build RecAllocation objects and bulk save
+            obj = item['object']
+            obj.ReceiptNumber = receiptCard
+            obj.save()
+        
         recAllocationList = [
-            models.RecAllocation(
-                WorkOrder=item['WorkOrder'],
-                Quantity=item['Quantity'],
-                RecInvId=item['recInvRef'],
-            )
-            for item in allocationData
-        ]
-        models.RecAllocation.objects.bulk_create(recAllocationList)
-        print(f"--- RecAllocation bulk saved ({len(recAllocationList)} items) ---")
+                models.RecAllocation(
+                    WorkOrder=item['WorkOrder'],
+                    Quantity=item['Quantity'],
+                    RecInvId=item['recInvRef'], 
+                )
+                for item in allocationData
+            ]
+        if recAllocationList:
+            models.RecAllocation.objects.bulk_create(recAllocationList)
 
-        # Step 5: Update InventoryStock — fetch all at once, update in memory, save all at once
+        #Update InventoryStock — fetch all at once, update in memory, save all at once
         existingStocks = models.InventoryStock.objects.filter(
             Inventory__in=[s['InventoryCode'] for s in stockUpdates],
             Variant__in=[s['Variant'] for s in stockUpdates],
@@ -289,10 +253,8 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
             key = (update['InventoryCode'], update['Variant'])
             if key in stockMap:
                 record = stockMap[key]
-                print(f"  [UPDATE] {update['Variant']} | Before → Qty: {record.StockQuantity} | Value: {record.StockValue}")
                 record.StockQuantity += Decimal(str(update['Quantity']))
                 record.StockValue    += Decimal(str(update['StockValue']))
-                print(f"  [UPDATE] {update['Variant']} | After  → Qty: {record.StockQuantity} | Value: {record.StockValue}")
                 toUpdate.append(record)
             else:
                 newRecord = models.InventoryStock(
@@ -301,21 +263,14 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
                     StockQuantity=Decimal(str(update['Quantity'])),
                     StockValue=Decimal(str(update['StockValue'])),
                 )
-                print(f"  [CREATE] {update['Variant']} | Before → Qty: 0 | Value: 0")
-                print(f"  [CREATE] {update['Variant']} | After  → Qty: {newRecord.StockQuantity} | Value: {newRecord.StockValue}")
                 toCreate.append(newRecord)
 
         if toCreate:
             models.InventoryStock.objects.bulk_create(toCreate)
-            print(f"--- New stock records created: {len(toCreate)} ---")
         if toUpdate:
             models.InventoryStock.objects.bulk_update(toUpdate, ['StockQuantity', 'StockValue'])
-            print(f"--- Stock records updated: {len(toUpdate)} ---")
-
-    print(f"--- All done. Receipt ID: {receiptCard.id} ---")
+            
     return receiptCard.id
-
-
 
 def EditPurchaseReceipt (
         receiptObject: models.InventoryReciept, 

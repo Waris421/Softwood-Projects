@@ -175,8 +175,6 @@ class Currency (models.Model):
     Code = models.CharField (primary_key=True, max_length=5)
     Name = models.CharField (max_length=255)                      
     IsLocal = models.BooleanField (default=False, blank=True)           #There must be only one local currency.
-    class Meta:
-        verbose_name_plural = "Currencies"
 
 class ForexRate(models.Model):
     """Data model for Forex Rates log."""
@@ -223,8 +221,7 @@ class StyleCard (models.Model):
     Category = models.CharField (max_length=15, choices=Categories)
     Notes = models.CharField (max_length = 40)
     Attachments = GenericRelation('Attachment', content_type_field='ContentType', object_id_field='ObjectId')
-    RoutePreset = models.ForeignKey('RoutePreset', on_delete=models.PROTECT, null=True, blank=True)
-
+    RoutePreset = models.ForeignKey('RoutePreset', on_delete=models.PROTECT)
 
 class StyleVariant (models.Model):
     """Data model for a style's variants."""
@@ -248,7 +245,7 @@ class StyleConsumption (models.Model):
     Consumption = models.FloatField (validators=[MinValueValidator(0, "Can't be less than 0")], blank=True, null=True)
     Unit = models.ForeignKey (Unit, on_delete = models.PROTECT, blank=True, null=True)
     Type = models.CharField (max_length=15, choices=ConsTypes, blank=True, null=True, default='BW')
-    FinalCons = models.FloatField(null=True, blank=True)
+    FinalCons = models.FloatField ()
     HasVariant = models.BooleanField (default=False, blank=True, null=True)
     SizeDetails = models.CharField (max_length=255, blank=True, null=True)
 
@@ -279,9 +276,6 @@ class RoutePreset(models.Model):
 
     id = models.AutoField(primary_key=True)
     Name = models.CharField(max_length=100, unique=True)
-    def __str__(self):
-        return self.Name
-
     class Meta:
         """Meta definition for RoutePrest."""
 
@@ -296,9 +290,6 @@ class RoutePresetStage(models.Model):
     RoutePreset = models.ForeignKey(RoutePreset, on_delete=models.CASCADE)
     Stage = models.CharField (max_length=50, choices = Routes, blank=True, null=True) 
     PreReqs = models.ManyToManyField('self', blank=True,symmetrical=False)   
-
-    def __str__(self):
-        return f"{self.RoutePreset.Name} → {self.Stage or 'No Stage'}"
 
     class Meta:
         """Meta definition for RoutePresetStages."""

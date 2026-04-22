@@ -2,12 +2,12 @@
 
 {% block title %}
     Requisition Form
-{% endblock %}
+{% endblock %} 
 
 {% block content %}
-    {% csrf_token %}
-
+    {% csrf_token %}          <!--This is to protect against CSRF attacks-->
     <!-- Selection Form -->
+
     <form method="GET" id="reqForm" autocomplete="off">
         <div class="{{theme.border}}">
             <div class="grid grid-cols-4 my-2 {{theme.justify}} {{theme.align}}">
@@ -25,7 +25,7 @@
                 </div>
                 <div class="flex col-[4/5] btn-group {{theme.align}} justify-end ml-1 mt-2">
                     <button type="submit" class="{{theme.buttonBasic}}">Refresh</button>
-                    <button class="{{theme.buttonSecondary}}" onclick="addToCart()" type="button">Add to Cart</button>
+                    <button class="{{theme.buttonSecondary}}" onclick="addRequest()" type="button">Add</button>
                 </div>
             </div>
         </div>
@@ -99,37 +99,16 @@
         </div>
     </form>
 
-    <!-- Cart Section -->
-    <div id="cartSection" class="mt-6 hidden">
-        <div class="{{theme.border}}">
-            <table class="{{theme.table}}">
-                <tr class="{{theme.tableHead}}">
-                    <th scope="col">Inventory</th>
-                    <th scope="col">Variant</th>
-                    <th scope="col">Receipt#</th>
-                    <th scope="col">Available</th>
-                    <th scope="col">Quantity</th>
-                    <th scope="col">Action</th>
-                </tr>
-                <tbody id="cartBody" class="{{theme.tableBody}}">
-                </tbody>
-            </table>
-            <div class="flex justify-end my-2 mx-2">
-                <button onclick="submitRequisition()" class="{{theme.buttonSecondary}}">Submit Requisition</button>
-            </div>
-        </div>
-    </div>
-
     <script> //To run when the page loads
         window.addEventListener('load', async () => {
             showLoadingIcon();
 
-            //Inventory group dropdown
+            //Inventory group Dropdown
             let response = await fetch('/options/groups/inventory');
             const groups = await response.json();
             await appendOptions('id_Group', groups, '{{selectedGroup}}');
 
-            //Inventory dropdown
+            //Inventory Dropdown
             let url = '/options/inventories';
             if ('{{selectedInv}}' != 'None') {
                 url += `?search={{selectedInv}}`;
@@ -140,7 +119,7 @@
             const inventories = await response.json();
             await appendOptions('id_Inventory', inventories, "{{selectedInv}}");
 
-            //Departments dropdown
+            //departments Dropdown
             response = await fetch('/options/departments');
             const departments = await response.json();
             await appendOptions('id_Department', departments, "{{department}}");
@@ -149,13 +128,17 @@
         });
     </script>
 
-    <script> //To change inventory dropdown based on group
+    <script>  //To change inventory dropdown based on group
         async function changeInvDropdown(source) {
             showLoadingIcon();
             const group = source.value;
+
+            //Inventory Dropdown
             const response = await fetch("/options/inventories?group="+group);
             const inventories = await response.json();
+
             await appendOptions('id_Inventory', inventories);
+
             hideLoadingIcon();
         }
     </script>
@@ -163,162 +146,100 @@
     <script> //To select all visible rows
         function selectAll(box) {
             const checkStatus = box.checked;
+
             const table = box.parentElement.parentElement.parentElement.parentElement.parentElement;
             const numberOfRows = table.children[0].children.length;
+
             for (let i=1; i<numberOfRows;i++) {
                 const row = table.querySelector('[row="'+i+'"]');
                 const rowCheck = row.children[0].children[0];
                 const filterStatus = (row.style.display === '');
+
                 rowCheck.checked = false;
+
                 if (filterStatus) {
                     rowCheck.checked = checkStatus;
                 }
-            }
+            } 
         }
     </script>
 
-    <script> //Cart management
-        let cart = JSON.parse(localStorage.getItem('requisitionCart') || '[]');
-
-        // Restore cart display on page load
-        window.addEventListener('load', () => renderCart());
-
-        function saveCart() {
-            localStorage.setItem('requisitionCart', JSON.stringify(cart));
-        }
-
-        function addToCart() {
-            const invSelect = document.getElementById('id_Inventory');
-            const inventoryCode = invSelect.value;
-            const inventoryName = invSelect.options[invSelect.selectedIndex]?.text || inventoryCode;
-
-            if (!inventoryCode || inventoryCode === 'null') {
-                showMessage('Please select an inventory item first');
-                return;
-            }
-
+    <script> //To make requisition for selected items
+        async function addRequest() {
             const inventoryForm = document.getElementById('inventoryForm');
-            const rows = inventoryForm.querySelectorAll('[row]');
+            const rows = inventoryForm.children[0].children;
 
-            let anyChecked = false;
+            let selectedRows = [];
+
             for (const row of rows) {
-                const rowNum = row.getAttribute('row');
-                if (rowNum == 0) continue;
+                const rowNumber = row.getAttribute('row');
+                const checkStatus = row.children[0].children[0].checked;
 
-                const checkbox = row.querySelector('input[type="checkbox"]');
-                if (!checkbox || !checkbox.checked) continue;
-
-                anyChecked = true;
-
-                const receiptNo = row.querySelector("[name='ReceiptNo']").value;
-                const variant = row.querySelector("[name='Variant']").value;
-                const available = row.querySelector("[name='Available']").value;
-                const quantity = row.querySelector("[name='Requested']").value;
-
-                const key = `${inventoryCode}|${receiptNo}|${variant}`;
-                const existingIndex = cart.findIndex(item => item.key === key);
-
-                if (existingIndex >= 0) {
-                    cart[existingIndex].quantity = quantity;
-                } else {
-                    cart.push({ key, inventoryCode, inventoryName, receiptNo, variant, available, quantity });
+                if (rowNumber>0 && checkStatus) {
+                    selectedRows.push(row);
                 }
             }
 
-            if (!anyChecked) {
-                showMessage('No rows are selected');
-                return;
+            if (selectedRows.length === 0) {
+                alert('No inventory is selected');
+                return
+            }
+            let data = {};
+            for (const row of selectedRows) {
+                data = prepareReqData(row, data);
             }
 
-            saveCart();
-            renderCart();
-        }
+            const reqForm = document.getElementById('reqForm');
+            const reqData = reqForm.children[0].children[0].children;
 
-        function renderCart() {
-            const cartSection = document.getElementById('cartSection');
-            const cartBody = document.getElementById('cartBody');
+            const inventory = reqData[1].children[1].value;
 
-            if (cart.length === 0) {
-                cartSection.classList.add('hidden');
-                return;
+            const department = reqData[2].children[1].value;  
+            if (department === 'null') {
+                alert('Please select your department');
+                return
             }
+            
+            data['req_Department'] = department;
+            data['req_Inventory'] = inventory;
 
-            cartSection.classList.remove('hidden');
-            cartBody.innerHTML = '';
+            data = JSON.stringify(data);
 
-            cart.forEach((item, index) => {
-                const tr = document.createElement('tr');
-                tr.className = '{{theme.tableBodyRow}}';
-                tr.innerHTML = `
-                    <td class="px-2 py-1">${item.inventoryName}</td>
-                    <td class="px-2 py-1">${item.variant || '-'}</td>
-                    <td class="px-2 py-1">${item.receiptNo}</td>
-                    <td class="px-2 py-1">${item.available}</td>
-                    <td class="px-2 py-1">
-                        <input type="number" value="${item.quantity}" min="0.01" max="${item.available}"
-                            class="{{theme.textInput}}"
-                            onchange="updateCartQty(${index}, this.value)">
-                    </td>
-                    <td class="px-2 py-1">
-                        <button class="{{theme.buttonBasic}}" onclick="removeCartItem(${index})">Remove</button>
-                    </td>
-                `;
-                cartBody.appendChild(tr);
-            });
-        }
-
-        function updateCartQty(index, value) {
-            cart[index].quantity = value;
-            saveCart();
-        }
-
-        function removeCartItem(index) {
-            cart.splice(index, 1);
-            saveCart();
-            renderCart();
-        }
-
-        async function submitRequisition() {
-            if (cart.length === 0) {
-                showMessage('Cart is empty');
-                return;
-            }
-
-            const department = document.getElementById('id_Department').value;
-            if (!department || department === 'null') {
-                showMessage('Please select your department first');
-                return;
-            }
-
-            const items = cart.map(item => ({
-                inventory: item.inventoryCode,
-                variant: item.variant,
-                quantity: parseFloat(item.quantity)
-            }));
-
-            const data = JSON.stringify({ department, items });
             const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
             const response = await fetch('', {
                 method: 'POST',
                 body: data,
-                headers: { "X-CSRFToken": csrf }
+                headers: { "X-CSRFToken": csrf},
             });
 
             if (response.ok) {
-                localStorage.removeItem('requisitionCart');
                 window.location.reload();
             } else {
                 const errorMessage = await response.text();
                 showMessage(errorMessage);
             }
         }
+
+        function prepareReqData(row, data) {
+            const variant = row.querySelector("[name='Variant']").value;
+            const Quantity = row.querySelector("[name='Requested']").value;
+            const rowNum = row.getAttribute('row');
+
+            data['data_Variant_'+rowNum] = variant;
+            data['data_Quantity_'+rowNum] = Quantity;
+
+
+            return data;
+        }
+
     </script>
 
-    <script> //Prevent requesting more than available
+    <script> //This is in response to a bug where would add more qty than received
         function checkQty(source) {
             const qty = parseFloat(source.value);
             const maxQty = parseFloat(source.getAttribute('max'));
+
             if (maxQty < qty) {
                 source.value = maxQty;
             }
