@@ -20,6 +20,7 @@ urlpatterns = [
 
     path('merchandising/style', views.StyleCards.as_view(), name='styleCards'),
     path('merchandising/style/add', views.AddStyleCard.as_view(), name='addStyleCard'),
+    path('merchandising/style/route-preset/details', views.StyleRoutePresetDetails.as_view(), name='getRoutePresetDetails'),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
@@ -101,6 +102,7 @@ urlpatterns = [
 
     path('options/yesorno', options_service.yesOrNo, name='YesOrNo' ),
     path('options/customers', options_service.getCustomersList, name='CustomerList'),
+    path('options/customers-api', options_service.GetCustomers.as_view(), name='CustomerListAPI'),
     path('options/suppliers', options_service.getSuppliersList, name='SupplierList'),
     path('options/departments', options_service.getDepartmentsList, name='DepartmentList'),
     path('options/categories', options_service.getCategories, name='GenderCategories'),

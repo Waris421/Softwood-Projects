@@ -584,12 +584,31 @@ class AddStyleCard(APIView):
 
         try:
             formData = style_card_service.GetDataForStyleCardAddition()
-            response = {'data': formData}
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'StyleCard', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            style_card_service.AddStyleCardAPI(request.data)
+            response = {'message': 'Saved Successfully'}
             return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        response = {'message': 'Under Construction'}
+        return Response(data=response, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 @login_required(login_url = '/login')
 def AddStyle (request: HttpRequest):
@@ -740,6 +759,31 @@ def CopyStyle(request: HttpRequest, pk: str):
     else:
         context = {'source':style.StyleCode, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/copy.html', context)
+
+class StyleRoutePresetDetails(APIView):
+    permission_classes=[AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'StyleCard', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+    
+        routeId = request.query_params.get('routeId', None)
+        try:
+            routePreset = models.RoutePreset.objects.get(id=routeId)
+        except:
+            return HttpResponse('Invalid Route', status=400)
+        
+        try:
+            stages = style_card_service.GetRoutePresetStages(routePreset)
+            return Response(data=stages, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def StyleRoutePrssetDetails(request: HttpRequest):

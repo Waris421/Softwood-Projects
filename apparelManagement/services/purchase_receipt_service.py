@@ -306,8 +306,9 @@ def EditPurchaseReceipt (
     del previousInventories
     
     if allocId:
-        previousAllocations = models.RecAllocation.objects.filter(RecInvId=allocId).values('id','WorkOrder')
-        dfPreviousAllocations = pd.DataFrame(previousAllocations)
+        fields = ['id','WorkOrder']
+        previousAllocations = models.RecAllocation.objects.filter(RecInvId=allocId).values(*fields)
+        dfPreviousAllocations = pd.DataFrame(previousAllocations) if previousAllocations else pd.DataFrame(columns=fields)
         del previousAllocations
     else:
         dfPreviousAllocations = pd.DataFrame(columns=['id'])
@@ -354,7 +355,7 @@ def EditPurchaseReceipt (
             dfRecAllocation['id'] = None
         else:
             dfRecAllocation = pd.merge(left=dfRecAllocation, right=dfPreviousAllocations, left_on='WorkOrder', right_on='WorkOrder', how='left')
-        
+
         dfRecAllocation['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfRecAllocation['WorkOrder'],'OrderNumber')
 
         try:

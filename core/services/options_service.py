@@ -41,6 +41,42 @@ def yesOrNo(request):
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
 
+class GetCustomers(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Customer', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        
+        queries = request.query_params
+        
+        filters = Q()
+
+        search = queries.get('search','')
+        if search:
+            filters &= (
+                Q(Name__icontains=search) |
+                Q(TradeName__icontains=search)
+            )
+        
+        fields = ['Name','TradeName']
+        customers = appModels.Customer.objects.filter(filters).values(*fields)
+        dfCustomers = pd.DataFrame(customers) if customers else pd.DataFrame(columns=fields)
+        del customers
+
+        dfCustomers.rename(inplace=True, columns={'Name':'value', 'TradeName':'label'})
+        dfCustomers['label'] = where(
+            dfCustomers['value'].astype(str) != dfCustomers['label'].astype(str),
+            dfCustomers['value'].astype(str) + ' - ' + dfCustomers['label'].astype(str),
+            dfCustomers['label']
+        ) 
+
+        return Response(data=dfToListOfDicts(dfCustomers), status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def getCustomersList(request):
     if request.method != 'GET':
@@ -135,6 +171,47 @@ def getCategories(request):
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
 
+class GetInventories(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            status = rest_framework.status.HTTP_401_UNAUTHORIZED
+            return Response(data=response, status=status)
+
+        search = request.GET.get('search', '')
+
+        filters = Q()
+
+        if search:
+            filters &= Q(Name__icontains=search) | Q(Code__icontains=search)
+        
+        objects = appModels.Inventory.objects.filter(filters)
+
+        if objects.count() < 1:
+            response = []
+            status = rest_framework.status.HTTP_200_OK
+            return Response(data=response, status=status)
+
+        objects = objects[:15].values('Code','Name')
+        dfData = pd.DataFrame(objects)
+        
+        dfData['text'] = dfData['Name']+' - '+dfData['Code']
+        dfData.drop(inplace=True, columns=['Name'])
+        dfData.rename(inplace=True, columns={'Code': 'value'})
+        dfData['value'] = dfData['value'].astype(str)
+        
+        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+
+        data = dfToListOfDicts(dfData)
+        status = rest_framework.status.HTTP_200_OK
+
+        return Response(data=data, status=status) 
+
 @login_required(login_url='/login')
 def getInventories(request: HttpRequest):
     if request.method == 'GET':
@@ -182,47 +259,6 @@ def getInventories(request: HttpRequest):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse ('No allowed', status=405)
-
-class GetInventories(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
-
-        search = request.GET.get('search', '')
-
-        filters = Q()
-
-        if search:
-            filters &= Q(Name__icontains=search) | Q(Code__icontains=search)
-        
-        objects = appModels.Inventory.objects.filter(filters)
-
-        if objects.count() < 1:
-            response = []
-            status = rest_framework.status.HTTP_200_OK
-            return Response(data=response, status=status)
-
-        objects = objects[:15].values('Code','Name')
-        dfData = pd.DataFrame(objects)
-        
-        dfData['text'] = dfData['Name']+' - '+dfData['Code']
-        dfData.drop(inplace=True, columns=['Name'])
-        dfData.rename(inplace=True, columns={'Code': 'value'})
-        dfData['value'] = dfData['value'].astype(str)
-        
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
-
-        data = dfToListOfDicts(dfData)
-        status = rest_framework.status.HTTP_200_OK
-
-        return Response(data=data, status=status)
      
 @login_required(login_url='/login')
 def getInvGroups (request: HttpRequest):

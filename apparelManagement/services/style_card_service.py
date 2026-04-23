@@ -4,7 +4,7 @@ import numpy as np
 from typing import List, Dict
 
 from django.forms.models import model_to_dict
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django.contrib.auth.models import User
 
@@ -157,30 +157,69 @@ def GetRoutePresetStages(routePreset: models.RoutePreset):
     return dfToListOfDicts(dfStages)
 
 def GetDataForStyleCardAddition():
-    fields = ['Name', 'TradeName']
-    customers = models.Customer.objects.all().values(*fields)
-    dfCustomers = pd.DataFrame(customers) if customers else pd.DataFrame(columns=fields)
-    del customers
-
     fields = ['id', 'Name']
     routePresets = models.RoutePreset.objects.all().values(*fields)
     dfRoutePresets = pd.DataFrame(routePresets) if routePresets else pd.DataFrame(columns=fields)
     del routePresets
 
-    dfCustomers.rename(inplace=True, columns={'Name':'value', 'TradeName':'label'})
-    dfCustomers['label'] = np.where(
-        dfCustomers['value'].astype(str) != dfCustomers['label'].astype(str),
-        dfCustomers['value'].astype(str) + ' - ' + dfCustomers['label'].astype(str),
-        dfCustomers['label']
-    )
-
     dfRoutePresets.rename(inplace=True, columns={'id': 'value','Name': 'label'})
 
     return {
-        'customers': dfToListOfDicts(dfCustomers),
         'routes': dfToListOfDicts(dfRoutePresets)
     }
 
+def AddStyleCardAPI(data: Dict[str, Dict[str, str] | List[Dict[str, str]]]):
+    styleData = data['style']
+    variantData = data['variant']
+    routeData = data['route']
+
+    if '/' in styleData['Code']:
+        raise ValueError('No Slashes are allowed in Style Code')    
+    
+    try:
+        presetId = int(routeData['RouteId'])
+        routePreset = models.RoutePreset.objects.get(id=presetId) 
+        customer = models.Customer.objects.get(Name=styleData['Customer'])
+    except:
+        raise ValueError('Invalid Route or customer')
+
+    dfVariants = pd.DataFrame(variantData['items'])
+    del variantData
+
+    #Clean whitespace and handle NaNs
+    dfVariants = dfVariants.apply(lambda x: x.str.strip() if x.dtype == "object" else x).replace('', np.nan)
+    
+    v1 = dfVariants['Variant1'].dropna().unique()
+    v2 = dfVariants['Variant2'].dropna().unique()
+    if len(v1) == 0 and len(v2) == 0:
+        raise ValueError('No valid variants provided')
+    
+    try:
+        with transaction.atomic():
+            styleCard = models.StyleCard(
+                StyleCode=styleData['Code'],
+                StyleName=styleData['Name'],
+                Notes=styleData.get('Notes', ''),
+                Customer=customer,
+                Category=styleData.get('Category'),
+                RoutePreset=routePreset
+            )
+            styleCard.save()
+
+            variants = [
+                models.StyleVariant(
+                    Style=styleCard,
+                    VariantCode=f"{val1}-{val2}"
+                )
+                for val1 in v1 for val2 in v2
+            ]
+            models.StyleVariant.objects.bulk_create(variants)            
+    except IntegrityError as e:
+        raise ValueError(f"Error Saving Style Card: {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"An error occured: {str(e)}")
+
+#TODO: This would be obsolete when we shift to next
 def AddStyleCard(
         dfStyle: pd.DataFrame,
         dfVariants: pd.DataFrame,
