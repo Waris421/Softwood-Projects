@@ -69,9 +69,19 @@ REST_FRAMEWORK = {
     "NON_FIELD_ERRORS_KEY":"errors",
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-    ]
-    }
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        #'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        #'anon': '1000/day', TODO: Uncomment this in production
+        'user': '1000/min'
+    },
+    'EXCEPTION_HANDLER': 'authentication.exceptions.custom_exception_handler',
+}
 
 TEMPLATES = [
     {

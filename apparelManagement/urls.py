@@ -21,6 +21,7 @@ urlpatterns = [
     path('merchandising/style', views.StyleCards.as_view(), name='styleCards'),
     path('merchandising/style/add', views.AddStyleCard.as_view(), name='addStyleCard'),
     path('merchandising/style/route-preset/details', views.StyleRoutePresetDetails.as_view(), name='getRoutePresetDetails'),
+    path('merchandising/style/<str:pk>/update', views.UpdateStyleCard.as_view(), name='updateStyleCard'),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),

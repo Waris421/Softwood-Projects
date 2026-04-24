@@ -219,6 +219,41 @@ def AddStyleCardAPI(data: Dict[str, Dict[str, str] | List[Dict[str, str]]]):
     except Exception as e:
         raise RuntimeError(f"An error occured: {str(e)}")
 
+def GetDataForStyleCardUpdate(styleCard: models.StyleCard):
+    variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
+    fields = ['id','InventoryCode', 'InventoryCode__Name', 'Consumption','Unit','Type','FinalCons','HasVariant','SizeDetails']
+    consumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
+
+    styleAttachments = styleCard.Attachments.all()
+    
+    fields = ['id', 'Name']
+    routePresets = models.RoutePreset.objects.all().values(*fields)
+    dfRoutePresets = pd.DataFrame(routePresets) if routePresets else pd.DataFrame(columns=fields)
+    del routePresets
+
+    dfRoutePresets.rename(inplace=True, columns={'id': 'value','Name': 'label'})
+
+    serializedAttachments = []
+    for attachment in styleAttachments:
+        serializedAttachments.append({
+            'id': attachment.id,
+            'FileUrl': attachment.File.url,
+            'FileName': attachment.File.name.split('/')[-1],
+            'Description': attachment.Description,
+        })
+
+    result = {
+        'formData': {
+            'Style': model_to_dict(styleCard),
+            'Consumption': consumption,
+            'Variants': variants,
+            'Attachments': serializedAttachments,
+        },        
+        'routes': dfToListOfDicts(dfRoutePresets),
+    }
+
+    return result
+
 #TODO: This would be obsolete when we shift to next
 def AddStyleCard(
         dfStyle: pd.DataFrame,
@@ -410,7 +445,8 @@ def UpdateStyleCard(
             attachment = models.Attachment(**row)
         
         attachment.save()
- 
+
+#TODO: This would be obsolete when we shift to next
 def ProcessStyleData(styleCard: models.StyleCard):   
     variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
     

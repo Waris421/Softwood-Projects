@@ -4,6 +4,7 @@ from django.apps import apps
 
 from rest_framework.request import Request
 from rest_framework.authtoken.models import Token
+from rest_framework import permissions
 
 from typing import Literal, List, Dict
 
@@ -59,6 +60,20 @@ def hasPermission (
             return True
     
     return False
+
+class AppModelPermissions(permissions.BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+
+        appName = getattr(view, 'appName', None)
+        modelName = getattr(view, 'modelName', None)
+        permissionType = getattr(view, 'permissionType', None)
+
+        if not all([appName, modelName, permissionType]):
+            return False
+        
+        return hasPermission(user, appName, modelName, permissionType)
+
 
 def authenticateUser(
         request: Request,
