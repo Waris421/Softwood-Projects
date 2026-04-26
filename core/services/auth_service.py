@@ -67,7 +67,7 @@ def authenticateUser(
         type: Literal["view", "add", "change", "delete"]|None
 ):
     token = request.META.get('HTTP_AUTHORIZATION')
-
+    print(token)
     try:
         user = Token.objects.get(key=token).user
     except:

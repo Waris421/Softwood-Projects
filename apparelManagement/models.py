@@ -427,7 +427,7 @@ class InventoryReciept (models.Model):
     Vehicle = models.CharField (max_length=50, blank=True, null=True)
     Bilty = models.CharField (max_length=50, blank=True, null=True)
     BiltyValue = models.FloatField (default=0, blank=True, null=True)
-    PONumber = models.ForeignKey (PurchaseOrder, on_delete=models.PROTECT)
+    PONumber = models.OneToOneField (PurchaseOrder, on_delete=models.PROTECT)
 
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.

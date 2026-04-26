@@ -119,5 +119,5 @@ urlpatterns = [
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
     path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),
-    path('api/units', options_service.GetInvUnitsForGroup.as_view(), name='apiUnitsFromGroup'),
+    path('api/units', options_service.getUnitsForGroup, name='apiUnitsFromGroup'),
 ]

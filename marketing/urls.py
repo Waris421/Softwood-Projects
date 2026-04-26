@@ -32,4 +32,6 @@ urlpatterns = [
     path('marketing/export-data/download', views.ExportDataDownload, name='exportDataDownload'),
 
     path('options/countries', options_service.GetCountries, name='countries'),
+    path('marketing/customers/upload', views.UploadCustomerData.as_view(), name='uploadCustomerData'),
+    path('marketing/garment-shipments', views.GarmentShipmentsList.as_view(), name='garmentShipments'),
 ]

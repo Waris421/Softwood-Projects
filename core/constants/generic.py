@@ -145,6 +145,8 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'children': [
             {'label': 'Raw Material Stock', 'href': '/finance/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/finance/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
+            # Label for PO details 
+            {'label': 'View PO', 'href': '/finance/purchase-order', 'subtext': 'View all Purchase Orders'},
         ]},
     ],
     'hr': [
@@ -167,6 +169,14 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
         ]},
     ],
+    # New section for marketing features
+    'marketing': [
+        {'label': 'Dashboard', 'href': '/marketing', 'appName': 'marketing', 'modelName': 'Customer'},
+        {'label': 'Customers', 'appName': 'marketing', 'modelName': 'Customer', 'children': [
+            {'label': 'Master List', 'href': '/marketing/customers/master-list', 'subtext': 'View customer and export data'},
+        ]},
+    ],
+
 }
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')

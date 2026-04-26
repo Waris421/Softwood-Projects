@@ -133,14 +133,25 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
     '''
     Add the receipt from the receipt Form
     '''
-    dfRecInventories['Quantity'] = np.where(dfRecInventories['Quantity'].str.len()>0, dfRecInventories['Quantity'], 0.0) # Cleaning the data. Discards the empty cells
+    print('\n========== AddPurchaseReceipt START ==========')
+
+    # Step 1 — Clean the quantity column: replace empty strings with 0, then convert to float
+    dfRecInventories['Quantity'] = np.where(dfRecInventories['Quantity'].str.len()>0, dfRecInventories['Quantity'], 0.0)
     dfRecInventories['Quantity'] = dfRecInventories['Quantity'].astype(float)
     if dfRecInventories.empty:
         raise ValueError('No Inventory provided')
 
+    print(f'\n[1] Received {len(dfRecInventories)} inventory item(s) from the form')
+    print(dfRecInventories[['POInvId', 'Quantity']].to_string(index=False))
+
+    # Step 2 — Fetch the Purchase Order object from the database using the PO id from the form
     purchaseOrder = dfReceipt['PONumber'][0]
     purchaseOrder = models.PurchaseOrder.objects.get(id=purchaseOrder)
+    if models.InventoryReciept.objects.filter(PONumber=purchaseOrder).exists():
+        raise ValueError(f'A receipt already exists for PO #{purchaseOrder.id}')
+    print(f'\n[2] Purchase Order fetched: PO #{purchaseOrder.id} from supplier "{purchaseOrder.Supplier}"')
 
+    # Step 3 — Fetch the original PO allocations: which work orders were expecting this inventory and how much
     fields = ['POInvId','WorkOrder','Quantity']
     poAllocations = models.POAllocation.objects.filter(POInvId__in=dfRecInventories['POInvId'].to_list()).values(*fields)
     if poAllocations:
@@ -149,6 +160,10 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
         dfPOAllocation = pd.DataFrame(columns=fields)
     del poAllocations
 
+    print(f'\n[3] PO Allocations fetched ({len(dfPOAllocation)} row(s)) — which work orders were expecting this inventory:')
+    print(dfPOAllocation.to_string(index=False))
+
+    # Step 4 — Fetch PO inventory details: price, forex rate, and variant for each item
     fields = ['id','Inventory','Variant','Price','Forex']
     poInventories  = models.POInventory.objects.filter(id__in=dfRecInventories['POInvId'].to_list()).values(*fields)
     if poInventories:
@@ -157,6 +172,10 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
         dfPOInventories = pd.DataFrame(columns=fields)
     del poInventories, fields
 
+    print(f'\n[4] PO Inventory details fetched (price, forex, variant):')
+    print(dfPOInventories.to_string(index=False))
+
+    # Step 5 — Build the receipt header object (supplier, PO, bilty etc) but do not save it yet
     invReceipt = dfReceipt.iloc[0].to_dict()
     invReceipt['PONumber'] = purchaseOrder
     if not invReceipt['BiltyValue']:
@@ -165,27 +184,30 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
     del purchaseOrder
 
     receiptCard = models.InventoryReciept(**invReceipt)
-    #receiptCard.save()
-    del invReceipt, dfReceipt 
+    del invReceipt, dfReceipt
 
+    # Step 6 — Merge the received quantities with PO details (price, forex, variant) into one DataFrame
     dfRecInventories.drop(inplace=True, columns=['Name','Variant','Price'])
     dfRecInventories['POInvId'] = dfRecInventories['POInvId'].astype(int)
-
     dfRecInventories = pd.merge(left=dfRecInventories, right=dfPOInventories, left_on='POInvId', right_on='id', how='left')
     dfRecInventories.drop(inplace=True, columns=['id'])
-    
+
+    # Step 7 — Convert inventory code strings into actual Inventory model objects, then calculate stock value
     dfRecInventories['Inventory'] = convertTexttoObject(models.Inventory, dfRecInventories['Inventory'], 'Code')
     dfRecInventories.rename(inplace=True, columns={'Inventory':'InventoryCode'})
-   
     dfRecInventories['StockValue'] = dfRecInventories['Quantity'] * dfRecInventories['Price'] * dfRecInventories['Forex']
 
+    print(f'\n[5] Final received inventory rows with stock values calculated:')
+    print(dfRecInventories[['InventoryCode','Variant','Quantity','Price','Forex','StockValue']].to_string(index=False))
+
+    # Step 8 — Build RecInventory objects (one per item received) — still not saved to database yet
     recInventoryRows = []
     for _, row in dfRecInventories.iterrows():
         recInv = models.RecInventory(
             InventoryCode=row['InventoryCode'],
             Variant=row['Variant'],
             Quantity=row['Quantity'],
-            ReceiptNumber=None,
+            ReceiptNumber=None,  # will be linked to receipt after it is saved
             Approval=False,
             QualityComments=None,
         )
@@ -194,19 +216,28 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
             'POInvId': row['POInvId'],
         })
 
+    print(f'\n[6] Built {len(recInventoryRows)} RecInventory object(s) (not saved yet)')
+
+    # Step 9 — Calculate allocations: for each received item, split the quantity across work orders
+    # If less arrived than ordered, scale everyone's share down proportionally (shortfall logic)
     allocationData = []
     for item in recInventoryRows:
         recInv = item['object']
         allocation = dfPOAllocation[dfPOAllocation['POInvId'] == item['POInvId']].copy()
 
         if allocation.empty:
+            print(f'     No allocation found for POInvId {item["POInvId"]} — skipping')
             continue
 
-        shortfallPercentage = recInv.Quantity / allocation['Quantity'].sum()
+        totalOrdered = allocation['Quantity'].sum()
+        shortfallPercentage = recInv.Quantity / totalOrdered
+        print(f'\n[7] POInvId {item["POInvId"]}: ordered {totalOrdered}, received {recInv.Quantity} → shortfall {round(shortfallPercentage * 100, 1)}%')
 
         if shortfallPercentage < 1:
             allocation['Quantity'] = allocation['Quantity'] * shortfallPercentage
+            print(f'     Shortfall detected — scaling down allocations proportionally')
 
+        # Round down to 2 decimal places to avoid partial unit issues
         allocation['Quantity'] = np.floor(allocation['Quantity'] * 100) / 100
         allocation.drop(inplace=True, columns=['POInvId'])
         allocation['WorkOrder'] = convertTexttoObject(models.WorkOrder, allocation['WorkOrder'], 'OrderNumber')
@@ -217,34 +248,45 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
                 'Quantity':  allocRow['Quantity'],
                 'recInvRef': recInv,
             })
+            print(f'     → Work Order {allocRow["WorkOrder"].OrderNumber} will receive {allocRow["Quantity"]} units')
 
+    # Step 10 — Prepare stock update data: inventory code, variant, quantity, and total value
     stockUpdates = dfRecInventories[['InventoryCode','Variant','Quantity','StockValue']].to_dict('records')
 
+    # Step 11 — Atomic transaction: save everything or nothing. If any step fails, the entire block rolls back
+    print(f'\n[8] Starting atomic transaction — saving everything to the database')
     with transaction.atomic():
-        #Save receipt header
-        receiptCard.save()
 
+        # Step 11a — Save the receipt header first so we have its ID to link children to
+        receiptCard.save()
+        print(f'     Receipt header saved with ID: {receiptCard.id}')
+
+        # Step 11b — Link each RecInventory row to the receipt and save
         for item in recInventoryRows:
             obj = item['object']
             obj.ReceiptNumber = receiptCard
             obj.save()
-        
+            print(f'     RecInventory saved: {obj.InventoryCode} | Qty: {obj.Quantity}')
+
+        # Step 11c — Bulk save all work order allocations in one database call
         recAllocationList = [
                 models.RecAllocation(
                     WorkOrder=item['WorkOrder'],
                     Quantity=item['Quantity'],
-                    RecInvId=item['recInvRef'], 
+                    RecInvId=item['recInvRef'],
                 )
                 for item in allocationData
             ]
         if recAllocationList:
             models.RecAllocation.objects.bulk_create(recAllocationList)
+            print(f'     {len(recAllocationList)} allocation(s) saved')
 
-        #Update InventoryStock — fetch all at once, update in memory, save all at once
+        # Step 11d — Fetch existing stock records for all received items in one query
         existingStocks = models.InventoryStock.objects.filter(
             Inventory__in=[s['InventoryCode'] for s in stockUpdates],
             Variant__in=[s['Variant'] for s in stockUpdates],
         )
+        # Build a lookup dictionary: (InventoryCode, Variant) → stock record
         stockMap = {(s.Inventory, s.Variant): s for s in existingStocks}
 
         toCreate = []
@@ -252,11 +294,16 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
         for update in stockUpdates:
             key = (update['InventoryCode'], update['Variant'])
             if key in stockMap:
+                # Step 11e — Item already has stock: add the new quantity and value on top
                 record = stockMap[key]
+                oldQty = record.StockQuantity
+                oldVal = record.StockValue
                 record.StockQuantity += Decimal(str(update['Quantity']))
                 record.StockValue    += Decimal(str(update['StockValue']))
                 toUpdate.append(record)
+                print(f'     Stock UPDATE: {update["InventoryCode"]} | Qty {oldQty} → {record.StockQuantity} | Value {oldVal} → {record.StockValue}')
             else:
+                # Step 11f — Item has no stock yet: create a brand new stock record
                 newRecord = models.InventoryStock(
                     Inventory=update['InventoryCode'],
                     Variant=update['Variant'],
@@ -264,16 +311,19 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
                     StockValue=Decimal(str(update['StockValue'])),
                 )
                 toCreate.append(newRecord)
+                print(f'     Stock CREATE: {update["InventoryCode"]} | Qty: {update["Quantity"]} | Value: {update["StockValue"]}')
 
+        # Step 11g — Save all stock changes in two bulk operations (faster than saving one by one)
         if toCreate:
             models.InventoryStock.objects.bulk_create(toCreate)
         if toUpdate:
             models.InventoryStock.objects.bulk_update(toUpdate, ['StockQuantity', 'StockValue'])
-            
+
+    print(f'\n========== AddPurchaseReceipt DONE — Receipt ID: {receiptCard.id} ==========\n')
     return receiptCard.id
 
 def EditPurchaseReceipt (
-        receiptObject: models.InventoryReciept, 
+        receiptObject: models.InventoryReciept,
         dfReceipt: pd.DataFrame,
         dfRecInventory: pd.DataFrame,
         dfRecAllocation: pd.DataFrame
@@ -281,11 +331,12 @@ def EditPurchaseReceipt (
     '''
     Update the Receipt from the data in the Receipt table.
     '''
-    allocId = dfReceipt['recId'][0]
+    # Step 1: Save which RecInventory row's allocations are being edited, then strip non-editable columns.
     dfReceipt.drop(inplace=True, columns=['GRNNumber','ReceiptDate','PONumber','recId'])
     inventoryReceipt = dfReceipt.iloc[0].to_dict()
     del dfReceipt
 
+    # Step 2: Convert Supplier name to a model object, cast BiltyValue to float, then save the header.
     inventoryReceipt['Supplier'] = models.Supplier.objects.get(Name=inventoryReceipt['Supplier'])
     if inventoryReceipt['BiltyValue']:
         inventoryReceipt['BiltyValue'] = float(inventoryReceipt['BiltyValue'])
@@ -296,71 +347,154 @@ def EditPurchaseReceipt (
         setattr(receiptObject, key, value)
     receiptObject.save()
 
-    #Get the already saved inventories against this PO and their allocation
+    # Step 3: Fetch existing RecInventory rows for this receipt — needed to diff old vs new.
     fields = ['id','InventoryCode']
     previousInventories = models.RecInventory.objects.filter(ReceiptNumber=receiptObject).values(*fields)
     if previousInventories:
         dfPreviousInventories = pd.DataFrame(previousInventories)
     else:
-        dfPreviousInventories = pd.DataFrame(columns=fields)    
+        dfPreviousInventories = pd.DataFrame(columns=fields)
     del previousInventories
-    
-    if allocId:
-        previousAllocations = models.RecAllocation.objects.filter(RecInvId=allocId).values('id','WorkOrder')
-        dfPreviousAllocations = pd.DataFrame(previousAllocations)
-        del previousAllocations
-    else:
-        dfPreviousAllocations = pd.DataFrame(columns=['id'])
+        
+    # Snapshot old quantities before the update — needed for stock delta calculation.
+    oldQtyFields = ['InventoryCode', 'Variant', 'Quantity']
+    oldQuantities = models.RecInventory.objects.filter(ReceiptNumber=receiptObject).values(*oldQtyFields)
+    dfOldQuantities = pd.DataFrame(oldQuantities) if oldQuantities else pd.DataFrame(columns=oldQtyFields)
 
+    # Fetch price and forex from POInventory for this receipt's PO.
+    poInventories = models.POInventory.objects.filter(
+        PONumber=receiptObject.PONumber,
+    ).values('id', 'Inventory', 'Variant', 'Price', 'Forex')
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=['id','Inventory','Variant','Price','Forex'])
+
+    # Fetch the original work order splits from POAllocation.
+    poAllocations = models.POAllocation.objects.filter(
+        POInvId__in=dfPOInventories['id'].tolist()
+    ).values('POInvId', 'WorkOrder', 'Quantity')
+    dfPOAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=['POInvId','WorkOrder','Quantity'])
+
+    # Step 5: Clean quantities — replace empty strings with 0 and cast to float.
     dfRecInventory['Quantity'] = np.where(dfRecInventory['Quantity'].str.len()==0, 0, dfRecInventory['Quantity'])
     dfRecInventory['Quantity'] = dfRecInventory['Quantity'].astype(float)
 
     if dfRecInventory.empty:
         raise ValueError('No Inventory provided')
-    
+
+    # Step 6: Prepare dfRecInventory for the DB write — drop display columns, attach receipt link,
+    # convert inventory codes to objects, and reset Approval since quantities may have changed.
     dfRecInventory.drop(inplace=True, columns=['InventoryName'])
-
     dfRecInventory['id'] = dfRecInventory['id'].astype(int)
-
     dfRecInventory = pd.merge(left=dfRecInventory, right=dfPreviousInventories, on='id', how='left')
-
     dfRecInventory['ReceiptNumber'] = receiptObject
     dfRecInventory['InventoryCode'] = convertTexttoObject(models.Inventory, dfRecInventory['InventoryCode'],'Code')
-
     dfRecInventory['Approval'] = False
 
+    # Step 7: Sync RecInventory to DB — updateModelWithDF handles creates, updates, and deletes in one call.
     try:
         updateModelWithDF(targetTable=models.RecInventory, newData=dfRecInventory, previousData=dfPreviousInventories)
     except Exception as e:
         raise ValueError(e)
     del dfPreviousInventories
-    
-    if allocId:
-        dfRecAllocation = dfRecAllocation.replace('null', '')
-        #Remove empty rows from allocation
-        dfRecAllocation = dfRecAllocation[dfRecAllocation['WorkOrder'] !='']
 
-        dfRecAllocation = dfRecAllocation[~dfRecAllocation['WorkOrder'].isna()]
-        
-        dfRecAllocation['WorkOrder'] = dfRecAllocation['WorkOrder'].astype(int)
-        
-        try:
-            receiptInvObj = models.RecInventory.objects.get(id=allocId)
-            dfRecAllocation['RecInvId'] = receiptInvObj
-        except Exception as e:
-            raise ValueError(e)
-        
-        if dfPreviousAllocations.empty:
-            dfRecAllocation['id'] = None
-        else:
-            dfRecAllocation = pd.merge(left=dfRecAllocation, right=dfPreviousAllocations, left_on='WorkOrder', right_on='WorkOrder', how='left')
-        
-        dfRecAllocation['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfRecAllocation['WorkOrder'],'OrderNumber')
+    # Step 8: Atomic transaction — recalculate all RecAllocations and update InventoryStock.
+    print(f'\n========== EditPurchaseReceipt — Starting atomic transaction for Receipt ID: {receiptObject.id} ==========')
+    with transaction.atomic():
 
-        try:
-            updateModelWithDF(targetTable=models.RecAllocation, newData=dfRecAllocation, previousData=dfPreviousAllocations)
-        except Exception as e:
-            raise ValueError (e)        
+        # Step 8a: Delete all existing RecAllocation rows tied to this receipt.
+        recInvIds = list(models.RecInventory.objects.filter(ReceiptNumber=receiptObject).values_list('id', flat=True))
+        deleted = models.RecAllocation.objects.filter(RecInvId__in=recInvIds).delete()
+        print(f'\n[8a] Deleted old RecAllocations for RecInventory IDs {recInvIds}: {deleted}')
+
+        # Step 8b: Rebuild RecAllocations using new quantities and POAllocation splits with shortfall logic.
+        newAllocations = []
+        updatedRecInventories = models.RecInventory.objects.filter(ReceiptNumber=receiptObject).values('id','InventoryCode','Variant','Quantity')
+        for recInv in updatedRecInventories:
+            print(f'\n[8b] Processing RecInventory ID {recInv["id"]} | Item: {recInv["InventoryCode"]} | Variant: {recInv["Variant"]} | New Qty: {recInv["Quantity"]}')
+            poInvRow = dfPOInventories[
+                (dfPOInventories['Inventory'] == recInv['InventoryCode']) &
+                (dfPOInventories['Variant'] == recInv['Variant'])
+            ]
+            if poInvRow.empty:
+                print(f'     No matching POInventory found — skipping')
+                continue
+            poInvId = poInvRow.iloc[0]['id']
+            allocations = dfPOAllocations[dfPOAllocations['POInvId'] == poInvId].copy()
+            if allocations.empty:
+                print(f'     No POAllocations found for POInvId {poInvId} — skipping')
+                continue
+            totalOrdered = allocations['Quantity'].sum()
+            shortfallPct = recInv['Quantity'] / totalOrdered
+            print(f'     Total ordered: {totalOrdered} | Shortfall: {round(shortfallPct * 100, 1)}%')
+            if shortfallPct < 1:
+                allocations['Quantity'] = allocations['Quantity'] * shortfallPct
+                print(f'     Shortfall detected — scaling allocations down proportionally')
+            allocations['Quantity'] = np.floor(allocations['Quantity'] * 100) / 100
+            recInvObj = models.RecInventory(id=recInv['id'])
+            for _, allocRow in allocations.iterrows():
+                workOrder = models.WorkOrder.objects.get(OrderNumber=allocRow['WorkOrder'])
+                newAllocations.append(models.RecAllocation(
+                    RecInvId=recInvObj,
+                    WorkOrder=workOrder,
+                    Quantity=allocRow['Quantity'],
+                ))
+                print(f'     → Work Order {workOrder.OrderNumber} allocated {allocRow["Quantity"]} units')
+        if newAllocations:
+            models.RecAllocation.objects.bulk_create(newAllocations)
+            print(f'\n     {len(newAllocations)} RecAllocation(s) saved')
+
+        # Step 8c: Update InventoryStock using delta = new quantity minus old quantity per item.
+        print(f'\n[8c] Calculating stock deltas...')
+        toUpdate = []
+        toCreate = []
+        for _, newRow in dfRecInventory.iterrows():
+            invCode = newRow['InventoryCode'].Code
+            variant = newRow['Variant']
+            newQty = float(newRow['Quantity'])
+            oldRow = dfOldQuantities[
+                (dfOldQuantities['InventoryCode'] == invCode) &
+                (dfOldQuantities['Variant'] == variant)
+            ]
+            oldQty = float(oldRow.iloc[0]['Quantity']) if not oldRow.empty else 0.0
+            delta = newQty - oldQty
+            print(f'     Item: {invCode} | Variant: {variant} | Old Qty: {oldQty} | New Qty: {newQty} | Delta: {delta}')
+            if delta == 0:
+                print(f'     No change — skipping stock update')
+                continue
+            poInvRow = dfPOInventories[
+                (dfPOInventories['Inventory'] == invCode) &
+                (dfPOInventories['Variant'] == variant)
+            ]
+            if poInvRow.empty:
+                print(f'     No POInventory found for price — skipping stock update')
+                continue
+            price = float(poInvRow.iloc[0]['Price'])
+            forex = float(poInvRow.iloc[0]['Forex'] or 1.0)
+            valueDelta = delta * price * forex
+            print(f'     Price: {price} | Forex: {forex} | Value Delta: {valueDelta}')
+            stock = models.InventoryStock.objects.filter(
+                Inventory=newRow['InventoryCode'],
+                Variant=variant,
+            ).first()
+            if stock:
+                oldStockQty = stock.StockQuantity
+                oldStockVal = stock.StockValue
+                stock.StockQuantity += Decimal(str(delta))
+                stock.StockValue += Decimal(str(valueDelta))
+                toUpdate.append(stock)
+                print(f'     Stock UPDATE: Qty {oldStockQty} → {stock.StockQuantity} | Value {oldStockVal} → {stock.StockValue}')
+            else:
+                toCreate.append(models.InventoryStock(
+                    Inventory=newRow['InventoryCode'],
+                    Variant=variant,
+                    StockQuantity=Decimal(str(newQty)),
+                    StockValue=Decimal(str(newQty * price * forex)),
+                ))
+                print(f'     Stock CREATE: Qty {newQty} | Value {newQty * price * forex}')
+        if toUpdate:
+            models.InventoryStock.objects.bulk_update(toUpdate, ['StockQuantity','StockValue'])
+        if toCreate:
+            models.InventoryStock.objects.bulk_create(toCreate)
+        print(f'\n========== EditPurchaseReceipt DONE — {len(toUpdate)} stock(s) updated, {len(toCreate)} stock(s) created ==========\n')
 
 def ProcessReceiptData(receiptObject: models.InventoryReciept):
     '''
