@@ -3,6 +3,13 @@ from django.http import HttpRequest, HttpResponse, JsonResponse, StreamingHttpRe
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 
+# For Marketing data
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+
+
 import json
 from urllib.parse import urlencode
 
@@ -622,4 +629,34 @@ def CorresponanceHistory(request: HttpRequest):
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return showMessageResponse(request, 'This page is in process', 200)
-        return render(request, 'correspondance/home.html', context)
+
+# Work withe the firt 10 rows of data
+class GarmentShipmentsList(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        records = list(models.GarmentShipmentsData.objects.values(
+            'ShipDate', 'Country', 'Exporter', 'Importer',
+            'Quantity', 'Rate', 'Currency', 'HSCode', 'Description'
+        ).order_by('-ShipDate')[:20])
+
+        return Response(records)
+
+    # Gets file from the Frontend and processes it
+class UploadCustomerData(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        dataFile = request.FILES.get('file')
+
+        if not dataFile:
+            return Response({'message': 'No file provided'}, status=400)
+
+        if not str(dataFile.name).endswith(('.csv', '.xlsx', '.xls')):
+            return Response({'message': 'Only CSV or XLSX files are allowed'}, status=400)
+
+        try:
+            export_data_serivce.ProcessCustomerUpload(dataFile)
+            return Response({'message': 'File uploaded successfully'}, status=200)
+        except Exception as e:
+            return Response({'message': str(e)}, status=400)

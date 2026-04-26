@@ -854,3 +854,55 @@ def SaveExportersAlias(dfAliases: pd.DataFrame):
         updateModelWithDF(models.ExporterAlias, dfAliases, dfPreviousData)
     except Exception as e:
         raise ValueError(e)
+    
+# Processes the uploaded file and extracts the required information
+def ProcessCustomerUpload(dataFile):
+    if str(dataFile.name).endswith(('.xls', '.xlsx')):
+        df = pd.read_excel(dataFile)
+    else:
+        df = pd.read_csv(dataFile)
+    
+    del dataFile  # file is fully read into df — release it from memory immediately
+    
+    # Fixing column names to match the model fields
+    columnMapping = {
+        'ORIGIN': 'Country',
+        'EXPORTES NAME': 'Exporter',
+        'IMPORTERS NAME': 'Importer',
+        'SB DATE': 'ShipDate',
+        'QUANTITY': 'Quantity',
+        'U/PRICE': 'Rate',
+        'CUR': 'Currency',
+        'HS CODE': 'HSCode',
+        'ITEM DESCRAPTION': 'Description',
+    }
+    df.rename(columns=columnMapping, inplace=True)
+
+
+    requiredColumns = ['ShipDate', 'Country', 'Exporter', 'Importer', 'Quantity', 'Rate', 'Currency', 'HSCode', 'Description']
+    missing = [col for col in requiredColumns if col not in df.columns]
+    if missing:
+        raise ValueError(f'Missing columns: {missing}')
+
+    df['ShipDate'] = pd.to_datetime(df['ShipDate']).dt.date
+    #df['Country'] = df['Country'].map(convertCountryNameToCode(df['Country'])) # Used by AI
+    df['Country'] = df['Country'].str.strip()
+
+    rows = [
+        models.GarmentShipmentsData(
+            ShipDate=row.ShipDate,
+            Country=row.Country,
+            Exporter=row.Exporter,
+            Importer=row.Importer,
+            Quantity=row.Quantity,
+            Rate=row.Rate,
+            Currency=row.Currency,
+            HSCode=row.HSCode,
+            Description=row.Description,
+        )
+        for row in df.itertuples()
+    ]
+
+    del df  # data is now in rows list — release the DataFrame before saving
+    with transaction.atomic():
+        models.GarmentShipmentsData.objects.bulk_create(rows)

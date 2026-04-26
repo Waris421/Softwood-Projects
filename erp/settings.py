@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'planning',
     'authentication',
     'HumanResource',
+    'Finance',
     'integration',
     'rest_framework',
     'rest_framework.authtoken',

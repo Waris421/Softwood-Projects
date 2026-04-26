@@ -74,3 +74,5 @@ class EnergyMachineAdmin(admin.ModelAdmin):
 @admin.register(models.EnergyReading)
 class EnergyReadingAdmin(admin.ModelAdmin):
     list_display = ('Machine', 'Timestamp', 'Value_kW')
+    list_filter = ('Machine', 'Timestamp')
+    date_hierarchy = 'Timestamp'

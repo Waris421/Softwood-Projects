@@ -839,8 +839,12 @@ class EnergyUpload(APIView):
 
             # Step 4 — Rename first column to Timestamp, parse into proper datetime
             df = df.rename(columns={df.columns[0]: 'Timestamp'})
+            total_before = len(df)
             df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%a %d/%m/%y %H:%M", errors='coerce')
+            dropped = df['Timestamp'].isna().sum()
             df = df.dropna(subset=['Timestamp'])
+            print(f"Rows before: {total_before}, dropped: {dropped}, kept: {len(df)}")
+
 
             # Step 5 — Check if data for this exact day already exists, but keep going either way
             upload_date = df['Timestamp'].dt.date.min()
@@ -863,7 +867,7 @@ class EnergyUpload(APIView):
 
             # Step 9 — Fetch ALL existing timestamp+machine combos in ONE query
             existing = set(
-                (name, ts.replace(tzinfo=None))
+                (name, ts.astimezone().replace(tzinfo=None))
                 for name, ts in models.EnergyReading.objects
                 .filter(Machine__Name__in=machine_names)
                 .values_list('Machine__Name', 'Timestamp')
