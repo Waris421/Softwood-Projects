@@ -58,7 +58,7 @@ def GetPurchaseOrders(startDate: str):
     dfOrders = dfOrders.sort_values(by='PONumber', ascending=False)
     return dfToListOfDicts(dfOrders)
 
-# For the POM orders page
+# For the PO orders page
 def GetPurchaseOrderDetail(po_id: int):
     # Step 1: Fetch the single PO by its id — including Tax for the totals
     fields = ['id', 'OrderDate', 'Supplier', 'Tax']
@@ -68,77 +68,63 @@ def GetPurchaseOrderDetail(po_id: int):
     if dfOrder.empty:
         return None
 
-    # Step 2: Fetch the receipt for this PO — one record guaranteed by OneToOneField
-    fields = ['id']
-    receipts = models.InventoryReciept.objects.filter(PONumber=po_id).values(*fields)
-    dfReceipt = pd.DataFrame(list(receipts)) if receipts.exists() else pd.DataFrame(columns=fields)
-
-    if dfReceipt.empty:
-        return None
-
-    receipt_id = dfReceipt['id'].iloc[0]
-
-    # Step 3: Fetch received inventory lines for this receipt
-    fields = ['id', 'InventoryCode', 'InventoryCode__Name', 'Variant', 'Quantity']
-    recInventories = models.RecInventory.objects.filter(ReceiptNumber=receipt_id).values(*fields)
-    dfRecInventories = pd.DataFrame(list(recInventories)) if recInventories.exists() else pd.DataFrame(columns=fields)
-
-    # Step 4: Fetch PO inventory lines to get Price and Currency per item
-    fields = ['Inventory', 'Variant', 'Price', 'Currency']
+    # Step 2: Fetch PO inventory lines — ordered items with quantity, price and currency
+    fields = ['id', 'Inventory', 'Inventory__Name', 'Variant', 'Quantity', 'Price', 'Currency']
     poInventories = models.POInventory.objects.filter(PONumber=po_id).values(*fields)
     dfPOInventories = pd.DataFrame(list(poInventories)) if poInventories.exists() else pd.DataFrame(columns=fields)
 
-    # Step 5: Fetch work order allocations for the received inventory lines
-    fields = ['RecInvId', 'WorkOrder', 'Quantity', 'WorkOrder__StyleCode__StyleName']
-    allocations = models.RecAllocation.objects.filter(
-        RecInvId__in=dfRecInventories['id'].tolist()
+    # Step 3: Fetch work order allocations for those PO inventory lines
+    fields = ['POInvId', 'WorkOrder', 'Quantity', 'WorkOrder__StyleCode__StyleName']
+    allocations = models.POAllocation.objects.filter(
+        POInvId__in=dfPOInventories['id'].tolist()
     ).values(*fields)
     dfAllocations = pd.DataFrame(list(allocations)) if allocations.exists() else pd.DataFrame(columns=fields)
 
-    # Step 6: Rename id to RecInvId and build two lookup dicts
-    dfRecInventories.rename(columns={'id': 'RecInvId'}, inplace=True)
+    # Step 4: Rename id to POInvId
+    dfPOInventories.rename(columns={'id': 'POInvId'}, inplace=True)
+    price_lookup = {row['POInvId']: row['Price'] for _, row in dfPOInventories.iterrows()}
 
-    # price_lookup: (InventoryCode, Variant) → Price
-    price_lookup = {(row['Inventory'], row['Variant']): row['Price'] for _, row in dfPOInventories.iterrows()}
-
-    # inv_lookup: RecInvId → (InventoryCode, Variant) — needed to find price for each allocation
-    inv_lookup = {row['RecInvId']: (row['InventoryCode'], row['Variant']) for _, row in dfRecInventories.iterrows()}
-
-    # Step 7: Group allocations by RecInvId with Price and Amount per allocation
+    # Step 5: Group allocations by POInvId — one list per item containing its work order splits
     alloc_by_inv = {}
     for _, row in dfAllocations.iterrows():
-        rec_inv_id = row['RecInvId']
-        inv_code, variant = inv_lookup.get(rec_inv_id, (None, None))
-        price  = price_lookup.get((inv_code, variant), 0)
-        amount = round(row['Quantity'] * price, 2)
+        po_inv_id  = row['POInvId']
+        price      = price_lookup.get(po_inv_id, 0)
+        alloc_amount = round(row['Quantity'] * price, 2)
 
-        if rec_inv_id not in alloc_by_inv:
-            alloc_by_inv[rec_inv_id] = []
-        alloc_by_inv[rec_inv_id].append({
+        if po_inv_id not in alloc_by_inv:
+            alloc_by_inv[po_inv_id] = []
+        alloc_by_inv[po_inv_id].append({
             'WorkOrder': int(row['WorkOrder']),
             'Style':     row['WorkOrder__StyleCode__StyleName'] or '',
             'Quantity':  row['Quantity'],
-            'Price':     price,
-            'Amount':    amount,
+            'Amount':    alloc_amount,
         })
 
-    # Step 8: Build items list from RecInventory rows with nested allocations
+
+    # Step 6: Build items list from POInventory rows with nested allocations
     items = []
-    for _, row in dfRecInventories.iterrows():
+    for _, row in dfPOInventories.iterrows():
+        item_amount        = round(row['Quantity'] * row['Price'], 2)
+        allocations        = alloc_by_inv.get(row['POInvId'], [])
+        total_alloc_amount = round(sum(alloc['Amount'] for alloc in allocations), 2)
+
         items.append({
-            'Inventory':   row['InventoryCode__Name'],
-            'Variant':     row['Variant'] or '',
-            'Quantity':    row['Quantity'],
-            'allocations': alloc_by_inv.get(row['RecInvId'], []),
+            'Inventory':        row['Inventory__Name'],
+            'Variant':          row['Variant'] or '',
+            'Quantity':         row['Quantity'],
+            'Price':            row['Price'],
+            'Amount':           item_amount,
+            'AmountDifference': round(item_amount - total_alloc_amount, 2),
+            'allocations':      allocations,
         })
 
-    # Step 9: Calculate totals — NetAmount sums all allocation Amounts across all items
-    net_amount  = round(sum(alloc['Amount'] for item in items for alloc in item['allocations']), 2)
+    # Step 7: Calculate totals — NetAmount sums item Amounts
+    net_amount  = round(sum(item['Amount'] for item in items), 2)
     tax_rate    = dfOrder['Tax'].iloc[0] or 0
     tax_amount  = round(net_amount * tax_rate / 100, 2)
     grand_total = round(net_amount + tax_amount, 2)
 
-    # Step 10: Return a single dict for this PO
+    # Step 8: Return a single dict for this PO
     return {
         'PONumber':   po_id,
         'OrderDate':  str(dfOrder['OrderDate'].iloc[0]),
