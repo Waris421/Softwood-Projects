@@ -142,13 +142,18 @@ class InventoryCodePart3 (models.Model):
     Part2 = models.ForeignKey (InventoryCodePart2, on_delete=models.PROTECT)
 
 class InventoryStock(models.Model):
+    """Running total of stock for each inventory item and variant.
+    Updated automatically every time a receipt is added or an issuance goes out.
+    StockQuantity = total units ever received minus total units ever issued.
+    FreeStockQuantity = units not yet allocated to any work order."""
+
     id = models.AutoField(primary_key=True)
     Inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE)
     Variant = models.CharField(max_length=50, blank=True, null=True)
-    StockQuantity = models.DecimalField(default=0, max_digits=15, decimal_places=2)
-    StockValue = models.DecimalField(default=0, max_digits=15, decimal_places=2)
-    FreeStockQuantity = models.DecimalField(default=0, max_digits=15, decimal_places=2)
-    FreeStockValue = models.DecimalField(default=0, max_digits=15, decimal_places=2)
+    StockQuantity = models.DecimalField(default=0, max_digits=15, decimal_places=2)      # total units currently in stock
+    StockValue = models.DecimalField(default=0, max_digits=15, decimal_places=2)         # total monetary value of current stock
+    FreeStockQuantity = models.DecimalField(default=0, max_digits=15, decimal_places=2)  # units not yet committed to a work order
+    FreeStockValue = models.DecimalField(default=0, max_digits=15, decimal_places=2)     # monetary value of free stock
 
     class Meta:
         indexes = [
@@ -418,7 +423,8 @@ class POAllocation (models.Model):
         ]
 
 class InventoryReciept (models.Model):
-    """Data model for purchase receipts' main data."""
+    """Header record for a purchase receipt — one receipt per PO (enforced by OneToOneField).
+    Stores the delivery metadata: when it arrived, which supplier, vehicle, and bilty info."""
 
     id = models.AutoField (primary_key=True)
     ReceiptDate = models.DateField (auto_now_add=True)
@@ -427,7 +433,7 @@ class InventoryReciept (models.Model):
     Vehicle = models.CharField (max_length=50, blank=True, null=True)
     Bilty = models.CharField (max_length=50, blank=True, null=True)
     BiltyValue = models.FloatField (default=0, blank=True, null=True)
-    PONumber = models.OneToOneField (PurchaseOrder, on_delete=models.PROTECT)
+    PONumber = models.OneToOneField (PurchaseOrder, on_delete=models.PROTECT)  # one receipt per PO only
 
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.
@@ -438,13 +444,15 @@ class InventoryReciept (models.Model):
         ]
 
 class RecInventory (models.Model):
-    """Data model for purchase receipts' inventories details."""
+    """One row per inventory item received in a specific receipt.
+    Quantity here is ONLY what arrived in this one delivery — not a running total.
+    The running total lives in InventoryStock.StockQuantity."""
 
     id = models.AutoField (primary_key=True)
     ReceiptNumber = models.ForeignKey (InventoryReciept, on_delete=models.CASCADE)
     InventoryCode = models.ForeignKey (Inventory, on_delete=models.PROTECT)
     Variant = models.CharField (max_length=50, blank=True, null=True)
-    Quantity = models.FloatField(validators=[MinValueValidator(0, "Quantity can't be less than 0")])
+    Quantity = models.FloatField(validators=[MinValueValidator(0, "Quantity can't be less than 0")])  # units received in this delivery only
     Approval = models.BooleanField (blank=True, null=True, default=False)
     QualityComments = models.CharField (max_length=255,blank=True, null=True)
 
@@ -455,12 +463,13 @@ class RecInventory (models.Model):
         ]
 
 class RecAllocation (models.Model):
-    """Data model for purchase receipts' allocation details."""
+    """Splits a received inventory line across work orders.
+    Each row says: out of the total received in RecInventory, this many units went to this work order."""
 
     id = models.AutoField (primary_key=True)
     RecInvId = models.ForeignKey (RecInventory, on_delete = models.CASCADE)
     WorkOrder = models.ForeignKey (WorkOrder, on_delete=models.PROTECT)
-    Quantity = models.FloatField(validators=[MinValueValidator(0, "Quantity an't be less than 0")])
+    Quantity = models.FloatField(validators=[MinValueValidator(0, "Quantity an't be less than 0")])  # units allocated to this work order
     
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.
