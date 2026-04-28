@@ -10,7 +10,7 @@ from django.db import transaction
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
-
+# ^ All imports for new tasks
 
 def GetReceiptList(supplier: str, receiptNumber: int):
     '''
