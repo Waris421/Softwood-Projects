@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from decimal import Decimal
+from typing import List
+from .. import models
 
 from django.forms import model_to_dict
 from django.db.models import Q
@@ -8,6 +10,7 @@ from django.db import transaction
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
+
 
 def GetReceiptList(supplier: str, receiptNumber: int):
     '''
@@ -332,6 +335,8 @@ def EditPurchaseReceipt (
     Update the Receipt from the data in the Receipt table.
     '''
     # Step 1: Save which RecInventory row's allocations are being edited, then strip non-editable columns.
+    raw_rec_id = dfReceipt['recId'].iloc[0]
+    manual_alloc_rec_inv_id = int(raw_rec_id) if raw_rec_id else None
     dfReceipt.drop(inplace=True, columns=['GRNNumber','ReceiptDate','PONumber','recId'])
     inventoryReceipt = dfReceipt.iloc[0].to_dict()
     del dfReceipt
@@ -405,11 +410,30 @@ def EditPurchaseReceipt (
         deleted = models.RecAllocation.objects.filter(RecInvId__in=recInvIds).delete()
         print(f'\n[8a] Deleted old RecAllocations for RecInventory IDs {recInvIds}: {deleted}')
 
-        # Step 8b: Rebuild RecAllocations using new quantities and POAllocation splits with shortfall logic.
+        # Step 8b: Rebuild RecAllocations — use submitted modal data for the manually edited item,
+        # POAllocation shortfall logic for all other items.
         newAllocations = []
         updatedRecInventories = models.RecInventory.objects.filter(ReceiptNumber=receiptObject).values('id','InventoryCode','Variant','Quantity')
         for recInv in updatedRecInventories:
             print(f'\n[8b] Processing RecInventory ID {recInv["id"]} | Item: {recInv["InventoryCode"]} | Variant: {recInv["Variant"]} | New Qty: {recInv["Quantity"]}')
+            recInvObj = models.RecInventory(id=recInv['id'])
+
+            # If the user manually edited this item in the modal, use their submitted data directly
+            if manual_alloc_rec_inv_id and recInv['id'] == manual_alloc_rec_inv_id and not dfRecAllocation.empty:
+                print(f'     Using manually submitted allocation from modal')
+                for _, allocRow in dfRecAllocation.iterrows():
+                    if not allocRow['WorkOrder'] or not allocRow['Quantity']:
+                        continue
+                    workOrder = models.WorkOrder.objects.get(OrderNumber=int(allocRow['WorkOrder']))
+                    newAllocations.append(models.RecAllocation(
+                        RecInvId=recInvObj,
+                        WorkOrder=workOrder,
+                        Quantity=float(allocRow['Quantity']),
+                    ))
+                    print(f'     → Work Order {workOrder.OrderNumber} allocated {allocRow["Quantity"]} units (manual)')
+                continue
+
+            # For all other items — use POAllocation shortfall logic
             poInvRow = dfPOInventories[
                 (dfPOInventories['Inventory'] == recInv['InventoryCode']) &
                 (dfPOInventories['Variant'] == recInv['Variant'])
@@ -429,7 +453,6 @@ def EditPurchaseReceipt (
                 allocations['Quantity'] = allocations['Quantity'] * shortfallPct
                 print(f'     Shortfall detected — scaling allocations down proportionally')
             allocations['Quantity'] = np.floor(allocations['Quantity'] * 100) / 100
-            recInvObj = models.RecInventory(id=recInv['id'])
             for _, allocRow in allocations.iterrows():
                 workOrder = models.WorkOrder.objects.get(OrderNumber=allocRow['WorkOrder'])
                 newAllocations.append(models.RecAllocation(
@@ -438,9 +461,6 @@ def EditPurchaseReceipt (
                     Quantity=allocRow['Quantity'],
                 ))
                 print(f'     → Work Order {workOrder.OrderNumber} allocated {allocRow["Quantity"]} units')
-        if newAllocations:
-            models.RecAllocation.objects.bulk_create(newAllocations)
-            print(f'\n     {len(newAllocations)} RecAllocation(s) saved')
 
         # Step 8c: Update InventoryStock using delta = new quantity minus old quantity per item.
         print(f'\n[8c] Calculating stock deltas...')
