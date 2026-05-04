@@ -27,6 +27,8 @@ from django.shortcuts import render
 from django.core.exceptions import ValidationError
 from django_countries import countries
 
+from rest_framework.request import Request
+
 from core.constants.generic import API_KEY_FOR_AI, LOCAL_CURRENCY
 from core.services.auth_service import getNavLinks
 from core.constants.theme import theme
@@ -152,6 +154,35 @@ def refineJson(jsonData: Dict[str, Any]) -> pd.DataFrame | List[pd.DataFrame]:
         return dfs[0]
     else:
         return dfs
+
+def refineAPIJson(request: Request) -> Dict[str, any]:
+    '''
+        Convert the json sent by API in to a readable dict.
+        Match attachment files to the corresponding attachment id
+    '''
+
+    rawData = request.data.get('data')
+    dataDict = json.loads(rawData) if rawData else {}
+    attachmentFiles = request.FILES
+
+    #Refine the table values data
+    for key in list(dataDict.keys()):
+        value = dataDict[key]
+        
+        if 'items' in value:
+            dataDict[key] = value['items']
+    
+    #Match attachment to the corresponding row
+    dataAttachmentItems = dataDict.get('attachment', [])
+    for index, item in enumerate(dataAttachmentItems):
+        lookupKey = f'attachRowIdx_{index}'
+        
+        if lookupKey in attachmentFiles:
+            item['File'] = attachmentFiles.get(lookupKey)
+        else:
+            item['File'] = None
+
+    return dataDict
 
 def refineFormData(request: HttpRequest) -> pd.DataFrame | List[pd.DataFrame]:
     #Create a default dict, so if any keys are missing, they'll be created.

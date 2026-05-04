@@ -7,6 +7,8 @@ from django.forms.models import model_to_dict
 from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
+from django.contrib.contenttypes.models import ContentType
 
 from .. import models
 from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts, convertTextToBool
@@ -220,9 +222,12 @@ def AddStyleCardAPI(data: Dict[str, Dict[str, str] | List[Dict[str, str]]]):
         raise RuntimeError(f"An error occured: {str(e)}")
 
 def GetDataForStyleCardUpdate(styleCard: models.StyleCard):
-    variants = models.StyleVariant.objects.filter(Style=styleCard).values('VariantCode')
-    fields = ['id','InventoryCode', 'InventoryCode__Name', 'Consumption','Unit','Type','FinalCons','HasVariant','SizeDetails']
+    variants = models.StyleVariant.objects.filter(Style=styleCard).values('id', 'VariantCode')
+    
+    fields = ['id','InventoryCode', 'InventoryCode__Name', 'InventoryCode__Unit','Consumption','Unit','Type','FinalCons','HasVariant','SizeDetails']
     consumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
+    dfConsumption = pd.DataFrame(consumption) if consumption else pd.DataFrame(columns=fields)
+    del consumption
 
     styleAttachments = styleCard.Attachments.all()
     
@@ -231,7 +236,21 @@ def GetDataForStyleCardUpdate(styleCard: models.StyleCard):
     dfRoutePresets = pd.DataFrame(routePresets) if routePresets else pd.DataFrame(columns=fields)
     del routePresets
 
+    fields = ['Name', 'Group']
+    units = models.Unit.objects.all().values(*fields)
+    dfUnits = pd.DataFrame(units) if units else pd.DataFrame(columns=fields)
+    del units
+
+    dfConsumption.rename(inplace=True, columns={'InventoryCode__Name': 'InventoryName', 'InventoryCode__Unit': 'InventoryUnit'})
+    
+    customOrder = ['Fab', 'BW', 'AW']
+    dfConsumption['Type'] = pd.Categorical(dfConsumption['Type'], categories=customOrder, ordered=True)
+    dfConsumption.sort_values(inplace=True, ascending=True, by=['Type', 'InventoryName'])
+    
     dfRoutePresets.rename(inplace=True, columns={'id': 'value','Name': 'label'})
+
+    dfUnits.rename(inplace=True, columns={'Name': 'label'})
+    dfUnits['value'] = dfUnits['label']
 
     serializedAttachments = []
     for attachment in styleAttachments:
@@ -240,19 +259,117 @@ def GetDataForStyleCardUpdate(styleCard: models.StyleCard):
             'FileUrl': attachment.File.url,
             'FileName': attachment.File.name.split('/')[-1],
             'Description': attachment.Description,
+            'CanEdit': True,
         })
 
     result = {
         'formData': {
             'Style': model_to_dict(styleCard),
-            'Consumption': consumption,
+            'Consumption': dfToListOfDicts(dfConsumption),
             'Variants': variants,
             'Attachments': serializedAttachments,
         },        
         'routes': dfToListOfDicts(dfRoutePresets),
+        'units': dfToListOfDicts(dfUnits),
     }
 
     return result
+
+def EditStyleCard(
+        styleCard: models.StyleCard,
+        styleData: Dict[str, str],
+        variantData: List[Dict[str, str]],
+        routeData: Dict[str, str],
+        consumptionData: List[Dict[str, str]],
+        attachmentData: List[Dict[str, str]],
+):
+    try:
+        routePresetId = routeData['RouteId']
+        routePreset = models.RoutePreset.objects.get(id=routePresetId) 
+    except:
+        raise ValueError('Invalid Route Selected')
+    del routeData
+    
+    dfConsumption = pd.DataFrame(consumptionData) if consumptionData else pd.DataFrame(columns=['id'])
+    dfVariants = pd.DataFrame(variantData) if variantData else pd.DataFrame(columns=['id'])
+    dfAttachments = pd.DataFrame(attachmentData) if attachmentData else pd.DataFrame(columns=['id'])
+    del consumptionData, variantData, attachmentData
+
+    if dfVariants.empty:
+        raise ValueError('No Variant is provided')
+
+    fields = ['id']
+    previousConsumption = models.StyleConsumption.objects.filter(Style=styleCard).values(*fields)
+    dfPreviousConsumption = pd.DataFrame(previousConsumption) if previousConsumption else pd.DataFrame(columns=fields)
+    del previousConsumption
+
+    previousVariants = models.StyleVariant.objects.filter(Style=styleCard).values(*fields)
+    dfpreviousVariants = pd.DataFrame(previousVariants) if previousVariants else pd.DataFrame(columns=fields)
+    del previousVariants
+
+    previousAttachments = styleCard.Attachments.all().values(*fields)
+    dfPreviousAttachments = pd.DataFrame(previousAttachments) if previousAttachments else pd.DataFrame(columns=fields)
+    del previousAttachments, fields
+
+    styleData['RoutePreset'] = routePreset
+    styleData['Customer'] = models.Customer.objects.get(Name=styleData['Customer'])
+
+    styleData.pop('Code')
+    styleData['StyleName'] = styleData.pop('Name')
+    for key, value in styleData.items():
+        setattr(styleCard, key, value)
+    
+    dfVariants.rename(inplace=True, columns={'Variant':'VariantCode'})
+    dfConsumption.rename(inplace=True, columns={'Inventory': 'InventoryCode'})
+    dfConsumption.drop(inplace=True, columns=['InventoryName', 'InvBaseUnit'])
+
+    dfConsumption['FinalCons'] = calculateFinalConsumption(dfConsumption[['InventoryCode','Unit','Consumption']])
+    dfConsumption['InventoryCode'] = convertTexttoObject(models.Inventory, dfConsumption['InventoryCode'], 'Code')
+    dfConsumption['Unit'] = convertTexttoObject(models.Unit, dfConsumption['Unit'], 'Name')
+
+    dfAttachments.drop(inplace=True, columns=['FileUrl', 'FileName', 'CanEdit', 'NewFile'], errors='ignore')
+    dfAttachments.rename(inplace=True, columns={'AttachmentId': 'id'})
+
+    deletedAttachments = set(dfPreviousAttachments['id']) - set(dfAttachments['id'].dropna())
+    deletedAttachments = models.Attachment.objects.filter(id__in=deletedAttachments)
+
+    attachmentsToCreate = []
+    attachmentsToUpdate = []
+
+    updateFields = ['Description']
+    for _, row in dfAttachments.iterrows():
+        if pd.notna(row['id']):
+            rowDict = row.to_dict()
+            
+            attachment = models.Attachment.objects.get(id=rowDict.pop('id'))
+
+            for key, value in rowDict.items():
+                setattr(attachment, key, value)
+            attachmentsToUpdate.append(attachment)
+        else:
+            row['id'] = None
+            row['Content'] = styleCard
+            attachment = models.Attachment(**row)
+            attachmentsToCreate.append(attachment)
+
+    with transaction.atomic():
+        styleCard.save()
+
+        try:
+            updateModelWithDF(models.StyleVariant, dfVariants, dfpreviousVariants)
+        except Exception as e:
+            raise ValueError(f"Variants: {str(e)}")
+        
+        try:
+            updateModelWithDF(models.StyleConsumption, dfConsumption, dfPreviousConsumption)
+        except Exception as e:
+            raise ValueError(f"Consumption: {str(e)}")
+        
+        if deletedAttachments:
+            deletedAttachments.delete()
+        
+        models.Attachment.objects.bulk_create(attachmentsToCreate)
+        models.Attachment.objects.bulk_update(attachmentsToUpdate, updateFields)
 
 #TODO: This would be obsolete when we shift to next
 def AddStyleCard(
@@ -332,6 +449,7 @@ def AddStyleCard(
 
     return styleCard.StyleCode
 
+#TODO: This would be obsolete when we shift to next
 def UpdateStyleCard(
         dfStyle: pd.DataFrame,
         dfVariants: pd.DataFrame,
@@ -514,6 +632,46 @@ def ProcessStyleData(styleCard: models.StyleCard):
         })
     
     return model_to_dict(styleCard), variants, consumption, dfToListOfDicts(dfRoute), serializedAttachments
+
+def DuplicateStyleCard(sourceCode: str, targetCode: str):
+    try:
+        source = models.StyleCard.objects.get(StyleCode=sourceCode)
+    except:
+        raise LookupError('Source code not found')
+    
+    try:
+        models.StyleCard.objects.get(StyleCode=targetCode)
+        raise ValueError('The target style code already exists')
+    except models.StyleCard.DoesNotExist:
+        pass
+
+    #Using target=source and then change the code creates problem, so a new object is created here.
+    target = models.StyleCard.objects.get(StyleCode=sourceCode)
+    target.pk = None
+    target.StyleCode = targetCode
+    
+    sourceVariants = models.StyleVariant.objects.filter(Style=source)
+    targetVariants = []
+    for variant in sourceVariants:
+        variant.id = None
+        variant.Style = target
+        targetVariants.append(variant)
+    del sourceVariants
+
+    sourceConsumption = models.StyleConsumption.objects.filter(Style=source)
+    targetConsumption = []
+    for consumption in sourceConsumption:
+        consumption.id = None
+        consumption.Style = target
+        targetConsumption.append(consumption)
+    del sourceConsumption  
+    
+    with transaction.atomic():
+        target.save()
+
+        models.StyleVariant.objects.bulk_create(targetVariants)
+
+        models.StyleConsumption.objects.bulk_create(targetConsumption)
 
 def GetThreadConsRequests(statusStr:str):
     isClosed = convertTextToBool(statusStr)

@@ -6,9 +6,10 @@ from django.db import transaction
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import  AllowAny, IsAuthenticated
 from rest_framework.request import Request
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 
 import json
@@ -592,6 +593,7 @@ def AddStyle (request: HttpRequest):
 class UpdateStyleCard(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, AppModelPermissions]
+    parser_classes = (MultiPartParser, FormParser)
 
     appName = 'apparelManagement'
     modelName = 'StyleCard'
@@ -607,6 +609,40 @@ class UpdateStyleCard(APIView):
         try:
             formData = style_card_service.GetDataForStyleCardUpdate(style)
             return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk:str):
+        try:
+            style = models.StyleCard.objects.get(StyleCode=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+        try:
+            styleData = data.pop('style')
+            variantData = data.pop('variant')
+            routeData = data.pop('route')
+            consumptionData = data.pop('consumption')
+            attachmentData = data.pop('attachment')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            style_card_service.EditStyleCard(style, styleData, variantData, routeData, consumptionData, attachmentData)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -645,6 +681,31 @@ def UpdateStyle (request: HttpRequest, pk: str):
                 'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/edit.html', context)
 
+class DeleteStyleCard(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+    parser_classes = (MultiPartParser, FormParser)
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'change'
+
+    def delete(self, _: Request, pk: str):
+        try:
+            style = models.StyleCard.objects.get(StyleCode=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            style.delete()
+            response = {'message': 'Deleted'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def DeleteStyle(request: HttpRequest, pk: str):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='delete'):
@@ -670,6 +731,31 @@ def DeleteStyle(request: HttpRequest, pk: str):
     else:
         context = {'object':style, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/delete.html', context)
+
+class DuplicateStyleCard(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]    
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'add'
+
+    def post(self, request:Request, pk: str):
+        sourceCode = request.data.get('Source', None)
+        targetCode = request.data.get('Target', None)
+
+        if None in [sourceCode, targetCode]:
+            response = {'message': 'Incomplete Data Provided'}
+            return Response(data=response, status=status.HTTP_409_CONFLICT)
+        
+        try:
+            style_card_service.DuplicateStyleCard(sourceCode, targetCode)
+            response = {'message': 'Added Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def CopyStyle(request: HttpRequest, pk: str):
@@ -741,7 +827,12 @@ def CopyStyle(request: HttpRequest, pk: str):
         return render(request, 'style/copy.html', context)
 
 class StyleRoutePresetDetails(APIView):
-    permission_classes=[AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions] 
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'change'
 
     def get(self, request: Request):
         try:
@@ -814,16 +905,26 @@ def WorkOrder (request: HttpRequest):
     return render(request, 'work_order/home.html', context)
 
 class WorkOrders(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def post(self, request: Request):
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        showShipped = request.query_params.get('all') == 'yes'
+        
         try:
-            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
+            workOrders = work_order_service.GetWorkOrders(showShipped)
+            return Response(data=workOrders, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
+    #This is for the integration with SPTS server
+    def post(self, request: Request):
         currentOrders = request.data.get('currentOrders')
         try:
             orderData = work_order_service.GetOrdersForIntegration(currentOrders)
@@ -833,6 +934,40 @@ class WorkOrders(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(data=orderData, status=status.HTTP_200_OK)
+
+class AddWorkOrderAPI(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'add'
+
+    def get(self, _: Request):
+        try:
+            formData = work_order_service.GetDataForOrderAddition()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            work_order_service.AddWorkOrderAPI(data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def AddWorkOrder(request: HttpRequest):
@@ -857,6 +992,29 @@ def AddWorkOrder(request: HttpRequest):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'work_order/add.html', context)
+
+class UpdateWorkOrderAPI(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'change'
+
+    def get(self, _:Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            formData = work_order_service.GetDataForWorkOrderUpdate(workOrder)
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def UpdateWorkOrder(request: HttpRequest, pk: int):
@@ -892,6 +1050,29 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
                    'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         
         return render(request, 'work_order/edit.html', context)
+
+class CalculateVariantsAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'add'
+
+    def get(self, request: Request):
+        styleCode = request.query_params.get('styleCode', None)
+        if styleCode is None:
+            response = {'message': 'Need Style Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            style = models.StyleCard.objects.get(StyleCode=styleCode)
+        except:
+            response = {'message': 'Invalid Style Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        variants = list(models.StyleVariant.objects.filter(Style=style).values_list('VariantCode', flat=True))
+        return Response(data=variants, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def CalculateVariants(request: HttpResponse):

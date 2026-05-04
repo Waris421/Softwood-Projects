@@ -1,11 +1,13 @@
 from django.http import JsonResponse, HttpResponse, HttpRequest
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Exists, OuterRef, Q, Count
+from django.db.models.functions import Cast
+from django.db.models import Exists, OuterRef, Q, Count, CharField, F
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import  AllowAny
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.permissions import  AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework import status
 import rest_framework
@@ -22,7 +24,7 @@ from HumanResource import models as hrModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
 from core.constants.generic import APP_OPTIONS
-from core.services.auth_service import hasPermission, getAPIUser, authenticateUser
+from core.services.auth_service import hasPermission, getAPIUser, authenticateUser, AppModelPermissions
 
 from .generic_services import dfToListOfDicts
 from .hr_service import getSubordinates
@@ -172,45 +174,56 @@ def getCategories(request):
         return JsonResponse(data, safe=False)
 
 class GetInventories(APIView):
-    permission_classes = [AllowAny]
+    '''
+        GET Parameters:
+        search: part of code or name;
+        limit: number;
+        showUnits: yes/no;
+        showclosed: yes/no;
+        type: string;
+    '''
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'view'
 
     def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
-
-        search = request.GET.get('search', '')
+        search = request.query_params.get('search', '')
+        limit = request.query_params.get('limit')
+        showUnits = request.query_params.get('showUnits') == 'yes'
+        showClosed = request.query_params.get('showClosed') == 'yes'
+        invType = request.query_params.get('type')
 
         filters = Q()
 
         if search:
             filters &= Q(Name__icontains=search) | Q(Code__icontains=search)
         
-        objects = appModels.Inventory.objects.filter(filters)
-
-        if objects.count() < 1:
-            response = []
-            status = rest_framework.status.HTTP_200_OK
-            return Response(data=response, status=status)
-
-        objects = objects[:15].values('Code','Name')
-        dfData = pd.DataFrame(objects)
+        if not showClosed:
+            filters &= Q(InUse=True)
         
-        dfData['text'] = dfData['Name']+' - '+dfData['Code']
-        dfData.drop(inplace=True, columns=['Name'])
-        dfData.rename(inplace=True, columns={'Code': 'value'})
-        dfData['value'] = dfData['value'].astype(str)
+        if invType:
+            if invType in ['BW', 'AW']:
+                invType = 'Trim'
+            
+            filters &= Q(Group__icontains=invType)
         
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+        querySet = appModels.Inventory.objects.filter(filters).annotate(
+            value=Cast(F('Code'), output_field=CharField()),
+            label=F('Name')
+        ).order_by('Name')
 
-        data = dfToListOfDicts(dfData)
-        status = rest_framework.status.HTTP_200_OK
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        if showUnits:
+            fields.append('Unit')
 
-        return Response(data=data, status=status) 
+        inventoryList = list(querySet.values(*fields))
+        return Response(data=inventoryList, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def getInventories(request: HttpRequest):
@@ -308,7 +321,45 @@ def getProductionStages(request):
         dfData.columns = ['value', 'text']
 
         return JsonResponse(dfToListOfDicts(dfData), safe=False)
-    
+
+
+class GetStyles(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search')
+        showCustomer = request.query_params.get('showCustomer') == 'yes'
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= (
+                Q(StyleCode__icontains=search) |
+                Q(StyleCode__icontains=search) | 
+                Q(Customer__Name__icontains=search)
+            )
+        
+        fields = ['StyleCode','Customer']
+        querySet = appModels.StyleCard.objects.filter(filters).annotate(
+            value=Cast(F('StyleCode'), output_field=CharField()),
+            label=F('StyleCode')
+        ).order_by('StyleCode')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+
+        fields = ['value', 'label']
+        if showCustomer:
+            fields.append('Customer')
+
+        styleList = list(querySet.values(*fields))
+        return Response(data=styleList, status=status.HTTP_200_OK)
+        
 @login_required(login_url='/login')
 def getStyles(request):
     if request.method != 'GET':
@@ -825,7 +876,7 @@ class GetWorkers(APIView):
             code = None
 
         filters = Q()
-        if search:
+        if search and search !='null':
             filters |= (Q(id__icontains=search) | Q(WorkerName__icontains=search))
         
         if code:

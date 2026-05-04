@@ -74,7 +74,6 @@ class AppModelPermissions(permissions.BasePermission):
         
         return hasPermission(user, appName, modelName, permissionType)
 
-
 def authenticateUser(
         request: Request,
         appName: str|None,

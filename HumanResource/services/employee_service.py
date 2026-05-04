@@ -289,6 +289,10 @@ def AddEmployeeBulk(token: str | None):
     dfData['Manager'] = np.where(dfData['Manager'].isna(), None, dfData['Manager'])
     dfData['User'] = np.where(dfData['User'].isna(), None, dfData['User'])
     dfData['DateOfBirth'] = np.where(dfData['DateOfBirth'].isna(), None, dfData['DateOfBirth'])
+    
+    dfData['DateOfBirth'] = pd.to_datetime(dfData['DateOfBirth'], unit='ns')
+    dfData['DateOfBirth'] = dfData['DateOfBirth'].dt.date
+    
 
     dfData['Department'] = convertTexttoObject(models.Department, dfData['Department'], 'Name')
     dfData['Manager'] = convertTexttoObject(models.Employee, dfData['Manager'], 'id')

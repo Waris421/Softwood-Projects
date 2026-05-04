@@ -139,6 +139,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'children': [
             {'label': 'Raw Material Stock', 'href': '/finance/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/finance/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
+            {'label': 'View PO', 'href': '/finance/purchase-order', 'subtext': 'View all Purchase Orders'},
         ]},
     ],
     'hr': [
