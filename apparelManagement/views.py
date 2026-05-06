@@ -999,7 +999,10 @@ class UpdateWorkOrderAPI(APIView):
 
     appName = 'apparelManagement'
     modelName = 'WorkOrder'
-    permissionType = 'change'
+    permissionType = {
+        'GET': 'view',
+        'POST': 'change'
+    }
 
     def get(self, _:Request, pk: int):
         try:
@@ -1011,6 +1014,39 @@ class UpdateWorkOrderAPI(APIView):
         try:
             formData = work_order_service.GetDataForWorkOrderUpdate(workOrder)
             return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            orderData = data.pop('Order')
+            variantData = data.pop('Variant')
+            requirementData = data.pop('Requirement')
+            attachmentData = data.pop('attachment')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            work_order_service.EditWorkOrder(workOrder, orderData, variantData, requirementData, attachmentData)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -1108,6 +1144,44 @@ def CalculateRequirement(request: HttpRequest):
     work_order_service.CalculateRequirement(styleCard, workOrder)
 
     return HttpResponse('Ok', status=200)
+
+class GetReqHistory(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        requirementId = request.query_params.get('id', None)
+        orderNumber = request.query_params.get('orderNumber', None)
+
+        if not all([requirementId, orderNumber]):
+            response = {'message': 'Invalid Input'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            requirement = models.InvRequirement.objects.get(id=requirementId)
+            workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+        except models.InvRequirement.DoesNotExist:
+            response = {'message': 'Requirement not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        except models.WorkOrder.DoesNotExist:
+            response = {'message': 'Invalid Work Order'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            requirementHistory = work_order_service.GetInventoryRequirementHistory(requirement, workOrder)
+            return Response(data=requirementHistory, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def GetRequirementHistory (request: HttpRequest):

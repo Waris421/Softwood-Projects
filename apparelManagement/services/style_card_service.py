@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 from django.contrib.contenttypes.models import ContentType
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts, convertTextToBool
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, dfToListOfDicts, convertTextToBool, updateAttachmentsFromDF
 from core.constants.prod import threadCounts
 
 def normalizePreReqs(value):
@@ -365,11 +365,10 @@ def EditStyleCard(
         except Exception as e:
             raise ValueError(f"Consumption: {str(e)}")
         
-        if deletedAttachments:
-            deletedAttachments.delete()
-        
-        models.Attachment.objects.bulk_create(attachmentsToCreate)
-        models.Attachment.objects.bulk_update(attachmentsToUpdate, updateFields)
+        try:
+            updateAttachmentsFromDF(styleCard, dfAttachments, dfPreviousAttachments)
+        except Exception as e:
+            raise ValueError(f"Consumption: {str(e)}")
 
 #TODO: This would be obsolete when we shift to next
 def AddStyleCard(

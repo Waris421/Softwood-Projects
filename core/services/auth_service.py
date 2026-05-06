@@ -3,10 +3,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.apps import apps
 
 from rest_framework.request import Request
+from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework import permissions
 
-from typing import Literal, List, Dict
+from typing import Literal, List, Dict, Optional, Union
 
 from core.constants.generic import NAV_LINKS_CONFIG
 
@@ -36,17 +37,15 @@ def hasPermission (
         True if user's group has the permission otherwise false.
     """
     
-    groups = user.groups.all()
+    if not user.is_authenticated:
+        return False
 
     if user.is_staff:
         return True
-
-    if not groups:
-        return False
     
     try:
         model = apps.get_model(app_label=appName, model_name=modelName.split('.')[-1])
-    except LookupError:
+    except (LookupError, ValueError):
         return False
     except Exception as e:
         raise Exception(e)
@@ -54,24 +53,43 @@ def hasPermission (
     permissionCodename = f"{type}_{model._meta.model_name}"
     contentType = ContentType.objects.get_for_model(model)
 
-    for group in groups:
-        permissions = group.permissions.filter(codename=permissionCodename, content_type=contentType)
-        if permissions.exists():
-            return True
-    
-    return False
+    filteredGroups = user.groups.filter(
+        permissions__codename=permissionCodename,
+        permissions__content_type=contentType
+    )
+    return filteredGroups.exists()
 
 class AppModelPermissions(permissions.BasePermission):
-    def has_permission(self, request, view):
+    """
+        Custom permission to check user access based on app name, model name, 
+        and permission type defined on the view.
+    """
+    def has_permission(self, request: Request, view: APIView):
         user = request.user
 
-        appName = getattr(view, 'appName', None)
-        modelName = getattr(view, 'modelName', None)
-        permissionType = getattr(view, 'permissionType', None)
+        appName: Optional[str] = getattr(view, 'appName', None)
+        modelName: Optional[str] = getattr(view, 'modelName', None)
+        
+        #permission_config could be a single string or a mapping of HTTP methods
+        permissionConfig: Union[str, Dict[str, str], None] = getattr(view, 'permissionType', None)
 
-        if not all([appName, modelName, permissionType]):
+        #Deny access if developer forgot configure in view
+        if not all([appName, modelName, permissionConfig]):
             return False
         
+        #For method specific permissions in a view
+        if isinstance(permissionConfig, dict):
+            permissionType = permissionConfig.get(request.method)
+
+        #For singular permission in a view
+        else:
+            permissionType = permissionConfig
+        
+        #Deny access if developer didn't configure properly
+        if not permissionType:
+            return False
+        
+        #Rights validation using a helper function
         return hasPermission(user, appName, modelName, permissionType)
 
 def authenticateUser(

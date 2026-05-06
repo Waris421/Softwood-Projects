@@ -9,7 +9,7 @@ from django.db import transaction
 from django.forms import model_to_dict
 
 from .. import models
-from core.services.generic_services import convertTexttoObject, updateModelWithDF, convertStrToDateTime, dfToListOfDicts, roundFloatCols
+from core.services.generic_services import convertTexttoObject, updateModelWithDF, updateAttachmentsFromDF, convertStrToDateTime, dfToListOfDicts, roundFloatCols
 from core.constants.theme import theme
 
 def applyColors(dfRequirement: pd.DataFrame):
@@ -244,7 +244,7 @@ def GetDataForWorkOrderUpdate(workOrder: models.WorkOrder):
     orderAttachments = workOrder.Attachments.all()
     styleAttachments = workOrder.StyleCode.Attachments.all()
 
-    fields = ['id', 'InventoryCode',  'InventoryCode__Name','Variant','Quantity']
+    fields = ['id', 'InventoryCode',  'InventoryCode__Name','Variant','Quantity', 'Adjustment']
     requirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
     dfRequirement = pd.DataFrame(requirement) if requirement else pd.DataFrame(columns=fields)
     del requirement
@@ -305,13 +305,14 @@ def GetDataForWorkOrderUpdate(workOrder: models.WorkOrder):
     del dfIssuedInvs
     dfIssuedQty.drop(inplace=True, columns=['id', 'IssueInventory'])
     dfIssuedQty.rename(inplace=True, columns={'Quantity': 'Issued', 'Inventory': 'InventoryCode'})
-
+    
     dfRequirement.rename(inplace=True, columns={'InventoryCode__Name': 'InventoryName', 'Quantity': 'Required'})
     
     dfRequirement = pd.merge(left=dfRequirement, right=dfOrderedQty, on=['InventoryCode','Variant'], how='outer')
     del dfOrderedQty
     dfRequirement['Ordered'] = np.where(dfRequirement['Ordered'].isna(), 0, dfRequirement['Ordered'])
     dfRequirement = dfRequirement.groupby(['id', 'InventoryCode', 'InventoryName', 'Variant']).agg(
+        Adjustment = ('Adjustment', 'first'),
         Required=('Required', 'first'),
         Ordered=('Ordered', 'sum'),
     ).reset_index()
@@ -320,6 +321,7 @@ def GetDataForWorkOrderUpdate(workOrder: models.WorkOrder):
     del dfReceivedQty
     dfRequirement['Received'] = np.where(dfRequirement['Received'].isna(), 0, dfRequirement['Received'])
     dfRequirement = dfRequirement.groupby(['id', 'InventoryCode', 'InventoryName', 'Variant']).agg(
+        Adjustment = ('Adjustment', 'first'),
         Required=('Required', 'first'),
         Ordered=('Ordered', 'first'),
         Received=('Received', 'sum'),
@@ -329,6 +331,7 @@ def GetDataForWorkOrderUpdate(workOrder: models.WorkOrder):
     del dfIssuedQty
     dfRequirement['Issued'] = np.where(dfRequirement['Issued'].isna(), 0, dfRequirement['Issued'])
     dfRequirement = dfRequirement.groupby(['id', 'InventoryCode', 'InventoryName', 'Variant']).agg(
+        Adjustment = ('Adjustment', 'first'),
         Required=('Required', 'first'),
         Ordered=('Ordered', 'first'),
         Received=('Received', 'first'),
@@ -371,6 +374,83 @@ def GetDataForWorkOrderUpdate(workOrder: models.WorkOrder):
     }
     
     return result
+
+def EditWorkOrder(
+    workOrder: models.WorkOrder,
+    orderData: Dict[str, str],
+    variantData: List[Dict[str, str]],
+    requirementData: List[Dict[str, str]],
+    attachmentData: List[Dict[str, str]],
+):
+    #This shouldn't happen normally, but may happen in case of poor internet connections
+    if workOrder.OrderNumber != int(orderData['OrderNumber']):
+        raise ValueError('You have changed order number without verifying the data. Please refresh and update again.')
+
+    dfVariants = pd.DataFrame(variantData) if variantData else pd.DataFrame(columns=['id'])
+    dfAttachments = pd.DataFrame(attachmentData) if attachmentData else pd.DataFrame(columns=['id'])
+    dfRequirement = pd.DataFrame(requirementData) if requirementData else pd.DataFrame(columns=['id'])
+    del requirementData, variantData, attachmentData
+
+    if dfVariants.empty:
+        raise ValueError('No Variant is provided')
+
+    fields = ['id']
+    previousVariants = models.OrderVariant.objects.filter(OrderNumber=workOrder).values(*fields)
+    dfPreviousVariants = pd.DataFrame(previousVariants) if previousVariants else pd.DataFrame(columns=fields)
+    del previousVariants
+
+    previousAttachments = workOrder.Attachments.all().values(*fields)
+    dfPreviousAttachments = pd.DataFrame(previousAttachments) if previousAttachments else pd.DataFrame(columns=fields)
+    del previousAttachments
+
+    fields = ['id', 'Quantity', 'Adjustment']
+    previousRequirement = models.InvRequirement.objects.filter(OrderNumber=workOrder).values(*fields)
+    dfPreviousRequirement = pd.DataFrame(previousRequirement) if previousRequirement else pd.DataFrame(columns=fields)
+    del previousRequirement, fields
+
+    orderData['Style'] = models.StyleCard.objects.get(StyleCode=orderData['Style'])
+    orderData['Customer'] = models.Customer.objects.get(Name=orderData['Customer'])
+    orderData['Currency'] = models.Currency.objects.get(Code=orderData['Currency'])
+    
+    orderData.pop('OrderNumber')
+    for key, value in orderData.items():
+        setattr(workOrder, key, value)
+    
+    #Remove columns that user cannot change in work order edit page
+    dfRequirement.drop(inplace=True, columns=['Inventory', 'InventoryName', 'Variant', 'Type', 'Required', 'Ordered', 'Received', 'Issued', 'selected'], errors='ignore')
+
+    dfRequirement = pd.merge(left=dfRequirement, right=dfPreviousRequirement, on='id', how='left', suffixes=('New', 'Old'))
+
+    mask = dfRequirement['AdjustmentNew'] != dfRequirement['AdjustmentOld']
+
+    diff = dfRequirement.loc[mask, 'AdjustmentNew'] - dfRequirement.loc[mask, 'AdjustmentOld']
+
+    dfRequirement.loc[mask, 'Quantity'] = np.ceil(dfRequirement.loc[mask, 'Quantity'] * (1 + (diff / 100)) * 100) / 100
+
+    dfRequirement.loc[mask, 'AdjustmentOld'] = dfRequirement.loc[mask, 'AdjustmentNew']
+    dfRequirement = dfRequirement.drop(columns=['AdjustmentNew']).rename(columns={'AdjustmentOld': 'Adjustment'})
+
+    dfAttachments = dfAttachments[dfAttachments['CanEdit']]
+    dfAttachments.drop(inplace=True, columns=['FileUrl', 'FileName', 'CanEdit', 'NewFile'], errors='ignore')
+    dfAttachments.rename(inplace=True, columns={'AttachmentId': 'id'})
+    
+    with transaction.atomic():
+        workOrder.save()
+
+        try:
+            updateModelWithDF(models.OrderVariant, dfVariants, dfPreviousVariants)
+        except Exception as e:
+            raise ValueError(f"Consumption: {str(e)}")
+
+        try:
+            updateModelWithDF(models.InvRequirement, dfRequirement, dfPreviousRequirement)
+        except Exception as e:
+            raise ValueError(f"Consumption: {str(e)}")
+        
+        try:
+            updateAttachmentsFromDF(workOrder, dfAttachments, dfPreviousAttachments)
+        except Exception as e:
+            raise ValueError(f"Consumption: {str(e)}")
 
 #TODO: This would become obsolete once we shift to next
 def AddWorkOrder(
@@ -433,6 +513,7 @@ def AddWorkOrder(
         
     return orderNumber
 
+#TODO: This would become obsolete once we shift to next
 def UpdateWorkOrder(
         workOrder: models.WorkOrder,
         dfOrder: pd.DataFrame,
@@ -928,6 +1009,121 @@ def CalculateRequirement(styleCard: models.StyleCard, workOrder: models.WorkOrde
     except Exception as e:
         raise ValueError(e)
 
+def GetInventoryRequirementHistory(invRequirement: models.InvRequirement, workOrder: models.WorkOrder):
+    inventory = invRequirement.InventoryCode
+    variant = invRequirement.Variant
+
+    fields = ['POInvId','Quantity']
+    poAllocation = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfPOAllocation = pd.DataFrame(poAllocation) if poAllocation else pd.DataFrame(columns=fields)
+    del poAllocation
+
+    fields = ['id','PONumber','Quantity']
+    poInventory = models.POInventory.objects.filter(id__in=dfPOAllocation['POInvId'].unique())
+    poInventory = poInventory.filter(Inventory=inventory).filter(Variant=variant).values(*fields)    
+    dfPOInventory = pd.DataFrame(poInventory) if poInventory else pd.DataFrame(columns=fields)
+    del poInventory
+
+    fields = ['id','OrderDate','Supplier']
+    purchaseOrders = models.PurchaseOrder.objects.filter(id__in=dfPOInventory['PONumber'].unique()).values(*fields)
+    dfPurchaseOrders = pd.DataFrame(purchaseOrders) if purchaseOrders else pd.DataFrame(columns=fields)
+    del purchaseOrders
+
+    fields = ['RecInvId','Quantity']
+    recAllocation = models.RecAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfRecAllocation = pd.DataFrame(recAllocation) if recAllocation else pd.DataFrame(columns=fields)
+    del recAllocation
+
+    fields = ['id','ReceiptNumber','Quantity']
+    recInventory = models.RecInventory.objects.filter(id__in=dfRecAllocation['RecInvId'].unique())
+    recInventory = recInventory.filter(InventoryCode=inventory).filter(Variant=variant).values(*fields)
+    dfRecInventory = pd.DataFrame(recInventory) if recInventory else pd.DataFrame(columns=fields)
+    del recInventory
+
+    fields = ['id','ReceiptDate','Supplier']
+    purchaseReceipts = models.InventoryReciept.objects.filter(id__in=dfRecInventory['ReceiptNumber'].unique()).values(*fields)
+    dfPurchaseReceipts = pd.DataFrame(purchaseReceipts) if purchaseReceipts else pd.DataFrame(columns=fields)
+    del purchaseReceipts
+
+    fields = ['IssueInventory', 'Quantity']
+    issueAllocation = models.IssueAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfIssueAllocation = pd.DataFrame(issueAllocation) if issueAllocation else pd.DataFrame(columns=fields)
+    del issueAllocation
+
+    fields = ['id', 'Issuance', 'Quantity']
+    issueInventory = models.IssueInventory.objects.filter(id__in=dfIssueAllocation['IssueInventory'].unique())
+    issueInventory = issueInventory.filter(Inventory=inventory).filter(Variant=variant).values(*fields)
+    dfIssueInventory = pd.DataFrame(issueInventory) if issueInventory else pd.DataFrame(columns=fields)
+    del issueInventory
+
+    fields = ['id', 'IssuanceDate', 'Department']
+    issuances = models.Issuance.objects.filter(id__in=dfIssueInventory['Issuance'].unique()).values(*fields)
+    dfIssuances = pd.DataFrame(issuances) if issuances else pd.DataFrame(columns=fields)
+    del issuances
+    
+    #Summarize po data
+    dfPOInventory = pd.merge(left=dfPOInventory, right=dfPOAllocation, left_on='id', right_on='POInvId', how='left')
+    del dfPOAllocation
+    dfPOInventory.drop(inplace=True, columns=['id','POInvId'])
+    dfPOInventory.rename(inplace=True, columns={'Quantity_x':'TotalQuantity', 'Quantity_y':'AllocatedQuantity'})
+
+    dfPOInventory = pd.merge(left=dfPOInventory, right=dfPurchaseOrders, left_on='PONumber', right_on='id', how='left')
+    del dfPurchaseOrders
+    dfPOInventory.drop(inplace=True, columns=['id']) 
+
+    #Summarize receipts data
+    dfRecInventory = pd.merge(left=dfRecInventory, right=dfRecAllocation, left_on='id', right_on='RecInvId', how='left')
+    del dfRecAllocation
+    dfRecInventory.drop(inplace=True, columns=['id','RecInvId'])
+    dfRecInventory.rename(inplace=True, columns={'Quantity_x':'TotalQuantity', 'Quantity_y':'AllocatedQuantity'})
+
+    dfRecInventory = pd.merge(left=dfRecInventory, right=dfPurchaseReceipts, left_on='ReceiptNumber', right_on='id', how='left')
+    del dfPurchaseReceipts
+    dfRecInventory.drop(inplace=True, columns=['id']) 
+
+    #Summarize issuance data
+    dfIssueInventory = pd.merge(left=dfIssueInventory, right=dfIssueAllocation, left_on='id', right_on='IssueInventory', how='left')
+    del dfIssueAllocation
+    dfIssueInventory.drop(inplace=True, columns=['id','IssueInventory'])
+    dfIssueInventory.rename(inplace=True, columns={'Quantity_x':'TotalQuantity', 'Quantity_y':'AllocatedQuantity'})
+
+    dfIssueInventory = pd.merge(left=dfIssueInventory, right=dfIssuances, left_on='Issuance', right_on='id', how='left')
+    del dfIssuances
+    dfIssueInventory.drop(inplace=True, columns=['id'])     
+    
+    
+    #Give the columns of po, receipt and issuance same names
+    dfPOInventory.rename(inplace=True, columns={
+        'PONumber': 'id',
+        'OrderDate': 'TransactionDate',
+        'Supplier': 'Source'
+    })
+    dfRecInventory.rename(inplace=True, columns={
+        'ReceiptNumber': 'id',
+        'ReceiptDate': 'TransactionDate',
+        'Supplier': 'Source'
+    })
+    dfIssueInventory.rename(inplace=True, columns={
+        'Issuance': 'id',
+        'IssuanceDate': 'TransactionDate',
+        'Department': 'Source'
+    })
+
+    dfPOInventory['Type'] = 'Order'
+    dfRecInventory['Type'] = 'Receipt'
+    dfIssueInventory['Type'] = 'Issuance'
+
+    dfPOInventory['URL'] = '/mmc/purchase-order/'+dfPOInventory['id'].astype(str)+'/edit'
+    dfRecInventory['URL'] = '/mmc/purchase-receipt/'+dfRecInventory['id'].astype(str)+'/edit'
+    dfIssueInventory['URL'] = '/mmc/issuance/'+dfIssueInventory['id'].astype(str)+'/view'
+
+    #Combine all to a single history dataframe
+    dfHistory = pd.concat([dfPOInventory, dfRecInventory, dfIssueInventory], ignore_index=True)
+    del dfPOInventory, dfRecInventory, dfIssueInventory
+    
+    return dfToListOfDicts(dfHistory)
+
+#TODO: This would become obsolete once we shift to next
 def GetRequirementHistory (invRequirement: models.InvRequirement, workOrder: models.WorkOrder):
     inventoryCode = invRequirement.InventoryCode
     variant = invRequirement.Variant

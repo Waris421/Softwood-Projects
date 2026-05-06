@@ -29,6 +29,8 @@ from django_countries import countries
 
 from rest_framework.request import Request
 
+from apparelManagement.services.attachment_service import updateAttachmentsFromDF
+
 from core.constants.generic import API_KEY_FOR_AI, LOCAL_CURRENCY
 from core.services.auth_service import getNavLinks
 from core.constants.theme import theme

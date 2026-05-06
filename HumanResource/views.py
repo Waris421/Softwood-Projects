@@ -1,25 +1,25 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import  AllowAny
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authtoken.models import Token
 from rest_framework.request import Request
 from rest_framework import status
 
 from .services import employee_service, shift_service, holiday_service, location_service
 from .services import attendance_service, correction_service
-from core.services.auth_service import authenticateUser
+from core.services.auth_service import AppModelPermissions, authenticateUser
 from . import models
 
 class EmployeeList(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-    
+    appName = 'HumanResource'
+    modelName = 'Employee'
+    permissionType = 'view'
+
+    def get(self, _: Request):    
         try:
             employees = employee_service.GetEmployeeList()
             return Response(data=employees, status=status.HTTP_200_OK)
@@ -29,16 +29,14 @@ class EmployeeList(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
 class AddEmployee(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'Employee'
+    permissionType = 'add'
+
+    def get(self, _: Request):
         try:
             data = employee_service.GetDataForEmployeeAddition()
             return Response(data=data, status=status.HTTP_200_OK)
@@ -48,13 +46,6 @@ class AddEmployee(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-
         data = request.data
         try:
             employeeCode = employee_service.AddEmployee(data)
@@ -66,17 +57,14 @@ class AddEmployee(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class AddEmployeeBulk(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def post(self, request: Request):
-        #Check user authentication
-        try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'Employee'
+    permissionType = 'add'
+
+    def post(self, request: Request):        
         dryRunFlag = request.query_params.get('dry_run')
 
         #Convert true/false dryRunFlag from str to bool
@@ -114,16 +102,14 @@ class AddEmployeeBulk(APIView):
         return Response(data=response, status=status.HTTP_200_OK)
 
 class UpdateEmployee(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request, pk: int):
-        try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='change')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'Employee'
+    permissionType = 'change'
+
+    def get(self, _: Request, pk: int):        
         try:
             employee = models.Employee.objects.get(id=pk)
         except:
@@ -138,14 +124,7 @@ class UpdateEmployee(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
-    def post(self, request: Request, pk: int):
-        try:
-            authenticateUser(request, 'HumanResource', 'Employee', type='change')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def post(self, request: Request, pk: int):        
         try:
             employee = models.Employee.objects.get(id=pk)
         except:
@@ -162,16 +141,14 @@ class UpdateEmployee(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdateEmployeeShift(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'WorkingShift', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'WorkingShift'
+    permissionType = 'add'
+
+    def get(self, request: Request):        
         department = request.query_params.get('department')
 
         try:
@@ -182,14 +159,7 @@ class UpdateEmployeeShift(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
-    def post(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'WorkingShift', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def post(self, request: Request):        
         try:
             shift_service.UpdateShift(request.data)
             response = {'message': 'Saved Successfully'}
@@ -200,16 +170,14 @@ class UpdateEmployeeShift(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class DefineHoliday(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'Holiday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'Holiday'
+    permissionType = 'add'
+
+    def get(self, _: Request):        
         try:
             responseData = holiday_service.GetDataForHolidayDefine()
             return Response(data=responseData, status=status.HTTP_200_OK)
@@ -218,14 +186,7 @@ class DefineHoliday(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
-    def post(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'Holiday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def post(self, request: Request):        
         try:
             holiday_service.AddHoliday(request.data)
             response = {'message': 'Saved Successfully'}
@@ -236,16 +197,14 @@ class DefineHoliday(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class SetSaturday(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'OffSaturday'
+    permissionType = 'add'
+
+    def get(self, request: Request):        
         employeeCode = request.query_params.get('employee')
         
         try:
@@ -256,14 +215,7 @@ class SetSaturday(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
-    def post(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def post(self, request: Request):        
         try:
             holiday_service.DefineOffSaturday(request.data)
             response = {'message': 'Saved Successfully'}
@@ -274,15 +226,14 @@ class SetSaturday(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class OfficeList(APIView):
-    permission_classes = [AllowAny]
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'Location', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
+    appName = 'HumanResource'
+    modelName = 'Location'
+    permissionType = 'view'
+
+    def get(self, _: Request):
         try:
             offices = location_service.GetOffices()
             return Response(data=offices, status=status.HTTP_200_OK)
@@ -292,16 +243,14 @@ class OfficeList(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class AddOffice(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def post(self, request: Request):
-        try:
-            authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'Location'
+    permissionType = 'add'
+
+    def post(self, request: Request):        
         try:
             location_service.AddOffice(request.data)
             response = {'message': 'Saved Successfully'}
@@ -312,16 +261,14 @@ class AddOffice(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdateOffice(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request, pk: int):
-        try:
-            authenticateUser(request, 'HumanResource', 'Location', type='change')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'HumanResource'
+    modelName = 'Location'
+    permissionType = 'change'
+
+    def get(self, _: Request, pk: int):        
         try:
             office = models.Location.objects.get(id=pk)
         except:
@@ -336,14 +283,7 @@ class UpdateOffice(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
-    def post(self, request: Request, pk: int):
-        try:
-            authenticateUser(request, 'HumanResource', 'Location', type='change')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def post(self, request: Request, pk: int):        
         try:
             office = models.Location.objects.get(id=pk)
         except:
@@ -360,15 +300,15 @@ class UpdateOffice(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class AssignOffice(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'OffSaturday'
+    permissionType = 'add'
 
     def get(self, request: Request):
-        try:
-            manager = authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        manager = request.user
         
         employeeCode = request.query_params.get('employee')
 
@@ -381,12 +321,7 @@ class AssignOffice(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
     def post(self, request: Request):
-        try:
-            manager = authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        manager = request.user
         
         try:
             location_service.AssignOffices(manager, request.data)
@@ -406,27 +341,27 @@ class GetAttendance(APIView):
         to: yyyy-mm-dd
         employeeCode: (optional)
     '''
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Attendance'
+    permissionType = 'view'
 
     def get(self, request: Request):
-        try:
-            user = authenticateUser(request, 'HumanResource', 'Attendance', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+        user = request.user
+
         employeeCode = request.query_params.get('employeeCode')
-        if employeeCode:
-            employeeCode = int(employeeCode)
-        else:
-            employeeCode = models.Employee.objects.get(User=user).id
-        
         try:
-            employee = models.Employee.objects.get(id=employeeCode)
-        except:
-            response = {'message': 'Invalid Employee Code'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+            if employeeCode:
+                employee = models.Employee.objects.get(id=employeeCode)
+            else:
+                employee = models.Employee.objects.get(User=user)
+        except models.Employee.DoesNotExist:
+            return Response(
+                data={'message': 'Invalid Employee Code or User'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         startDate = request.query_params.get('from')
         endDate = request.query_params.get('to')
@@ -455,15 +390,15 @@ class AddUnverifiedAttendance(APIView):
             "Type": "in/out (required)"
         }
     '''
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Attendance'
+    permissionType = 'add'
 
     def post(self, request: Request):
-        try:
-            user = authenticateUser(request, 'HumanResource', 'Attendance', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        user = request.user
 
         try:
             employee = models.Employee.objects.get(User=user)
@@ -491,15 +426,15 @@ class AddVerifiedAttendance(APIView):
             "Details": "(required, but can be empty)"
         }
     '''
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Attendance'
+    permissionType = 'add'
 
     def post(self, request: Request):
-        try:
-            user = authenticateUser(request, 'HumanResource', 'Attendance', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        user = request.user
         
         try:
             employee = models.Employee.objects.get(User=user)
@@ -517,15 +452,15 @@ class AddVerifiedAttendance(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
         
 class AddCorrection(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Adjustment'
+    permissionType = 'add'
 
     def get(self, request: Request):
-        try:
-            user = authenticateUser(request, 'HumanResource', 'OffSaturday', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+        user = request.user
 
         params = request.query_params.dict()
 

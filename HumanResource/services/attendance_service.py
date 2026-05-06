@@ -203,6 +203,9 @@ def adjustHolidays(dfAttendance: pd.DataFrame, dfHolidays: pd.DataFrame):
 
         return dfResults[['HolidayFlag', 'HolidayDetails']]
 
+    dfHolidays['StartDate'] = pd.to_datetime(dfHolidays['StartDate'])
+    dfHolidays['EndDate'] = pd.to_datetime(dfHolidays['EndDate'])
+
     dfHolidays = dfHolidays.sort_values('StartDate')
 
     dfResults = pd.merge_asof(

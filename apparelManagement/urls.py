@@ -29,6 +29,7 @@ urlpatterns = [
     path('merchandising/work-order/add', views.AddWorkOrderAPI.as_view()),
     path('merchandising/work-order/variants/calculate', views.CalculateVariantsAPI.as_view()),
     path('merchandising/work-order/<int:pk>/update', views.UpdateWorkOrderAPI.as_view()),
+    path('merchandising/work-order/requirement/get', views.GetReqHistory.as_view()),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),

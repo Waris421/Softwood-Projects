@@ -361,6 +361,7 @@ class InvRequirement (models.Model):
     InventoryCode = models.ForeignKey (Inventory, on_delete = models.PROTECT)
     Variant = models.CharField (max_length=255, blank=True, null=True)
     Quantity = models.FloatField (null=True, blank=True)
+    Adjustment = models.IntegerField(null=True, blank=True, default=0)
 
     class Meta:
         #This reduces the loading time when reading the database, but increases writing time.

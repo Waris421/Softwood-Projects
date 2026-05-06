@@ -44,16 +44,14 @@ def yesOrNo(request):
         return JsonResponse(data, safe=False)
 
 class GetCustomers(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Customer', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'apparelManagement'
+    modelName = 'Customer'
+    permissionType = 'view'
+
+    def get(self, request: Request):        
         queries = request.query_params
         
         filters = Q()
@@ -321,7 +319,6 @@ def getProductionStages(request):
         dfData.columns = ['value', 'text']
 
         return JsonResponse(dfToListOfDicts(dfData), safe=False)
-
 
 class GetStyles(APIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
