@@ -4,10 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 
 # For Marketing data
-from rest_framework.views import APIView
+from rest_framework.views import APIView, csrf_exempt
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.authentication import SessionAuthentication
 
 
 import json
@@ -20,7 +19,7 @@ from core.services.generic_services import refineJson, applySearch, paginate, sh
 from core.services.auth_service import hasPermission
 from .services import correspondance_service, customer_service, export_data_serivce
 
-@login_required(login_url='/login')
+ 
 def Home(request: HttpRequest):
     context = {
         'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
@@ -28,7 +27,7 @@ def Home(request: HttpRequest):
 
     return render (request, 'marketing/home.html', context)
 
-@login_required(login_url='/login')
+ 
 def CustomerData (request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -53,7 +52,7 @@ def CustomerData (request: HttpRequest):
     }
     return render (request, 'customers/home.html', context)
 
-@login_required(login_url='/login')
+ 
 def ExportData (request: HttpRequest):
     if request.method != 'GET':
         return showMessageResponse(request, 'Not Allowed', 403)
@@ -88,7 +87,6 @@ def ExportData (request: HttpRequest):
     }
     return render (request, 'export_data/home.html', context)
 
-@login_required(login_url='/login')
 def ExportDataCountries(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -124,7 +122,6 @@ def ExportDataCountries(request: HttpRequest):
         print(f'Countries: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
 
-@login_required(login_url='/login')
 def ExportDataCategories(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -158,7 +155,6 @@ def ExportDataCategories(request: HttpRequest):
         print(f'Categories: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
 
-@login_required(login_url='/login')
 def ExportDataImporters(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -195,7 +191,6 @@ def ExportDataImporters(request: HttpRequest):
 
     return JsonResponse(importerSummary, safe=False)
 
-@login_required(login_url='/login')
 def ExportDataExporters(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -231,7 +226,6 @@ def ExportDataExporters(request: HttpRequest):
         print(f'Exporters: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
 
-@login_required(login_url='/login')
 def ExportDataTable(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -270,8 +264,6 @@ def ExportDataTable(request: HttpRequest):
     except Exception as e:
         print(f'Data Table: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
-
-@login_required(login_url='/login')
 def ExportDataStats(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -306,7 +298,6 @@ def ExportDataStats(request: HttpRequest):
         print(f'Stats: {e}')
         return HttpResponse('An error occured. Check with your administrator', status=400)
 
-@login_required(login_url='/login')
 def ExportDataSliders(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -326,7 +317,7 @@ def ExportDataSliders(request: HttpRequest):
         print(f'Quantity: {e}')
         return HttpResponse('An error occurred', status=400)
 
-@login_required(login_url='/login')
+ 
 def ExportDataDownload(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -369,7 +360,6 @@ def ExportDataDownload(request: HttpRequest):
     
     return response
 
-@login_required(login_url='/login')
 def ExportDataSettings(request: HttpRequest):
     if not hasPermission(request.user, 'marketing', 'ExportDataDraft','add'):
         return showMessageResponse(request, 'Access Denied', statusCode=403)
@@ -383,7 +373,7 @@ def ExportDataSettings(request: HttpRequest):
     }
     return render(request, 'export_data/settings.html', context)
 
-@login_required(login_url='/login')
+ 
 def RefineImporters(request: HttpRequest):
     if not hasPermission(request.user, 'marketing', 'ImporterAlias', 'change'):
         return showMessageResponse(request, 'Access Denied', statusCode=403)
@@ -413,7 +403,7 @@ def RefineImporters(request: HttpRequest):
         }
         return render (request, 'export_data/importer_alias.html', context)
 
-@login_required(login_url='/login')
+ 
 def RefineExporters(request: HttpRequest):
     if not hasPermission(request.user, 'marketing', 'ExporterAlias', 'change'):
         return showMessageResponse(request, 'Access Denied', statusCode=403)
@@ -450,7 +440,7 @@ def RefineExporters(request: HttpRequest):
 
         return render(request, 'export_data/exporter_alias.html', context)
 
-@login_required(login_url='/login')
+ 
 def UploadExportReport(request:HttpRequest):
     if request.method == 'POST':
         dataFile = request.FILES['exportDataFile']        
@@ -470,8 +460,8 @@ def UploadExportReport(request:HttpRequest):
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'export_data/upload.html', context)
-
-@login_required(login_url='/login')
+# Old method of taking data from xlsx file
+ 
 def UploadExportReportConfirmation(request:HttpRequest):
     if not hasPermission(request.user, 'marketing', 'ExportData','add'):
         return showMessageResponse(request, 'Access Denied', statusCode=403)
@@ -493,12 +483,12 @@ def UploadExportReportConfirmation(request:HttpRequest):
                 'settingsIconViewName': 'marketing:exportDataSettings',
                 'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name)
             }
-            return render(request, 'export_data/confirm_upload.html', context)
+            return render(request, 'export_data/confirm_upload.html', context) # <-- Using the od confirm upload html
         except Exception as e:
             print(e)
             return showMessageResponse(request, str(e), 400, 'marketing:exportDataSettings')
 
-@login_required(login_url='/login')
+ 
 def AddCustomer (request: HttpRequest):
     if request.method == 'POST':
         #Convert the json to a dict
@@ -520,7 +510,7 @@ def AddCustomer (request: HttpRequest):
 
         return render(request, 'customers/add.html', context)
 
-@login_required(login_url='/login')
+ 
 def EditCustomer(request: HttpRequest, pk: int):
     try:
         customer = models.Customer.objects.get(id=pk)
@@ -550,7 +540,7 @@ def EditCustomer(request: HttpRequest, pk: int):
         
         return render(request, 'customers/edit.html', context)
 
-@login_required(login_url='/login')
+ 
 def ToggleAssignment(request: HttpRequest, pk: int):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=403)
@@ -586,7 +576,7 @@ def ToggleAssignment(request: HttpRequest, pk: int):
 
     return redirect(url)
 
-@login_required(login_url='/login')
+ 
 def PendingCorrespondance(request: HttpRequest):
     if request.method == 'POST':
         pass
@@ -606,7 +596,7 @@ def PendingCorrespondance(request: HttpRequest):
         }
         return render(request, 'correspondance/pending.html', context)
 
-@login_required(login_url='/login')
+ 
 def CorresponanceHistory(request: HttpRequest):
     if request.method == 'POST':
         pass
@@ -630,33 +620,95 @@ def CorresponanceHistory(request: HttpRequest):
         }
         return showMessageResponse(request, 'This page is in process', 200)
 
-# Work withe the firt 10 rows of data
+# Returns the 20 most recent shipment records from ExportData for the frontend list view
 class GarmentShipmentsList(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        records = list(models.GarmentShipmentsData.objects.values(
+        records = list(models.ExportData.objects.values(
             'ShipDate', 'Country', 'Exporter', 'Importer',
-            'Quantity', 'Rate', 'Currency', 'HSCode', 'Description'
+            'Quantity', 'Price', 'Currency', 'HSCode', 'Description'
         ).order_by('-ShipDate')[:20])
 
         return Response(records)
 
-    # Gets file from the Frontend and processes it
-class UploadCustomerData(APIView):
+# Uploaded data visualization
+class ShipmentSummary(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        month    = request.query_params.get('month')
+        year     = request.query_params.get('year')
+        group_by = request.query_params.get('group_by', 'Exporter')
+
+        if not month or not year:
+            return Response({'message': 'month and year parameters are required'}, status=400)
+
+        try:
+            month = int(month)
+            year  = int(year)
+        except ValueError:
+            return Response({'message': 'month and year must be integers'}, status=400)
+
+        try:
+            data = export_data_serivce.GetShipmentSummary(month, year, group_by)
+            return Response(data, status=200)
+        except ValueError as e:
+            return Response({'message': str(e)}, status=400)
+
+# Returns pending upload summary as JSON for the frontend approval page
+class PendingUploads(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            summaryDict, addedMonths = export_data_serivce.GetPendingUploads()
+            return Response({**summaryDict, 'addedMonths': addedMonths})
+        except LookupError as e:
+            return Response({'message': str(e)}, status=404)
+        except Exception as e:
+            return Response({'message': str(e)}, status=400)
+
+# Approves or rejects the pending upload — POST with {"action": "approve"} or {"action": "reject"}
+class ConfirmUploads(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        action = request.data.get('action')
+        try:
+            export_data_serivce.ConfirmPendingUploads(action)
+            return Response('OK', status=200)
+        except Exception as e:
+            return Response({'message': str(e)}, status=400)
+
+# File upload endpoint for the React frontend — returns JSON instead of HTML
+class UploadFileAPI(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         dataFile = request.FILES.get('file')
-
         if not dataFile:
             return Response({'message': 'No file provided'}, status=400)
-
         if not str(dataFile.name).endswith(('.csv', '.xlsx', '.xls')):
             return Response({'message': 'Only CSV or XLSX files are allowed'}, status=400)
+        try:
+            export_data_serivce.ExtractUploadedData(dataFile)
+            return Response('OK', status=200)
+        except Exception as e:
+            return Response({'message': str(e)}, status=400)
+        
+# Returns list of all months with quantities and checked status for the month selector
+class ExportDataMonths(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        months   = request.GET.getlist('months[]', [])
+        countries = request.GET.getlist('countries[]', [])
+        importers = request.GET.getlist('importers[]', [])
+        exporters = request.GET.getlist('exporters[]', [])
 
         try:
-            export_data_serivce.ProcessCustomerUpload(dataFile)
-            return Response({'message': 'File uploaded successfully'}, status=200)
+            monthData = export_data_serivce.GetMonthWiseQty(months, countries, importers, exporters)
+            return Response(monthData)
         except Exception as e:
             return Response({'message': str(e)}, status=400)

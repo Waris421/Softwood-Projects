@@ -128,70 +128,73 @@ def AddIsuanceForOrder(dfIssuance: pd.DataFrame, dfWorkOrder: pd.DataFrame):
             print(f'\n[2] Supplier resolved (no matching department) — {supplier}')
         except:
             raise ValueError('Invalid Department')
+        
+    
+    with transaction.atomic():
 
-    # Step 3: Create the Issuance header record.
-    requisition = models.Requisition.objects.all().first()
-    issuance = {
-        'Department': department,
-        'Supplier': supplier,
-        'ReceivedBy': department if department else supplier,
-        'InventoryRequisition': requisition
-    }
-    try:
-        issuance = models.Issuance(**issuance)
-        issuance.save()
-        print(f'\n[3] Issuance header created — Issuance ID: {issuance.id}')
-    except Exception as e:
-        raise ValueError(e)
+        # Step 3: Create the Issuance header record.
+        requisition = models.Requisition.objects.all().first()
+        issuance = {
+            'Department': department,
+            'Supplier': supplier,
+            'ReceivedBy': department if department else supplier,
+            'InventoryRequisition': requisition
+        }
+        try:
+            issuance = models.Issuance(**issuance)
+            issuance.save()
+            print(f'\n[3] Issuance header created — Issuance ID: {issuance.id}')
+        except Exception as e:
+            raise ValueError(e)
 
-    # Step 4: Convert inventory code strings into Inventory model objects so they
-    # can be saved as foreign keys and used to look up InventoryStock.
-    dfIssuance['Inventory'] = convertTexttoObject(models.Inventory, dfIssuance['Inventory'], 'Code')
-    print(f'\n[4] Inventory codes converted to objects — {len(dfIssuance)} item(s) to process')
+        # Step 4: Convert inventory code strings into Inventory model objects so they
+        # can be saved as foreign keys and used to look up InventoryStock.
+        dfIssuance['Inventory'] = convertTexttoObject(models.Inventory, dfIssuance['Inventory'], 'Code')
+        print(f'\n[4] Inventory codes converted to objects — {len(dfIssuance)} item(s) to process')
 
-    # Step 5: Loop through each item — save IssueInventory, IssueAllocation,
-    # then stage the stock deduction.
-    stocksToUpdate = []
-    for _, row in dfIssuance.iterrows():
-        print(f'\n[5] Processing item: {row["Inventory"]} | Variant: {row["Variant"]} | Qty: {row["Quantity"]}')
+        # Step 5: Loop through each item — save IssueInventory, IssueAllocation,
+        # then stage the stock deduction.
+        stocksToUpdate = []
+        for _, row in dfIssuance.iterrows():
+            print(f'\n[5] Processing item: {row["Inventory"]} | Variant: {row["Variant"]} | Qty: {row["Quantity"]}')
 
-        issueInventory = models.IssueInventory(**row)
-        issueInventory.Issuance = issuance
-        issueInventory.save()
-        print(f'     IssueInventory saved — ID: {issueInventory.id}')
+            issueInventory = models.IssueInventory(**row)
+            issueInventory.Issuance = issuance
+            issueInventory.save()
+            print(f'     IssueInventory saved — ID: {issueInventory.id}')
 
-        models.IssueAllocation(
-            IssueInventory=issueInventory,
-            WorkOrder=workOrder,
-            Quantity=row['Quantity']
-        ).save()
-        print(f'     IssueAllocation saved — Work Order: {workOrder.OrderNumber} | Qty: {row["Quantity"]}')
+            models.IssueAllocation(
+                IssueInventory=issueInventory,
+                WorkOrder=workOrder,
+                Quantity=row['Quantity']
+            ).save()
+            print(f'     IssueAllocation saved — Work Order: {workOrder.OrderNumber} | Qty: {row["Quantity"]}')
 
-        # Step 5a: Look up the InventoryStock record and stage the deduction.
-        stock = models.InventoryStock.objects.filter(
-            Inventory=row['Inventory'],
-            Variant=row['Variant'],
-        ).first()
-        if not stock:
-            print(f'     WARNING — No InventoryStock record found for {row["Inventory"]} / {row["Variant"]} — skipping stock deduction')
-        elif stock.StockQuantity <= 0:
-            print(f'     WARNING — StockQuantity is already 0 or negative ({stock.StockQuantity}) — skipping stock deduction')
+            # Step 5a: Look up the InventoryStock record and stage the deduction.
+            stock = models.InventoryStock.objects.filter(
+                Inventory=row['Inventory'],
+                Variant=row['Variant'],
+            ).first()
+            if not stock:
+                print(f'     WARNING — No InventoryStock record found for {row["Inventory"]} / {row["Variant"]} — skipping stock deduction')
+            elif stock.StockQuantity <= 0:
+                print(f'     WARNING — StockQuantity is already 0 or negative ({stock.StockQuantity}) — skipping stock deduction')
+            else:
+                qty = Decimal(str(row['Quantity']))
+                unitCost = stock.StockValue / stock.StockQuantity
+                oldQty = stock.StockQuantity
+                oldVal = stock.StockValue
+                stock.StockQuantity -= qty
+                stock.StockValue -= qty * unitCost
+                stocksToUpdate.append(stock)
+                print(f'     Stock staged — Qty: {oldQty} → {stock.StockQuantity} | Value: {oldVal} → {stock.StockValue}')
+
+        # Step 6: Write all staged stock deductions to the database in one query.
+        if stocksToUpdate:
+            models.InventoryStock.objects.bulk_update(stocksToUpdate, ['StockQuantity', 'StockValue'])
+            print(f'\n[6] InventoryStock bulk updated — {len(stocksToUpdate)} record(s) saved')
         else:
-            qty = Decimal(str(row['Quantity']))
-            unitCost = stock.StockValue / stock.StockQuantity
-            oldQty = stock.StockQuantity
-            oldVal = stock.StockValue
-            stock.StockQuantity -= qty
-            stock.StockValue -= qty * unitCost
-            stocksToUpdate.append(stock)
-            print(f'     Stock staged — Qty: {oldQty} → {stock.StockQuantity} | Value: {oldVal} → {stock.StockValue}')
-
-    # Step 6: Write all staged stock deductions to the database in one query.
-    if stocksToUpdate:
-        models.InventoryStock.objects.bulk_update(stocksToUpdate, ['StockQuantity', 'StockValue'])
-        print(f'\n[6] InventoryStock bulk updated — {len(stocksToUpdate)} record(s) saved')
-    else:
-        print(f'\n[6] No stock records to update')
+            print(f'\n[6] No stock records to update')
 
     print(f'\n========== AddIsuanceForOrder DONE — Issuance ID: {issuance.id} ==========\n')
     return issuance.id

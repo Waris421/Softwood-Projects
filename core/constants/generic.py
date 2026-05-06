@@ -174,6 +174,8 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Dashboard', 'href': '/marketing', 'appName': 'marketing', 'modelName': 'Customer'},
         {'label': 'Customers', 'appName': 'marketing', 'modelName': 'Customer', 'children': [
             {'label': 'Master List', 'href': '/marketing/customers/master-list', 'subtext': 'View customer and export data'},
+            {'label': 'Upload Data', 'href': '/marketing/customers/upload-data', 'subtext': 'Upload and manage shipment files'},
+            {'label': 'Approve Data', 'href': '/marketing/customers/approve-data', 'subtext': 'Review and approve pending shipment uploads'},
         ]},
     ],
 
