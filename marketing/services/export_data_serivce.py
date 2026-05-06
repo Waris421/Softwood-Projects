@@ -51,50 +51,81 @@ def CalculateChecks(
 
     return checks
 
+# Reads the uploaded file, maps columns to standard names, stages rows to ExportDataDraft for approval
 def ExtractUploadedData(dataFile):
     if str(dataFile.name).endswith(('.xls', '.xlsx')):
-        dfUploadedData = pd.read_excel(dataFile)
+        df = pd.read_excel(dataFile)
     else:
-        dfUploadedData = pd.read_csv(dataFile)
+        df = pd.read_csv(dataFile)
     del dataFile
 
-    requiredCols = [
-        'Origin', 'Importer', 'Exporter', 'SB Date', 'Quantity', 'Price', 'Currency', 'HSCode', 'Description'
-    ]
-    missingCols = [col for col in requiredCols if col not in dfUploadedData.columns]
-    if missingCols:
-        raise ValueError(f"The following Colums are missing in the data: {missingCols}")
+    # case-insensitive mapping — handles ORIGIN/Origin, EXPORTERS NAME, SB DATE, RATE/PRICE, etc.
+    df.columns = df.columns.str.strip()
+    columnMapping = {
+        'ORIGIN': 'Country',
+        'EXPORTER': 'Exporter', 'EXPORTES NAME': 'Exporter', 'EXPORTERS NAME': 'Exporter',
+        'IMPORTER': 'Importer', 'IMPORTERS NAME': 'Importer',
+        'SB DATE': 'ShipDate',
+        'PRICE': 'Price', 'U/PRICE': 'Price', 'RATE': 'Price',
+        'QUANTITY': 'Quantity',
+        'CUR': 'Currency', 'CURRENCY': 'Currency',
+        'HS CODE': 'HSCode', 'HSCODE': 'HSCode',
+        'ITEM DESCRAPTION': 'Description', 'DESCRIPTION': 'Description',
+    }
+    df.columns = [columnMapping.get(col.upper(), col) for col in df.columns]
+    # drop duplicate columns — happens when file has both CUR and CURRENCY
+    df = df.loc[:, ~df.columns.duplicated()]
 
-    dfUploadedData = dfUploadedData[requiredCols]
-    dfUploadedData.rename(inplace=True, columns={'Origin':'Country', 'SB Date':'ShipDate'})
+    requiredCols = ['ShipDate', 'Country', 'Exporter', 'Importer', 'Quantity', 'Price', 'Currency', 'HSCode', 'Description']
+    missing = [col for col in requiredCols if col not in df.columns]
+    if missing:
+        raise ValueError(f'Missing columns: {missing}')
 
-    dfUploadedData['Country'] = dfUploadedData['Country'].str.strip()
-    try:
-        countryCodes = convertCountryNameToCode(dfUploadedData['Country'])
-    except Exception as e:
-        raise ValueError(e)
+    df = df[requiredCols]
+    df['ShipDate'] = pd.to_datetime(df['ShipDate']).dt.strftime('%Y-%m-%d')
+    df['Country'] = df['Country'].str.strip()
+    # Step 1 — standard names via django_countries ("Pakistan" → "PK")
+    from django_countries import countries as all_countries
+    nameToCode = {name.lower(): code for code, name in all_countries}
 
-    for countryName, countryCode in countryCodes.items():
-        if not countryCode:
-            raise ValueError(f'Invalid Country Name: {countryName}')
+    # Step 2 — custom aliases for non-standard/misspelled names in this dataset
+    nameToCode.update({
+        'bahamas':                          'BS',
+        'bahrain/kingdom of bahrain':       'BH',
+        'canary is':                        'IC',
+        'congo, democratic republic of':    'CD',
+        'czech republic':                   'CZ',
+        'hong kong, china':                 'HK',
+        'kazakistan':                       'KZ',
+        'korea (south)':                    'KR',
+        'kyrzyghistan':                     'KG',
+        'libyan arab jamhirya':             'LY',
+        'moldova, republic of':             'MD',
+        'reunion':                          'RE',
+        'russian fedration':                'RU',
+        'saint vincent and the grenadin':   'VC',
+        'taiwan/sep customs territory o':   'TW',
+        'tajikistan/tasmania':              'TJ',
+        'tanzania, united republic of':     'TZ',
+        'turkey':                           'TR',
+        'u . a . e':                        'AE',
+        'u . k':                            'GB',
+        'u . s . a':                        'US',
+        'ukrainian':                        'UA',
+        'venezuela, bolivarian republic':   'VE',
+    })
 
-    dfUploadedData['Country'] = dfUploadedData['Country'].map(countryCodes)
+    # Step 3 — map and fall back to original value if still not found
+    df['Country'] = df['Country'].str.lower().map(nameToCode).fillna(df['Country'].str.strip())
 
-    #Clean the empty spaces etch from the data
-    columnsToClean = ['Importer', 'Exporter']
-    for col in columnsToClean:
-        dfUploadedData[col] = dfUploadedData[col].str.replace(r'(_x000D_|\n|\t)', '', regex=True)
-        dfUploadedData[col] = dfUploadedData[col].str.rstrip('`., ')
-        dfUploadedData[col] = dfUploadedData[col].str.strip()
-    
+    for col in ['Importer', 'Exporter']:
+        df[col] = df[col].str.replace(r'(_x000D_|\n|\t)', '', regex=True)
+        df[col] = df[col].str.rstrip('`., ')
+        df[col] = df[col].str.strip()
 
-    dfUploadedData['ShipDate'] = dfUploadedData['ShipDate'].dt.strftime('%Y-%m-%d')
+    rows = [models.ExportDataDraft(**row._asdict()) for row in df.itertuples(index=False)]
+    models.ExportDataDraft.objects.bulk_create(rows, batch_size=7000)
 
-    newEntries = []
-    for _, row in dfUploadedData.iterrows():
-        newEntry = models.ExportDataDraft(**row.to_dict())
-        newEntries.append(newEntry)
-    models.ExportDataDraft.objects.bulk_create(newEntries, batch_size=7000)
 
 def GetPendingUploads():
     fields = ['ShipDate','Quantity','Price','HSCode','Description']
@@ -854,55 +885,108 @@ def SaveExportersAlias(dfAliases: pd.DataFrame):
         updateModelWithDF(models.ExporterAlias, dfAliases, dfPreviousData)
     except Exception as e:
         raise ValueError(e)
-    
-# Processes the uploaded file and extracts the required information
-def ProcessCustomerUpload(dataFile):
-    if str(dataFile.name).endswith(('.xls', '.xlsx')):
-        df = pd.read_excel(dataFile)
-    else:
-        df = pd.read_csv(dataFile)
-    
-    del dataFile  # file is fully read into df — release it from memory immediately
-    
-    # Fixing column names to match the model fields
-    columnMapping = {
-        'ORIGIN': 'Country',
-        'EXPORTES NAME': 'Exporter',
-        'IMPORTERS NAME': 'Importer',
-        'SB DATE': 'ShipDate',
-        'QUANTITY': 'Quantity',
-        'U/PRICE': 'Rate',
-        'CUR': 'Currency',
-        'HS CODE': 'HSCode',
-        'ITEM DESCRAPTION': 'Description',
+
+# Helper function to filter out the top 70% Customers
+def _top70(df, group_col, cutoff_pct=0.70):
+    if df.empty:
+        return df
+    total = df['TotalQuantity'].sum()
+    cutoff = total * cutoff_pct
+    df = df.sort_values('TotalQuantity', ascending=False).reset_index(drop=True)
+    cumsum = df['TotalQuantity'].cumsum()
+    over_idx = int((cumsum >= cutoff).idxmax())
+    top = df.loc[:over_idx].copy()
+    top['Percentage'] = round((top['TotalQuantity'] / total) * 100, 2)
+    tail = df.loc[over_idx + 1:].copy()
+    if tail.empty:
+        return top
+    others = {
+        group_col: 'Others',
+        'TotalQuantity': round(float(tail['TotalQuantity'].sum()), 2),
+        'TotalValue':    round(float(tail['TotalValue'].sum()), 2),
+        'Currency':      str(tail['Currency'].dropna().mode().iloc[0]) if not tail['Currency'].dropna().empty else None,
+        'Percentage':    round(float(tail['TotalQuantity'].sum() / total) * 100, 2),
     }
-    df.rename(columns=columnMapping, inplace=True)
+    return pd.concat([top, pd.DataFrame([others])], ignore_index=True)
 
+# Accessing the uploaded data
+def GetShipmentSummary(month: int, year: int, group_by: str = 'Exporter'):
+    # Step 1: Validate month, year and group_by.
+    if not (1 <= month <= 12):
+        raise ValueError('Month must be between 1 and 12')
+    if year < 2000 or year > 2100:
+        raise ValueError('Year is out of valid range')
+    if group_by not in ('Importer', 'Exporter', 'Country'):
+        raise ValueError("group_by must be 'Importer', 'Exporter', or 'Country'")
 
-    requiredColumns = ['ShipDate', 'Country', 'Exporter', 'Importer', 'Quantity', 'Rate', 'Currency', 'HSCode', 'Description']
-    missing = [col for col in requiredColumns if col not in df.columns]
-    if missing:
-        raise ValueError(f'Missing columns: {missing}')
+    # Step 2: Fetch only the 4 fields needed for this grouping — nothing wasted.
+    fields = [group_by, 'Quantity', 'Price', 'Currency']
+    shipments = models.ExportData.objects.filter(
+        ShipDate__month=month,
+        ShipDate__year=year,
+    ).values(*fields)
 
-    df['ShipDate'] = pd.to_datetime(df['ShipDate']).dt.date
-    #df['Country'] = df['Country'].map(convertCountryNameToCode(df['Country'])) # Used by AI
-    df['Country'] = df['Country'].str.strip()
+    df = pd.DataFrame(list(shipments)) if shipments.exists() else pd.DataFrame(columns=fields)
+    del shipments
 
-    rows = [
-        models.GarmentShipmentsData(
-            ShipDate=row.ShipDate,
-            Country=row.Country,
-            Exporter=row.Exporter,
-            Importer=row.Importer,
-            Quantity=row.Quantity,
-            Rate=row.Rate,
-            Currency=row.Currency,
-            HSCode=row.HSCode,
-            Description=row.Description,
-        )
-        for row in df.itertuples()
-    ]
+    if df.empty:
+        return {
+            'month':         month,
+            'year':          year,
+            'totalQuantity': 0,
+            'currency':      None,
+            'data':          [],
+        }
 
-    del df  # data is now in rows list — release the DataFrame before saving
-    with transaction.atomic():
-        models.GarmentShipmentsData.objects.bulk_create(rows)
+    # Step 3: Fill missing values so maths doesn't break.
+    df['Price']    = pd.to_numeric(df['Price'],    errors='coerce').fillna(0)
+    df['Quantity'] = pd.to_numeric(df['Quantity'], errors='coerce').fillna(0)
+
+    # Step 4: Calculate shipment value (Quantity x Price).
+    df['Value'] = df['Quantity'] * df['Price']
+
+    # Step 5: Apply aliases — only for Importer or Exporter, Country has no aliases.
+    if group_by == 'Importer':
+        aliases   = models.ImporterAlias.objects.filter(
+            Name__in=df['Importer'].dropna().unique().tolist()
+        ).values('Name', 'Alias')
+        dfAliases = pd.DataFrame(list(aliases)) if aliases.exists() else pd.DataFrame(columns=['Name', 'Alias'])
+        del aliases
+        df = pd.merge(left=df, right=dfAliases, left_on='Importer', right_on='Name', how='left')
+        del dfAliases
+        df['Importer'] = np.where(df['Alias'].isna(), df['Importer'], df['Alias'])
+        df.drop(columns=['Alias', 'Name'], inplace=True)
+
+    elif group_by == 'Exporter':
+        aliases   = models.ExporterAlias.objects.filter(
+            Name__in=df['Exporter'].dropna().unique().tolist()
+        ).values('Name', 'Alias')
+        dfAliases = pd.DataFrame(list(aliases)) if aliases.exists() else pd.DataFrame(columns=['Name', 'Alias'])
+        del aliases
+        df = pd.merge(left=df, right=dfAliases, left_on='Exporter', right_on='Name', how='left')
+        del dfAliases
+        df['Exporter'] = np.where(df['Alias'].isna(), df['Exporter'], df['Alias'])
+        df.drop(columns=['Alias', 'Name'], inplace=True)
+
+    # Step 6: Aggregate by the requested group and apply 60% cutoff.
+    dfGrouped = df.groupby(group_by).agg(
+        TotalQuantity=('Quantity', 'sum'),
+        TotalValue=('Value',    'sum'),
+        Currency=('Currency', lambda x: x.dropna().mode().iloc[0] if not x.dropna().empty else None),
+    ).reset_index().sort_values('TotalQuantity', ascending=False)
+    
+    cutoff_pct = 0.60 if group_by == 'Importer' else 0.70
+    dfGrouped = _top70(dfGrouped, group_by, cutoff_pct)
+
+    # Step 7: Overall totals for the month.
+    totalQuantity = round(float(df['Quantity'].sum()), 2)
+    _curr         = df['Currency'].dropna()
+    currency      = str(_curr.mode().iloc[0]) if not _curr.empty else None
+
+    return {
+        'month':         month,
+        'year':          year,
+        'totalQuantity': totalQuantity,
+        'currency':      currency,
+        'data':          dfToListOfDicts(dfGrouped),
+    }

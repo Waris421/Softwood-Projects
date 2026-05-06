@@ -29,6 +29,7 @@ class ExportDataDraft(models.Model):
     Currency = models.CharField(max_length=10, blank=True, null=True)
     HSCode = models.CharField(max_length=50, blank=True, null=True)
     Description = models.TextField(blank=True, null=True)
+    Source = models.CharField(max_length=20, default='export')
 
 class ExportData(models.Model):
     id = models.AutoField(primary_key=True)
@@ -122,22 +123,3 @@ class Inquiry(models.Model):
             models.Index(fields=['IsClosed']),
         ]
 
-class GarmentShipmentsData(models.Model):
-    """Model definition for ExportData."""
-    id = models.AutoField(primary_key=True)
-    ShipDate = models.DateField()
-    HSCode = models.CharField(max_length=15)
-    Description = models.TextField(blank=True, null=True)
-    Country = CountryField(max_length=20)
-    Exporter = models.CharField(max_length=63)
-    Importer = models.CharField(max_length=63)
-    Quantity = models.FloatField()
-    Rate = models.FloatField(null=True, blank=True)
-    Currency = models.CharField(max_length=31, blank=True, null=True)
-
-    class Meta:
-        """Meta definition for ExportData."""
-        indexes = [
-            models.Index(fields=['ShipDate']),
-            models.Index(fields=['Exporter', 'Importer']),
-        ]

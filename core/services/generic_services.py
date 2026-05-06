@@ -8,7 +8,7 @@ import numpy as np
 import json
 import traceback
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
 from collections import defaultdict
 from typing import Dict, Any, List, Union
@@ -353,28 +353,30 @@ def askAI(prompt: str, outputSchema: Union[Dict[str, Any], None] = None):
     '''
     Ask AI a question and get it's answer
     '''
-    genai.configure(api_key=API_KEY_FOR_AI)
+    # genai.configure(api_key=API_KEY_FOR_AI)
 
     if outputSchema:
-        model = genai.GenerativeModel(
-            model_name='gemini-3-flash-preview',
-            generation_config={
-                "response_mime_type": "application/json",
-                "response_schema": outputSchema
-            }
-        )
+        # model = genai.GenerativeModel(
+        #     model_name='gemini-3-flash-preview',
+        #     generation_config={
+        #         "response_mime_type": "application/json",
+        #         "response_schema": outputSchema
+        #     }
+        # )
 
-        response = model.generate_content(prompt)
+        # response = model.generate_content(prompt)
 
-        if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:        
-            jsonData = json.loads(response.candidates[0].content.parts[0].text)
-            return list(jsonData)
-        else:
-            raise LookupError('An error occured with the AI model')
+        # if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+        #     jsonData = json.loads(response.candidates[0].content.parts[0].text)
+        #     return list(jsonData)
+        # else:
+        #     raise LookupError('An error occured with the AI model')
+        pass
     else:
-        model = genai.GenerativeModel(model_name='gemini-2.0-flash')
-        response = model.generate_content(prompt)
-        return response.text
+        # model = genai.GenerativeModel(model_name='gemini-2.0-flash')
+        # response = model.generate_content(prompt)
+        # return response.text
+        pass
 
 def dfToListOfDicts(df: pd.DataFrame) -> List[Dict]:
     '''
@@ -415,53 +417,53 @@ def showMessageResponse(request: HttpRequest, message: str, statusCode=400, sett
 def convertCountryNameToCode(countryNamesSeries: pd.Series) -> Dict[str, str]:
     countryNames = countryNamesSeries.unique().tolist()
 
-    genai.configure(api_key=API_KEY_FOR_AI)
+    # genai.configure(api_key=API_KEY_FOR_AI)
 
-    prompt = f"""
-    Convert the following list of country names to their respective ISO 3166-1 alpha-2 codes.
-    If a country name is misspelled, please do your best to identify the correct country and provide its ISO code.
-    Return the output as a JSON array of objects, where each object has a 'countryName' field (the original input country name) and an 'isoCode' field (the corresponding ISO 3166-1 alpha-2 code).
-    If a country cannot be identified, return 'null' for its 'isoCode'.
+    # prompt = f"""
+    # Convert the following list of country names to their respective ISO 3166-1 alpha-2 codes.
+    # If a country name is misspelled, please do your best to identify the correct country and provide its ISO code.
+    # Return the output as a JSON array of objects, where each object has a 'countryName' field (the original input country name) and an 'isoCode' field (the corresponding ISO 3166-1 alpha-2 code).
+    # If a country cannot be identified, return 'null' for its 'isoCode'.
 
-    Country names: {json.dumps(countryNames)}
-    """
+    # Country names: {json.dumps(countryNames)}
+    # """
 
-    responseSchema = {
-        "type": "ARRAY",
-        "items": {
-            "type": "OBJECT",
-            "properties": {
-                "countryName": {"type": "STRING"},
-                "isoCode": {"type": "STRING", "nullable": True}
-            },
-            "required": ["countryName", "isoCode"]
-        }
-    }
+    # responseSchema = {
+    #     "type": "ARRAY",
+    #     "items": {
+    #         "type": "OBJECT",
+    #         "properties": {
+    #             "countryName": {"type": "STRING"},
+    #             "isoCode": {"type": "STRING", "nullable": True}
+    #         },
+    #         "required": ["countryName", "isoCode"]
+    #     }
+    # }
 
-    model = genai.GenerativeModel(
-        model_name='gemini-3-flash-preview',
-        generation_config={
-            "response_mime_type": "application/json",
-            "response_schema": responseSchema
-        }
-    )
+    # model = genai.GenerativeModel(
+    #     model_name='gemini-3-flash-preview',
+    #     generation_config={
+    #         "response_mime_type": "application/json",
+    #         "response_schema": responseSchema
+    #     }
+    # )
 
-    try:
-        response = model.generate_content(prompt)
-    except InvalidArgument as e:
-        raise ValueError(f"AI couldn't validate the credentials. Check with administrator. Details: {e}")
-    except GoogleAPIError as e:
-        raise ValueError(f"Cou;ldn't connect to AI. Try again later. Details: {e}")
-    except Exception as e:
-        raise ValueError(f"An unexpected error occurred. Check with your administrator. Details: {e}")
+    # try:
+    #     response = model.generate_content(prompt)
+    # except InvalidArgument as e:
+    #     raise ValueError(f"AI couldn't validate the credentials. Check with administrator. Details: {e}")
+    # except GoogleAPIError as e:
+    #     raise ValueError(f"Cou;ldn't connect to AI. Try again later. Details: {e}")
+    # except Exception as e:
+    #     raise ValueError(f"An unexpected error occurred. Check with your administrator. Details: {e}")
 
-    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
-        jsonString = response.candidates[0].content.parts[0].text
-        isoCodesList = json.loads(jsonString)
-        isoCodesMap = {item['countryName']: item['isoCode'] for item in isoCodesList}
-        return isoCodesMap
-    else:
-        raise LookupError('An error occured while converting countries')
+    # if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+    #     jsonString = response.candidates[0].content.parts[0].text
+    #     isoCodesList = json.loads(jsonString)
+    #     isoCodesMap = {item['countryName']: item['isoCode'] for item in isoCodesList}
+    #     return isoCodesMap
+    # else:
+    #     raise LookupError('An error occured while converting countries')
 
 def convertCountryCodeToName(code):
     try:
@@ -537,9 +539,9 @@ def generateUrlfromPk(pkSeries: pd.Series, appName: str, pathName: str):
 
 def convertMonthstoStrtEndDates(months: List[str], format='%b-%Y'):
     if not months:
-        currentDate = date.today()
-
-        return currentDate, currentDate
+        endDate = date.today()
+        startDate = endDate - timedelta(days=365)
+        return startDate, endDate
     dates = [datetime.strptime(m, format) for m in months]
 
     earliestMonth = min(dates)
