@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
 from django.db import transaction
+from django.db.models.deletion import Collector, ProtectedError
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -1026,6 +1027,10 @@ class UpdateWorkOrderAPI(APIView):
             response = {'message': 'Resource Not Found'}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
         try:
             data = generic_services.refineAPIJson(request)
         except Exception as e:
@@ -1119,6 +1124,42 @@ def CalculateVariants(request: HttpResponse):
         variants = list(models.StyleVariant.objects.filter(Style=styleCode).values_list('VariantCode', flat=True))
       
         return JsonResponse(data=variants, safe=False)
+
+class CalculateInventoryRequirement(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'change'
+
+    def post(self, request: Request):
+        styleCode = request.data.get('style', None)
+        orderNumber = request.data.get('orderNumber', None)
+
+        if None in [orderNumber, styleCode]:
+            response = {'message': 'Incomplete data'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+            styleCard = models.StyleCard.objects.get(StyleCode=styleCode)
+        except Exception as e:
+            response = {'message': 'Invalid Input'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+                            
+        try:
+            work_order_service.CalculateInventoryRequirement(styleCard, workOrder)
+            response = {'message': 'saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def CalculateRequirement(request: HttpRequest):
@@ -1262,6 +1303,64 @@ def GeneratePOFromWO (request: HttpRequest, pk):
     else:
         return HttpResponse('Not Allowed', status=302)
 
+class DeleteWorkOrderAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'delete'
+
+    def get(self, request: Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            collector = Collector(using='default')
+            collector.collect([workOrder])
+
+            if collector.protected:
+                raise ProtectedError("Protected objects found", collector.protected)
+        except Exception as e:
+            conflictingObjects = e.protected_objects
+            protectedTypes = {obj._meta.verbose_name.capitalize() for obj in conflictingObjects}
+            
+            response = {
+                'message': "Cannot delete this entry due to protected dependencies",
+                'protectedResources': list(protectedTypes)
+            }
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        response = {'message': 'Clear to delete'}
+        return Response(data=response, status=status.HTTP_200_OK)
+
+    def delete(self, request: Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            workOrder.delete()
+            response = {'message':'Delete'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def DeleteWorkOrder(request: HttpRequest, pk: int):
     if not hasPermission(request.user, 'apparelManagement', 'WorkOrder', 'delete'):
@@ -1390,6 +1489,38 @@ def CopyWorkOrder(request: HttpRequest, pk):
     else:
         context = {'source':order.OrderNumber, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/copy.html', context)
+
+class PendingInventoryOrders(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        startingOrderNumber = request.query_params.get('StartingOrder', None)
+        endOrderNumber = request.query_params.get('EndingOrder', None)
+        customers = request.query_params.getlist('Customers', [])
+
+        if None in [startingOrderNumber, endOrderNumber]:
+            response = {'message': 'Incomplete data provided'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            startingOrder = models.WorkOrder.objects.get(OrderNumber=startingOrderNumber)
+            endingOrder = models.WorkOrder.objects.get(OrderNumber=endOrderNumber)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            pending = purchase_order_service.GetPendingOrders(startingOrder, endingOrder, customers)
+            return Response(data=pending, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)    
 
 @login_required(login_url='/login')
 def AutoInventoryRequirement(request: HttpRequest):

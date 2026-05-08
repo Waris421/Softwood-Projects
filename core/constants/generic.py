@@ -162,13 +162,22 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
             {'label': 'Manage Cards', 'href': '/mmc/inventory', 'subtext': 'Manage Inventory Cards in the database'},
         ]},
+        {'label': 'Issuance', 'appName': 'apparelManagement', 'modelName': 'Issuance', 'children': [
+            {'label': 'Issue for Order', 'href': '/mmc/issuance/add-order', 'subtext': 'Add Issuance for Direct material against a work order'},
+            {'label': 'Issue for Inventory', 'href': '/mmc/issuance/add-inv', 'subtext': 'Add Issuance for Indirect material'},
+            {'label': 'Issue for Sampling', 'href': '/mmc/issuance/add-sample', 'subtext': 'Add Issuance for Sampling Department'},
+        ]},
     ],
     'merchandising': [
         {'label': 'Dashboard', 'href': '/merchandising', 'appName': 'apparelManagement', 'modelName': 'WorkOrder'},
         {'label': 'Presets', 'appName': 'apparelManagement', 'modelName': 'StyleCard', 'children': [
             {'label': 'Style Cards', 'href': '/merchandising/style', 'subtext': 'Manage style Cards in the database'},
             {'label': 'Work Orders', 'href': '/merchandising/work-order', 'subtext': 'Manage work orders in the database'},
-        ]}
+        ]},
+        {'label': 'Reports', 'appName': 'apprelManagement', 'modelName': 'WorkOrder', 'children': [
+            {'label': 'Unordered Inventories', 'href': '/merchandising/pending-orders', 'subtext': 'Track work orders with unordered inventory.'},
+            {'label': 'Awaiting Receipt', 'href': '/merchandising/pending-receipt', 'subtext': 'Monitor purchase orders which are not yet received.'},
+        ]},
     ],
 }
 

@@ -333,25 +333,6 @@ def EditStyleCard(
     deletedAttachments = set(dfPreviousAttachments['id']) - set(dfAttachments['id'].dropna())
     deletedAttachments = models.Attachment.objects.filter(id__in=deletedAttachments)
 
-    attachmentsToCreate = []
-    attachmentsToUpdate = []
-
-    updateFields = ['Description']
-    for _, row in dfAttachments.iterrows():
-        if pd.notna(row['id']):
-            rowDict = row.to_dict()
-            
-            attachment = models.Attachment.objects.get(id=rowDict.pop('id'))
-
-            for key, value in rowDict.items():
-                setattr(attachment, key, value)
-            attachmentsToUpdate.append(attachment)
-        else:
-            row['id'] = None
-            row['Content'] = styleCard
-            attachment = models.Attachment(**row)
-            attachmentsToCreate.append(attachment)
-
     with transaction.atomic():
         styleCard.save()
 

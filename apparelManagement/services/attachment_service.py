@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import TypeVar
 
 from .. import models
@@ -10,6 +11,10 @@ def updateAttachmentsFromDF(
     newData: pd.DataFrame,
     previousData: pd.DataFrame,
 ):
+    newData['id'] = newData['id'].replace('', np.nan)
+    newData['id'] = pd.to_numeric(newData['id'], errors='coerce').astype('Int64')
+    newData['id'] = newData['id'].where(newData['id'].notnull(), None)
+
     updateFields = ['Description']
 
     deletedAttachments = set(previousData['id']) - set(newData['id'].dropna())

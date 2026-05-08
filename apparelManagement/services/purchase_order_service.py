@@ -1,3 +1,5 @@
+from typing import List
+
 import pandas as pd
 import numpy as np
 from datetime import date, timedelta, datetime
@@ -224,6 +226,63 @@ def GeneratePOfromAutoReq(dfData: pd.DataFrame, supplierName:str):
 
     return orderCard.id
 
+def GetPendingOrders(startingOrder: models.WorkOrder, endingOrder: models.WorkOrder, customers: List[str]):
+    filters = Q(OrderNumber__range=(startingOrder.OrderNumber, endingOrder.OrderNumber))
+    if customers:
+        filters &= Q(Customer__in=customers)
+    workOrders = models.WorkOrder.objects.filter(filters)
+
+    fields = ['OrderNumber', 'OrderNumber__StyleCode', 'InventoryCode', 'InventoryCode__Name', 'Variant', 'Quantity']
+    requirement = models.InvRequirement.objects.filter(OrderNumber__in=workOrders).values(*fields)
+    dfRequirement = pd.DataFrame(requirement) if requirement else pd.DataFrame(columns=fields)
+    del requirement
+
+    fields = ['Style', 'InventoryCode', 'Type']
+    consumptions = models.StyleConsumption.objects.filter(Style__in=dfRequirement['OrderNumber__StyleCode'].unique()).values(*fields)
+    dfConsumptions = pd.DataFrame(consumptions) if consumptions else pd.DataFrame(columns=fields)
+    del consumptions
+    
+    fields = ['POInvId__Inventory', 'POInvId__Variant','WorkOrder','Quantity']
+    poAllocation = models.POAllocation.objects.filter(WorkOrder__in=workOrders).values(*fields)
+    dfPOAllocation = pd.DataFrame(poAllocation) if poAllocation else pd.DataFrame(columns=fields)
+    del poAllocation
+
+    dfRequirement.rename(inplace=True, columns={
+        'InventoryCode__Name': 'InventoryName', 'OrderNumber__StyleCode': 'StyleCode' ,'Quantity': 'Required'
+    })
+    dfConsumptions.rename(inplace=True,columns={
+        'Style': 'StyleCode'
+    })
+    dfPOAllocation.rename(inplace=True, columns={
+        'POInvId__Inventory': 'InventoryCode', 'POInvId__Variant': 'Variant', 'WorkOrder': 'OrderNumber', 'Quantity': 'Ordered'
+    })
+
+    dfRequirement = pd.merge(left=dfRequirement, right=dfConsumptions, on=['StyleCode', 'InventoryCode'], how='left')
+    del dfConsumptions
+    
+    dfRequirement = pd.merge(left=dfRequirement, right=dfPOAllocation, on=['OrderNumber','InventoryCode','Variant'], how='left')
+    del dfPOAllocation
+
+    dfRequirement['Ordered'] = np.where(dfRequirement['Ordered'].isna(), 0, dfRequirement['Ordered'])
+
+    dfRequirement = dfRequirement.groupby(['OrderNumber', 'StyleCode', 'InventoryCode', 'InventoryName', 'Variant', 'Type']).agg(
+        Required = ('Required','first'),
+        Ordered = ('Ordered','sum')
+    ).reset_index()
+
+    dfRequirement['ToOrder'] = dfRequirement['Required'] - dfRequirement['Ordered']
+    dfRequirement = dfRequirement[dfRequirement['ToOrder'] >= (dfRequirement['Required'] * 0.01)]
+    dfRequirement['ToOrder'] = np.ceil(dfRequirement['ToOrder'] * 100) / 100
+
+    dfRequirement['Type'] = dfRequirement['Type'].fillna('N/R')
+    consumptionTypes = ['Fab', 'BW', 'AW', 'N/R']
+    dfRequirement['Type'] = pd.Categorical(dfRequirement['Type'], categories=consumptionTypes, ordered=True)
+    
+    dfRequirement = dfRequirement.sort_values(by=['Type', 'InventoryName', 'Variant', 'OrderNumber']).reset_index(drop=True)
+    
+    return dfToListOfDicts(dfRequirement)
+
+#TODO: This would become obsolete when we shift to next
 def PrepareDataForAutoReq(startingOrder: int, endingOrder: int, customer: str):
     '''
     Get all unordered accessories for auto requirement

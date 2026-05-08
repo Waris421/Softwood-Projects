@@ -1,8 +1,8 @@
 from django.http import JsonResponse, HttpResponse, HttpRequest
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models.functions import Cast
-from django.db.models import Exists, OuterRef, Q, Count, CharField, F
+from django.db.models.functions import Cast, Concat
+from django.db.models import Exists, OuterRef, Q, Count, CharField, F, Value
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -433,6 +433,48 @@ def getMerchandisers(request):
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values] 
         return JsonResponse(data, safe=False)
+
+class GetWorkOrders(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search')
+        showStyle = request.query_params.get('showStyle') == 'yes'
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= (
+                Q(OrderNumber__icontains=search) |
+                Q(StyleCode__StyleCode__icontains=search) | 
+                Q(Customer__Name__icontains=search)
+            )
+
+        querySet = appModels.WorkOrder.objects.filter(filters).annotate(
+            value=Cast(F('OrderNumber'), output_field=CharField()),
+            label=Concat(
+                Cast(F('OrderNumber'), output_field=CharField()),
+                Value(' - '),
+                Cast(F('StyleCode'), output_field=CharField()),
+                Value(' - '),
+                Cast(F('Customer'), output_field=CharField())
+            )
+        ).order_by('OrderNumber') 
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]  
+
+        fields = ['value', 'label', 'StyleCode', 'Customer']
+        if showStyle:
+            fields.append('StyleCode')     
+
+        orderList = list(querySet.values(*fields))
+        return Response(data=orderList, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def getWorkOrders(request: HttpRequest):

@@ -30,6 +30,10 @@ urlpatterns = [
     path('merchandising/work-order/variants/calculate', views.CalculateVariantsAPI.as_view()),
     path('merchandising/work-order/<int:pk>/update', views.UpdateWorkOrderAPI.as_view()),
     path('merchandising/work-order/requirement/get', views.GetReqHistory.as_view()),
+    path('merchandising/work-order/requirement/calculate', views.CalculateInventoryRequirement.as_view()),
+    path('merchandising/work-order/<int:pk>/delete', views.DeleteWorkOrderAPI.as_view()),
+
+    path('mmc/inventory-orders/pending', views.PendingInventoryOrders.as_view()),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
@@ -128,6 +132,7 @@ urlpatterns = [
     path('options/users', options_service.GetUsers, name='userList'),
     path('options/unit/<str:group>', options_service.getUnitsForGroup, name='unitsForGroup'),
     path('options/workorders', options_service.getWorkOrders, name='workOrders'),
+    path('options/work-orders', options_service.GetWorkOrders.as_view()),
     path('options/purchaseorders/open', options_service.getOpenPOs, name='openPOs'),
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
