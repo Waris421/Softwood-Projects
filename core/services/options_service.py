@@ -38,7 +38,6 @@ def yesOrNo(request):
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
 
-@login_required(login_url='/login')
 def getCustomersList(request):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -126,7 +125,6 @@ def getDepartmentsList (request: HttpRequest):
         return JsonResponse(data, safe=False)
 
 
-@login_required(login_url='/login')
 def getCategories(request):
     if request.method == 'GET':
         options = appModels.Categories
@@ -824,7 +822,6 @@ def GetCapacities(request: HttpRequest):
 
     return JsonResponse(dfToListOfDicts(dfCapacities), safe=False)
 
-@login_required(login_url='/login')
 def GetPresetRoutes(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)   

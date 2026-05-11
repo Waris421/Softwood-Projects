@@ -281,6 +281,9 @@ class RoutePreset(models.Model):
 
     id = models.AutoField(primary_key=True)
     Name = models.CharField(max_length=100, unique=True)
+    def __str__(self):
+        return self.Name
+
     class Meta:
         """Meta definition for RoutePrest."""
 
@@ -295,6 +298,8 @@ class RoutePresetStage(models.Model):
     RoutePreset = models.ForeignKey(RoutePreset, on_delete=models.CASCADE)
     Stage = models.CharField (max_length=50, choices = Routes, blank=True, null=True) 
     PreReqs = models.ManyToManyField('self', blank=True,symmetrical=False)   
+    def __str__(self):
+        return f"{self.Stage} ({self.RoutePreset.Name})"
 
     class Meta:
         """Meta definition for RoutePresetStages."""

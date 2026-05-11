@@ -178,7 +178,13 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Approve Data', 'href': '/marketing/customers/approve-data', 'subtext': 'Review and approve pending shipment uploads'},
         ]},
     ],
-
+    'merchandising': [
+        {'label': 'Dashboard', 'href': '/merchandising', 'appName': 'apparelManagement', 'modelName': 'WorkOrder'},
+        {'label': 'Presets', 'appName': 'apparelManagement', 'modelName': 'StyleCard', 'children': [
+            {'label': 'Style Cards', 'href': '/merchandising/style', 'subtext': 'Manage style Cards in the database'},
+            {'label': 'Work Orders', 'href': '/merchandising/work-order', 'subtext': 'Manage work orders in the database'},
+        ]}
+    ],
 }
 
 LOCAL_TIMEZONE = timezone('Asia/Karachi')

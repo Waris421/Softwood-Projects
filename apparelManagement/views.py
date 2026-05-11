@@ -4,6 +4,7 @@ from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
 from django.db import transaction
 
+import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
@@ -87,19 +88,12 @@ class APIInvenotory(APIView):
 
     def get(self, request: Request):
         try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
-        try:
             inventoryData = inventory_card_service.GetInventories(group='', stockFilter='', inUseFilter=None)
             return Response(data=inventoryData, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)            
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 class APIInventoryAdd(APIView):
     permission_classes = [AllowAny]
@@ -536,19 +530,10 @@ class StyleCards(APIView):
 
     def get(self, request: Request):
         try:
-            authenticateUser(request, 'apparelManagement', 'StyleCard', 'view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
-        try:
             styles = style_card_service.GetStyleCards()
             return Response(data=styles, status=status.HTTP_200_OK)
         except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):
@@ -724,7 +709,6 @@ def CopyStyle(request: HttpRequest, pk: str):
         context = {'source':style.StyleCode, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/copy.html', context)
 
-@login_required(login_url='/login')
 def StyleRoutePrssetDetails(request: HttpRequest):
     if request.method != 'GET':
         return generic_services.showMessageResponse(request, 'Not allowed', 403)
@@ -776,22 +760,12 @@ class WorkOrders(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-
         currentOrders = request.data.get('currentOrders')
         try:
             orderData = work_order_service.GetOrdersForIntegration(currentOrders)
+            return Response(data=orderData, status=status.HTTP_200_OK)
         except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response(data=orderData, status=status.HTTP_200_OK)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def AddWorkOrder(request: HttpRequest):
@@ -2257,4 +2231,84 @@ class GetThreadConsumptions(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
         
+# Returns paginated work order list for the merchandising frontend
+class MerchandisingWorkOrders(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        search      = request.GET.get('search', '')
+        customer    = request.GET.get('customer', '')
+        startDate   = request.GET.get('startDate', None)
+        endDate     = request.GET.get('endDate', None)
+        page        = request.GET.get('page', 1)
+
+        try:
+            orders = work_order_service.GetOrderList(customer, startDate, endDate)
+            orders = generic_services.applySearch(orders, search)
+            data   = generic_services.paginate(orders, page)
+            return Response({'orders': data.object_list, 'pages': data.paginator.num_pages})
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class AddStyleCardAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        data = request.data
+
+        try:
+            dfStyle = pd.DataFrame([{
+                'StyleCode': data.get('StyleCode', ''),
+                'StyleName': data.get('StyleName', ''),
+                'Customer':  data.get('Customer', ''),
+                'Category':  data.get('Category', ''),
+                'Notes':     data.get('Notes', ''),
+            }])
+
+            dfRoute = pd.DataFrame([{'RoutePreset': data.get('RoutePreset')}])
+
+            variants = data.get('variants', [])
+            dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=['Variant1', 'Variant2'])
+
+            styleCode = style_card_service.AddStyleCard(dfStyle, dfVariants, dfRoute)
+            return Response({'StyleCode': styleCode}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class StyleCardDetailAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, pk: str):
+        try:
+            style = models.StyleCard.objects.get(StyleCode=pk)
+        except models.StyleCard.DoesNotExist:
+            return Response({'message': 'Style not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            styleDict, variants, consumption, route, attachments = style_card_service.ProcessStyleData(style)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        customerFields = ['Name', 'TradeName']
+        customers = models.Customer.objects.all().values(*customerFields)[:50]
+        customerOptions = [{'value': c['Name'], 'text': f"{c['Name']} - {c['TradeName']}"} for c in customers]
+
+        categoryOptions = [{'value': v, 'text': t} for v, t in models.Categories]
+
+        presetFields = ['id', 'Name']
+        presets = models.RoutePreset.objects.all().values(*presetFields).order_by('id')
+        presetOptions = [{'value': None, 'text': '-----------'}] + [{'value': p['id'], 'text': p['Name']} for p in presets]
+
+        return Response({
+            'style':       styleDict,
+            'variants':    list(variants),
+            'consumption': consumption,
+            'route':       route,
+            'attachments': attachments,
+            'options': {
+                'customers':  customerOptions,
+                'categories': categoryOptions,
+                'routes':     presetOptions,
+            },
+        })
 
