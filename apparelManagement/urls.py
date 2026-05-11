@@ -19,6 +19,9 @@ urlpatterns = [
     path('mmc/inventory/<str:pk>/delete', views.APIInventoryDelete.as_view(), name='removeInv'),
 
     path('merchandising/style', views.StyleCards.as_view(), name='styleCards'),
+    path('merchandising/work-order', views.MerchandisingWorkOrders.as_view(), name='merchandisingWorkOrders'),
+    path('merchandising/style/add', views.AddStyleCardAPI.as_view(), name='addStyleCardAPI'),
+    path('merchandising/style/<str:pk>/update', views.StyleCardDetailAPI.as_view(), name='styleCardDetail'),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
