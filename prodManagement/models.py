@@ -196,20 +196,8 @@ class OutSourceJobContractDetails(models.Model):
     Price = models.DecimalField(max_digits=10, decimal_places=2)
 
 # New model for energy consumption data (Test phase)
-class EnergyConsumption(models.Model):
-    UploadedFile = models.FileField(upload_to='energy/', null=True, blank=True) #  — a column that stores the file, saved inside a folder called energy/
-    UploadedAt = models.DateTimeField(auto_now_add=True) # — a column that auto-saves the exact date and time of upload
-    UploadedBy = models.ForeignKey(User, on_delete=models.SET_NULL, null=True) # — a column that links to whoever was logged in when they uploaded.
-
-class EnergyMachine(models.Model):
-    Name = models.CharField(max_length=255, unique=True) # — stores machine name, unique=True prevents duplicates
-
-    def __str__(self):
-        return self.Name
-
 class EnergyReading(models.Model):
-    Machine = models.ForeignKey(EnergyMachine, on_delete=models.CASCADE) # — links each reading to a machine. CASCADE means if you delete a machine, all its readings get deleted too
-    Upload = models.ForeignKey(EnergyConsumption, on_delete=models.CASCADE) # — links each reading to the file it came from
+    Machine = models.CharField(max_length=255) # — links each reading to a machine. CASCADE means if you delete a machine, all its readings get deleted too
     Timestamp = models.DateTimeField(db_index=True) # — stores the date and time of the reading, indexed for faster queries
     Value_kW = models.FloatField()
 
