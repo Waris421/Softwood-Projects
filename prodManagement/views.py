@@ -850,37 +850,29 @@ class EnergyUpload(APIView):
             upload_date = df['Timestamp'].dt.date.min()
             duplicate_day = models.EnergyReading.objects.filter(Timestamp__date=upload_date).exists()
 
-            # Step 6 — Log the upload (who uploaded and when) — no file stored
-            upload = models.EnergyConsumption.objects.create(UploadedBy=user)
-
-            # Step 7 — Melt: convert wide format (many columns) to long format (one row per machine per minute)
+            # Step 6 — Melt: convert wide format (many columns) to long format (one row per machine per minute)
             machine_cols = df.columns[1:].tolist()
             df = df.melt(id_vars=['Timestamp'], value_vars=machine_cols, var_name='MachineName', value_name='Value_kW')
             df['Value_kW'] = df['Value_kW'].fillna(0)
 
-            # Step 8 — Create any new machines in one pass
+            # Step 7 — Collect machine names
             machine_names = df['MachineName'].unique()
-            machines = {}
-            for name in machine_names:
-                machine, _ = models.EnergyMachine.objects.get_or_create(Name=name)
-                machines[name] = machine
 
-            # Step 9 — Fetch ALL existing timestamp+machine combos in ONE query
+            # Step 8 — Fetch ALL existing timestamp+machine combos in ONE query
             existing = set(
-                (name, ts.astimezone().replace(tzinfo=None))
-                for name, ts in models.EnergyReading.objects
-                .filter(Machine__Name__in=machine_names)
-                .values_list('Machine__Name', 'Timestamp')
-            )
+                    (name, ts.astimezone().replace(tzinfo=None))
+                    for name, ts in models.EnergyReading.objects
+                    .filter(Machine__in=machine_names)
+                    .values_list('Machine', 'Timestamp')
+                )
 
-            # Step 10 — Filter duplicates and bulk save all new readings
+            # Step 9 — Filter duplicates and bulk save all new readings
             readings = []
             for row in df.itertuples(index=False):
                 key = (row.MachineName, row.Timestamp.to_pydatetime().replace(tzinfo=None))
                 if key not in existing:
                     readings.append(models.EnergyReading(
-                        Machine=machines[row.MachineName],
-                        Upload=upload,
+                        Machine=row.MachineName,
                         Timestamp=row.Timestamp,
                         Value_kW=row.Value_kW
                     ))
@@ -948,31 +940,22 @@ class EnergyReadings(APIView):
         except ValueError:
             return Response({'message': 'Invalid date format. Use YYYY-MM-DD'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
-        # Step 4 — Get all machines from the database
-        machines = models.EnergyMachine.objects.all()
-        result = []
+        # Step 4 — Get all readings in the date range, ordered by machine then time
+        all_readings = (
+            models.EnergyReading.objects
+            .filter(Timestamp__range=(from_dt, to_dt))
+            .values('Machine', 'Timestamp', 'Value_kW')
+            .order_by('Machine', 'Timestamp')
+        )
 
-        for machine in machines:
-            # Step 5 — Fetch all readings for this machine within the selected range
-            readings = (
-                models.EnergyReading.objects
-                .filter(Machine=machine, Timestamp__range=(from_dt, to_dt))
-                .values('Timestamp', 'Value_kW')
-                .order_by('Timestamp')
-            )
+        # Step 5 — Group readings by machine name
+        grouped = {}
+        for r in all_readings:
+            name = r['Machine']
+            if name not in grouped:
+                grouped[name] = []
+            grouped[name].append({'timestamp': r['Timestamp'].isoformat(), 'value_kw': r['Value_kW']})
 
-            # Step 6 — Skip this machine if it has no data in the selected range
-            if not readings.exists():
-                continue
-
-            # Step 7 — Add this machine's data to the result list
-            result.append({
-                'machine': machine.Name,
-                'readings': [
-                    {'timestamp': r['Timestamp'].isoformat(), 'value_kw': r['Value_kW']}
-                    for r in readings
-                ]
-            })
-
-        # Step 8 — Return the full list, one entry per machine
+        # Step 6 — Return the full list, one entry per machine
+        result = [{'machine': name, 'readings': readings} for name, readings in grouped.items()]
         return Response(result)
