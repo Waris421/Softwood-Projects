@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 import pandas as pd
 import numpy as np
@@ -6,10 +6,11 @@ from datetime import date, timedelta, datetime
 
 from django.forms import model_to_dict
 from django.db.models import Q
+from django.db import transaction
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
-from core.constants.generic import GST_RATE, LOCAL_CURRENCY
+from core.constants.generic import GST_RATE, LOCAL_CURRENCY, TODAY
 
 def getInventoryPrice (inventory: models.Inventory):
     '''
@@ -149,6 +150,75 @@ def GeneratePOfromWO(dfData: pd.DataFrame, workOrder: models.WorkOrder):
     
     return orderCard.id
 
+def GeneratePOFromPendingPOs(data: Dict[str, any]):
+    inventories = data.get('Inventories', [])
+    supplier = data.get('Supplier', None)
+
+    try:
+        supplier = models.Supplier.objects.get(Name = supplier)
+    except:
+        raise LookupError('Invalid Supplier')
+    
+    dfInventories = pd.DataFrame(inventories)
+    dfInventories['Inventory'] = convertTexttoObject(models.Inventory, dfInventories['Inventory'], 'Code')
+
+    try:
+        leadTime = getLeadTime(dfInventories['Inventory'])
+    except Exception as e:
+        raise ValueError(e)
+    
+    deliveryDate = (TODAY + timedelta(days=leadTime)).date()
+    
+    purchaseOrder = {
+        'DeliveryDate': deliveryDate,
+        'Supplier': supplier,
+        'Tax': GST_RATE,
+    }
+    purchaseOrder = models.PurchaseOrder(**purchaseOrder)
+
+    dfPOInventories = dfInventories.drop(columns=['WorkOrder']).copy()
+    
+    dfPOInventories = dfPOInventories.groupby(['Inventory', 'Variant'], sort=False)['Quantity'].sum().reset_index()
+    dfPOInventories['PONumber'] = purchaseOrder
+
+    dfPOInventories[['Price','Currency']] = dfPOInventories['Inventory'].apply(getInventoryPrice).apply(pd.Series)
+
+    dfPOInventories['Currency'] = convertTexttoObject(models.Currency, dfPOInventories['Currency'], 'Code')
+    
+    #TODO: Set this to current forex rate
+    dfPOInventories['Forex'] = 1.0
+    
+    dfPOInventories['Quantity'] = dfPOInventories['Quantity'].apply(lambda x: np.ceil(x))
+
+    poInventories = []
+    for _, row in dfPOInventories.iterrows():
+        poInventory = models.POInventory(**row.to_dict())
+        poInventories.append(poInventory)
+
+        flag = (dfInventories['Inventory'] == row['Inventory']) & (dfInventories['Variant'] == row['Variant'])
+
+        dfInventories.loc[flag, 'POInvId'] = poInventory   
+    
+    dfPOAllocation = dfInventories.drop(columns=['Inventory','Variant']).copy()
+    
+    dfPOAllocation['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfPOAllocation['WorkOrder'], 'OrderNumber')
+    
+    poAllocations = []
+    for _, row in dfPOAllocation.iterrows():
+        poAllocation = models.POAllocation(**row.to_dict())
+        poAllocations.append(poAllocation)
+
+    with transaction.atomic():
+        purchaseOrder.save()
+
+        for inv in poInventories:
+            inv.save()
+
+        models.POAllocation.objects.bulk_create(poAllocations)
+    
+    return purchaseOrder.id
+
+#TODO: This would become obsolete when we shift to next
 def GeneratePOfromAutoReq(dfData: pd.DataFrame, supplierName:str):
     '''
     Make a PO for the data from auto-requirement table.

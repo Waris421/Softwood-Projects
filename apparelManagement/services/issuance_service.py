@@ -1,13 +1,15 @@
 import pandas as pd
 import numpy as np
 
-from typing import List
+from typing import Dict, List
 
 from django.db.models import Q
+from django.db import transaction
 
 from .. import models
 
 from core.services.generic_services import concatenateValues, dfToListOfDicts, convertTexttoObject
+from core.constants.prod import SAMPLING_WORK_WORKER
 
 def calculateBalance(df: pd.DataFrame) -> pd.Series:
     '''Checks the balance qty that can be issued.'''
@@ -340,3 +342,118 @@ def ProcessRequisitionData(requisition: models.Requisition):
     dfResults['WorkOrder'] = np.where(dfResults['WorkOrder'].isna(), '', dfResults['WorkOrder'])
 
     return dfToListOfDicts(dfResults)
+
+def GetDataForSamplingIssuance():
+    fields = ['RecInvId__InventoryCode', 'RecInvId__InventoryCode__Name', 'RecInvId__InventoryCode__Unit', 'RecInvId__Variant', 'RecInvId__ReceiptNumber', 'RecInvId__ReceiptNumber__ReceiptDate', 'Quantity']
+    recAllocations = models.RecAllocation.objects.filter(WorkOrder=SAMPLING_WORK_WORKER).values(*fields)
+    dfReceipts = pd.DataFrame(recAllocations) if recAllocations else pd.DataFrame(columns=fields)
+    del recAllocations
+
+    fields = ['IssueInventory__Inventory', 'IssueInventory__Variant', 'Quantity']
+    issuances = models.IssueAllocation.objects.filter(WorkOrder=SAMPLING_WORK_WORKER).values(*fields)
+    dfIssuances = pd.DataFrame(issuances) if issuances else pd.DataFrame(columns=fields)
+    del issuances
+
+    dfReceipts.rename(inplace=True, columns={
+        'RecInvId__InventoryCode': 'Inventory',
+        'RecInvId__InventoryCode__Name': 'InventoryName',
+        'RecInvId__InventoryCode__Unit': 'Unit',
+        'RecInvId__Variant': 'Variant',
+        'RecInvId__ReceiptNumber': 'ReceiptNumber',
+        'RecInvId__ReceiptNumber__ReceiptDate': 'ReceiptDate',
+        'Quantity': 'Received',
+    })
+    dfIssuances.rename(inplace=True, columns={
+        'IssueInventory__Inventory': 'Inventory',
+        'IssueInventory__Variant': 'Variant',
+        'Quantity': 'Issued',  
+    })
+
+    
+    #FIFO calculations for issuances against received
+    dfReceipts['ReceiptDate'] = pd.to_datetime(dfReceipts['ReceiptDate'])
+    dfReceipts = dfReceipts.sort_values(['Inventory', 'Variant', 'ReceiptDate'])
+
+    dfIssuances = dfIssuances.groupby(['Inventory', 'Variant'])['Issued'].sum().reset_index()
+
+    dfReceipts = pd.merge(left=dfReceipts, right=dfIssuances, on=['Inventory', 'Variant'], how='left')
+    del dfIssuances
+
+    dfReceipts['Issued'] = dfReceipts['Issued'].fillna(0).infer_objects(copy=False)
+
+    dfReceipts['RunningTotal'] = dfReceipts.groupby(['Inventory', 'Variant'])['Received'].cumsum()
+    dfReceipts['RemainingInRow'] = dfReceipts['RunningTotal'] - dfReceipts['Issued']
+
+    dfReceipts = dfReceipts[dfReceipts['RemainingInRow'] > 0].copy()
+
+    dfReceipts['Quantity'] = dfReceipts.apply(
+        lambda x: min(x['Received'], x['RemainingInRow']), axis=1
+    )
+    dfReceipts.drop(inplace=True, columns=['Received', 'Issued', 'RunningTotal', 'RemainingInRow'])
+
+    dfReceipts['Details'] = dfReceipts.apply(
+        lambda row: {'ReceiptNumber': row['ReceiptNumber'], 'ReceiptDate': row['ReceiptDate'], 'BalanceQty': row['Quantity']}, 
+        axis=1
+    )
+    
+    dfReceipts = dfReceipts.groupby(['Inventory', 'Variant']).agg({
+        'Quantity': 'sum',
+        'InventoryName': 'first',
+        'Unit': 'first',
+        'Details': list
+    }).reset_index()
+
+    return dfToListOfDicts(dfReceipts)
+
+def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
+    inventories = data.get('Inventories', [])
+    department = data.get('Department', None)
+
+    samplingWO = models.WorkOrder.objects.get(OrderNumber=SAMPLING_WORK_WORKER)
+
+    try:
+        department = models.Department.objects.get(Name = department)
+    except:
+        raise LookupError('Invalid Department')
+    
+    requisition = models.Requisition.objects.all().first()
+
+    issuance = {
+        'Department': department,
+        'Supplier': None,
+        'ReceivedBy': department.Name,
+        'InventoryRequisition': requisition
+    }
+    try:
+        issuance = models.Issuance(**issuance)
+    except Exception as e:
+        raise ValueError(e)
+    
+    dfIssueInventories = pd.DataFrame(inventories)
+    del inventories
+
+    dfIssueInventories['Inventory'] = convertTexttoObject(models.Inventory, dfIssueInventories['Inventory'], 'Code')
+    dfIssueInventories['Issuance'] = issuance
+
+    issueInventories = []
+    issueAllocations = []
+    for _, row in dfIssueInventories.iterrows():
+        issueInventory = models.IssueInventory(**row)
+        issueInventories.append(issueInventory)
+
+        issueAllocation = models.IssueAllocation(
+            IssueInventory=issueInventory,
+            WorkOrder=samplingWO,
+            Quantity=row['Quantity']
+        )
+        issueAllocations.append(issueAllocation)
+    
+    with transaction.atomic():
+        issuance.save()
+
+        for inv in issueInventories:
+            inv.save()
+
+        models.IssueAllocation.objects.bulk_create(issueAllocations)
+
+    return issuance.id

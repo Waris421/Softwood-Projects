@@ -116,3 +116,5 @@ threadCounts = [
     {'value': '202E', 'text': '20/2 EPIC'},
     {'value': '204', 'text': '20/4'},
 ]
+
+SAMPLING_WORK_WORKER = 11111

@@ -6,6 +6,7 @@ from datetime import date
 
 from django.db.models import Q
 from django.utils import timezone as TZ
+from django.conf import settings
 
 from HumanResource import models
 
@@ -44,7 +45,7 @@ def getLocation(lat: str|float, lon: str|float):
         return result
     
     try:
-        gmapsKey = 'AIzaSyChtTcMLnz4G6qJqXdvZx7msbB2Jsv1fDQ'
+        gmapsKey = settings.GMAPS_KEY
         client = googlemaps.Client (key=gmapsKey)
         reverseGeocodeResult = client.reverse_geocode((latitude, longitude))
     except Exception as e:

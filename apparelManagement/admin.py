@@ -111,6 +111,14 @@ class InventoryCodeP3Admin(admin.ModelAdmin):
     list_filter = ('Code',)
     ordering = ('Part2',)
 
+"""@admin.register(models.Issuance)
+class IssuanceAdmin(admin.ModelAdmin):
+    '''Admin View for Issuance'''
+
+    list_display = ('id', 'Department', 'IssuanceDate')
+    list_filter = ('Department',)
+    ordering = ('id',)"""
+
 @admin.register(models.ThreadConsumptionRequest)
 class ConsRequestAdmin(admin.ModelAdmin):
     '''Admin View for ConsRequest'''

@@ -34,6 +34,7 @@ urlpatterns = [
     path('merchandising/work-order/<int:pk>/delete', views.DeleteWorkOrderAPI.as_view()),
 
     path('mmc/inventory-orders/pending', views.PendingInventoryOrders.as_view()),
+    path('mmc/issuance/add-sampling', views.AddSamplingIssuance.as_view()),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
@@ -115,7 +116,6 @@ urlpatterns = [
 
     path('options/yesorno', options_service.yesOrNo, name='YesOrNo' ),
     path('options/customers', options_service.getCustomersList, name='CustomerList'),
-    path('options/customers-api', options_service.GetCustomers.as_view(), name='CustomerListAPI'),
     path('options/suppliers', options_service.getSuppliersList, name='SupplierList'),
     path('options/departments', options_service.getDepartmentsList, name='DepartmentList'),
     path('options/categories', options_service.getCategories, name='GenderCategories'),
@@ -125,17 +125,20 @@ urlpatterns = [
     path('options/constypes', options_service.getConsTypes, name='ConsTypes'),
     path('options/prodstages', options_service.getProductionStages, name='ProdTypes'),
     path('options/styles', options_service.getStyles, name='StyleList'),
-    path('options/styles-api', options_service.GetStyles.as_view()),
     path('options/ordertypes', options_service.getOrderTypes, name='OrderTypes'),
     path('options/currencies', options_service.getCurrencies, name='CurrencyList'),
     path('options/merchants', options_service.getMerchandisers, name='merchantList'),
     path('options/users', options_service.GetUsers, name='userList'),
     path('options/unit/<str:group>', options_service.getUnitsForGroup, name='unitsForGroup'),
     path('options/workorders', options_service.getWorkOrders, name='workOrders'),
-    path('options/work-orders', options_service.GetWorkOrders.as_view()),
     path('options/purchaseorders/open', options_service.getOpenPOs, name='openPOs'),
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
-    path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),
-    path('api/units', options_service.GetInvUnitsForGroup.as_view(), name='apiUnitsFromGroup'),
+    path('options/customers-api', options_service.GetCustomers.as_view()),
+    path('options/suppliers-api', options_service.GetSuppliers.as_view()),
+    path('options/departments-api', options_service.GetDepartments.as_view()),
+    path('api/inventories', options_service.GetInventories.as_view()),
+    path('api/units', options_service.GetInvUnitsForGroup.as_view()),
+    path('options/styles-api', options_service.GetStyles.as_view()),
+    path('options/work-orders', options_service.GetWorkOrders.as_view()),
 ]

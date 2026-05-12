@@ -108,6 +108,40 @@ def getCustomersList(request):
     customers = dfToListOfDicts(dfCustomers)
     return JsonResponse(customers, safe=False)
 
+class GetSuppliers(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Supplier'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        queries = request.query_params
+
+        search = queries.get('search', None)
+        limit = queries.get('limit', None)
+
+        filters = Q()
+        if search:
+            filters &= Q(Name__icontains=search) | Q(TradeName__icontains=search)
+
+        querySet = appModels.Supplier.objects.filter(filters).annotate(
+            value=Cast(F('Name'), output_field=CharField()),
+            label=Concat(
+                    F('Name'), Value(' - '), F('TradeName'), 
+                    output_field=CharField()
+                )
+        ).order_by('Name')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        supplierList = list(querySet.values(*fields))
+
+        return Response(data=supplierList, status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def getSuppliersList(request: HttpRequest):
     if request.method != 'GET':
@@ -143,6 +177,40 @@ def getSuppliersList(request: HttpRequest):
     suppliers = dfToListOfDicts(dfSupplier)  
 
     return JsonResponse(suppliers, safe=False)
+
+class GetDepartments(APIView):
+    '''
+        GET Parameters:
+        search: part of code or name;
+        limit: number;
+    '''
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Department'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search', '')
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= Q(Name__icontains=search) | Q(FullName__icontains=search)
+        
+        querySet = appModels.Department.objects.filter(filters).annotate(
+            value=Cast(F('Name'), output_field=CharField()),
+            label=F('FullName')
+        ).order_by('Name')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        departmentList = list(querySet.values(*fields))
+
+        return Response(data=departmentList, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def getDepartmentsList (request: HttpRequest):

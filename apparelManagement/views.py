@@ -1521,6 +1521,16 @@ class PendingInventoryOrders(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)    
+    
+    def post(self, request: Request):
+        try:
+            poNumber = purchase_order_service.GeneratePOFromPendingPOs(request.data)
+            response = {'poNumber': poNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def AutoInventoryRequirement(request: HttpRequest):
@@ -2461,6 +2471,33 @@ def AddIssuance (request: HttpRequest):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'issuance/add.html', context)
+
+class AddSamplingIssuance(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Issuance'
+    permissionType = 'add'
+
+    def get(self, _: Request):
+        try:
+            formData = issuance_service.GetDataForSamplingIssuance()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            issuanceNumber = issuance_service.AddSamplingIssuance(request.data)
+            response = {'issuanceNumber': issuanceNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def ThreadConsumptionRequests(request: HttpRequest):

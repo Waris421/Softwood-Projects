@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,14 +20,15 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/documents/'
 MEDIA_ROOT = BASE_DIR
 
+load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-SECRET_KEY = os.environ.get('SECRET_KEY_FOR_DJANGO')
+SECRET_KEY = os.getenv('SECRET_KEY_FOR_DJANGO')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = ['192.168.2.14', '206.42.124.10']
 
@@ -117,11 +119,11 @@ WSGI_APPLICATION = 'erp.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "mssql",
-        "NAME": os.environ.get("DATABASE_NAME",""),
-        "USER": os.environ.get("DATABASE_USER",""),
-        "PASSWORD": os.environ.get("DATABASE_PASSWORD",""),
-        "HOST": os.environ.get("DATABASE_HOST",""),
-        "PORT": os.environ.get("DATABASE_PORT",""),
+        "NAME": os.getenv("DATABASE_NAME",""),
+        "USER": os.getenv("DATABASE_USER",""),
+        "PASSWORD": os.getenv("DATABASE_PASSWORD",""),
+        "HOST": os.getenv("DATABASE_HOST",""),
+        "PORT": os.getenv("DATABASE_PORT",""),
         "OPTIONS": {
             "driver": "ODBC Driver 18 for SQL Server", 
             'extra_params': 'Encrypt=yes;TrustServerCertificate=yes',
@@ -183,8 +185,8 @@ SESSION_SAVE_EVERY_REQUEST = True           # "False" by default
 
 #Settings for emails
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get("DJANGO_EMAIL_HOST","")
-EMAIL_PORT = int(os.environ.get("DJANGO_EMAIL_PORT",""))
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST","")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT",""))
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("DJANGO_EMAIL_ADDRESS","")
-EMAIL_HOST_PASSWORD = os.environ.get("DJANGO_EMAIL_PASSWORD","")
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_ADDRESS","")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_PASSWORD","")
