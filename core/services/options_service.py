@@ -38,6 +38,7 @@ def yesOrNo(request):
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
 
+# @login_required(login_url='/login')
 def getCustomersList(request):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -67,8 +68,7 @@ def getCustomersList(request):
 
     customers = dfToListOfDicts(dfCustomers)
     return JsonResponse(customers, safe=False)
-
-@login_required(login_url='/login')
+# @login_required(login_url='/login')
 def getSuppliersList(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -308,6 +308,35 @@ def getStyles(request):
     data = dfToListOfDicts(dfData)
     return JsonResponse(data, safe=False)
 
+def getStylesAPI(request):
+    if request.method != 'GET':
+        return HttpResponse('Not Allowed', status=405)
+
+    search = request.GET.get('search', '')
+    showCustomer = request.GET.get('showCustomer', None)
+
+    searchFilter = Q()
+    if search:
+        searchFilter &= (
+            Q(StyleCode__icontains=search) |
+            Q(StyleName__icontains=search)
+        )
+
+    fields = ['StyleCode', 'StyleName', 'Customer__Name']
+    data = appModels.StyleCard.objects.filter(searchFilter).values(*fields)
+    dfData = pd.DataFrame(data) if data else pd.DataFrame(columns=fields)
+
+    dfData['value'] = dfData['StyleCode']
+    dfData['label'] = dfData['StyleCode'] + ' — ' + dfData['StyleName']
+
+    if showCustomer == 'yes':
+        dfData.rename(inplace=True, columns={'Customer__Name': 'Customer'})
+        dfData = dfData[['value', 'label', 'Customer']]
+    else:
+        dfData = dfData[['value', 'label']]
+
+    return JsonResponse(dfToListOfDicts(dfData), safe=False)
+
 @login_required(login_url='/login')
 def getOrderTypes(request):
     if request.method == 'GET':
@@ -319,8 +348,7 @@ def getOrderTypes(request):
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
-    
-@login_required(login_url='/login')
+# @login_required(login_url='/login')
 def getCurrencies(request):
     if request.method == 'GET':
         objects = appModels.Currency.objects.all().values('Code', 'Name')
@@ -349,7 +377,7 @@ def getMerchandisers(request):
         data = [dict(zip(cols, i)) for i in dfData.values] 
         return JsonResponse(data, safe=False)
 
-@login_required(login_url='/login')
+# @login_required(login_url='/login')
 def getWorkOrders(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -382,7 +410,7 @@ def getWorkOrders(request: HttpRequest):
     data = dfToListOfDicts(dfData)
     return JsonResponse(data, safe=False)
 
-@login_required(login_url='/login')
+# @login_required(login_url='/login')
 def getOpenPOs(request:HttpRequest):
     if request.method != 'GET':
         return HttpResponse ('No allowed', status=405)

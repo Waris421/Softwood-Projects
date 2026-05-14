@@ -4,10 +4,33 @@ from django.apps import apps
 
 from rest_framework.request import Request
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import BasePermission
 
 from typing import Literal, List, Dict
 
 from core.constants.generic import NAV_LINKS_CONFIG
+
+
+class AppModelPermissions(BasePermission):
+    """
+    DRF permission class that reads appName, modelName, and permissionType
+    from the view and checks Django model-level permissions via hasPermission().
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        appName = getattr(view, 'appName', None)
+        modelName = getattr(view, 'modelName', None)
+        permissionType = getattr(view, 'permissionType', None)
+
+        if not all([appName, modelName, permissionType]):
+            return False
+
+        if isinstance(permissionType, dict):
+            permissionType = permissionType.get(request.method, 'view')
+
+        return hasPermission(request.user, appName, modelName, permissionType)
 
 def hasPermission (
         user: User,

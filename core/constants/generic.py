@@ -146,7 +146,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Raw Material Stock', 'href': '/finance/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/finance/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
             # Label for PO details 
-            {'label': 'View PO', 'href': '/finance/purchase-order', 'subtext': 'View all Purchase Orders'},
+            {'label': 'View PO', 'href': '/finance/purchase-order', 'subtext': 'Download or view all Purchase Orders'},
         ]},
     ],
     'hr': [
@@ -167,6 +167,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Inventory', 'appName': 'apparelManagement', 'modelName': 'Inventory', 'children': [
             {'label': 'Raw Material Stock', 'href': '/mmc/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
+            {'label': 'Start PO', 'href': '/mmc/purchase-order', 'subtext': 'Create a new purchase order or edit an existing one'},
         ]},
     ],
     # New section for marketing features

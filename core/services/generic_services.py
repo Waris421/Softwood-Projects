@@ -94,6 +94,8 @@ def updateModelWithDF (
             fieldsToUpdate = [col for col in newData.columns if col != 'id']
             
             targetTable.objects.bulk_update(toUpdate, fields=fieldsToUpdate)
+def refineAPIJson(request) -> Dict[str, Any]:
+    return dict(request.data)
 
 def refineJson(jsonData: Dict[str, Any]) -> pd.DataFrame | List[pd.DataFrame]:
     '''

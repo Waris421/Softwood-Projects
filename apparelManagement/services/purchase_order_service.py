@@ -376,6 +376,30 @@ def GetOrderList(supplier: str, poNumber: int):
 
     dfOrders = dfOrders.sort_values(by='PONumber', ascending=False)
     return dfToListOfDicts(dfOrders)
+# Taking PO from front end
+def AddPurchaseOrderFromData(data: dict):
+    '''
+    Parses the raw API payload and calls AddPurchaseOrder.
+    Keeps DataFrame building out of the view layer.
+    '''
+    dfOrder = pd.DataFrame([{
+        'Supplier':     data.get('Supplier'),
+        'DeliveryDate': data.get('DeliveryDate'),
+        'Tax':          str(data.get('Tax', 0)),
+    }])
+
+    inventory = data.get('inventory', [])
+    dfInventory = pd.DataFrame([{
+        'InventoryCode': row.get('InventoryCode', ''),
+        'InventoryName': row.get('InventoryName', ''),
+        'VariantCode':   row.get('Variant', ''),
+        'Quantity':      str(row.get('Quantity', '')),
+        'Price':         str(row.get('Price', '')),
+        'Currency':      str(row.get('Currency', '')),
+        'Forex':         str(row.get('Forex', 1)),
+    } for row in inventory])
+
+    return AddPurchaseOrder(dfOrder, dfInventory)
 
 def AddPurchaseOrder(dfOrder: pd.DataFrame, dfInventory: pd.DataFrame):
     '''
@@ -438,6 +462,34 @@ def AddPurchaseOrder(dfOrder: pd.DataFrame, dfInventory: pd.DataFrame):
     
     #Return PO Number to redirect user to
     return orderCard.id
+# Take workorder data from the front end
+def EditPurchaseOrderFromData(orderObject: models.PurchaseOrder, data: dict):
+    '''
+    Parses the raw API payload and calls EditPurchaseOrder.
+    Keeps DataFrame building out of the view layer.
+    '''
+    dfOrder = pd.DataFrame([{
+        'Supplier':     data.get('Supplier'),
+        'DeliveryDate': data.get('DeliveryDate'),
+        'Tax':          str(data.get('Tax', 0)),
+    }])
+
+    inventory = data.get('inventory', [])
+    dfInventory = pd.DataFrame([{
+        'id':            str(row.get('id', '')),
+        'InvCode':       row.get('InventoryCode', ''),
+        'InventoryName': row.get('InventoryName', ''),
+        'VariantCode':   row.get('Variant', ''),
+        'Quantity':      str(row.get('Quantity', '')),
+        'Price':         str(row.get('Price', '')),
+        'Currency':      str(row.get('Currency', '')),
+        'Forex':         str(row.get('Forex', 1)),
+    } for row in inventory])
+
+    allocations = data.get('allocations', [])
+    dfAllocation = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=['allocId', 'WorkOrder', 'Quantity'])
+
+    EditPurchaseOrder(orderObject, dfOrder, dfInventory, dfAllocation)
 
 def EditPurchaseOrder(
         orderObject: models.PurchaseOrder,
@@ -499,36 +551,62 @@ def EditPurchaseOrder(
     except Exception as e:
         raise ValueError (e)
 
-    #The inventory code on which the allocation is made
-    allocId = dfOrder['allocId'][0]
+    # --- ALLOCATION WORKFLOW ---
 
-    dfAllocation = dfAllocation[~dfAllocation['WorkOrder'].isna()]
-    #Save the allocaiton if it is provided
+    # Step 1 — Remove blank rows. The form always sends a default empty row even if
+    #           the user never opened the allocation panel, so we strip those out first.
+    dfAllocation = dfAllocation[
+        (~dfAllocation['WorkOrder'].isna()) &
+        (dfAllocation['WorkOrder'].astype(str).str.strip() != '') &
+        (~dfAllocation['allocId'].isna()) &
+        (dfAllocation['allocId'].astype(str).str.strip() != '')
+    ]
+
+    # Step 2 — If nothing real was submitted, skip all allocation logic entirely.
+    # Step 3 - Existing allocations in the DB are left completely untouched.
     if not dfAllocation.empty:
+        dfAllocation['allocId'] = dfAllocation['allocId'].astype(int)
         dfAllocation['WorkOrder'] = dfAllocation['WorkOrder'].astype(int)
+        # Step 4 — Fetch existing allocations from DB for the submitted inventory rows
+        allocIdList = dfAllocation['allocId'].unique().tolist()
+        previousAllocations = models.POAllocation.objects.filter(
+            POInvId__in=allocIdList
+        ).values('id', 'POInvId_id', 'WorkOrder__OrderNumber')
 
-        try:
-            POInvObj = models.POInventory.objects.get(id=allocId)
-            dfAllocation['POInvId'] = POInvObj
-        except Exception as e:
-            raise ValueError(e)
-        
-        previousAllocations = models.POAllocation.objects.filter(POInvId=POInvObj).values('id','WorkOrder')
+        # Step 5 — Build dfPrevious and rename columns to match incoming data
         if previousAllocations:
-            dfPreviousAllocations = pd.DataFrame(previousAllocations)
+            dfPrevious = pd.DataFrame(previousAllocations)
+            dfPrevious.rename(inplace=True, columns={
+                'POInvId_id': 'allocId',
+                'WorkOrder__OrderNumber': 'WorkOrder'
+            })
         else:
-            dfPreviousAllocations = pd.DataFrame(columns=['id','WorkOrder'])
-        del previousAllocations
+            dfPrevious = pd.DataFrame(columns=['id', 'allocId', 'WorkOrder'])
 
-        dfAllocation = pd.merge(left=dfAllocation, right=dfPreviousAllocations, left_on='WorkOrder', right_on='WorkOrder', how='left')
+        # Step 6 — Merge to stamp existing POAllocation ids onto matching rows
+        dfAllocation = pd.merge(
+            left=dfAllocation,
+            right=dfPrevious[['id', 'allocId', 'WorkOrder']],
+            on=['allocId', 'WorkOrder'],
+            how='left'
+        )
 
+        # Step 7 — Convert allocId to POInventory objects
+        dfAllocation['POInvId'] = convertTexttoObject(models.POInventory, dfAllocation['allocId'], 'id')
+
+        # Step 8 — Convert WorkOrder number to WorkOrder objects
         dfAllocation['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfAllocation['WorkOrder'], 'OrderNumber')
 
-        try:
-            updateModelWithDF(targetTable=models.POAllocation, newData=dfAllocation, previousData=dfPreviousAllocations)
-        except Exception as e:
-            raise ValueError (e)
-        
+        # Step 9 — Drop allocId, it's been replaced by POInvId
+        dfAllocation.drop(inplace=True, columns=['allocId'])
+
+        # Step 10 — Smart update: creates new rows, updates existing, deletes removed
+        updateModelWithDF(
+            targetTable=models.POAllocation,
+            newData=dfAllocation,
+            previousData=dfPrevious[['id']]
+        )
+
 def getPOAllocation(poInventory: models.POInventory):
     '''
     Get the allocation of an inventory code in a provided PO.
@@ -580,7 +658,33 @@ def ProcessOrderData(orderObject: models.PurchaseOrder):
     dfPOInventories.drop(inplace=True, columns=['Code'])
     dfPOInventories.rename(inplace=True, columns={'Name':'InventoryName'})
     
-    return order, dfToListOfDicts(dfPOInventories)
+    # Fetch all allocations for the PO
+    poInvIds = dfPOInventories['id'].tolist()
+    allocations = models.POAllocation.objects.filter(
+        POInvId__in=poInvIds
+    ).values('POInvId_id', 'WorkOrder__OrderNumber', 'Quantity')
+
+    allocationList = [
+        {
+            'allocId': a['POInvId_id'],
+            'WorkOrder': a['WorkOrder__OrderNumber'],
+            'Quantity': a['Quantity']
+        }
+        for a in allocations
+    ]
+    # Fetch all the work orders
+    workOrders = models.WorkOrder.objects.all().values(
+        'OrderNumber', 'StyleCode__StyleCode', 'Customer__Name'
+    )
+
+    workOrderList = [
+        {
+            'value': wo['OrderNumber'],
+            'text': f"{wo['OrderNumber']} - {wo['StyleCode__StyleCode']} - {wo['Customer__Name']}"
+        }
+        for wo in workOrders
+    ]
+    return order, dfToListOfDicts(dfPOInventories), allocationList, workOrderList
 
 def GetWorkOrderDefaultQty (
         workOrder: models.WorkOrder,
