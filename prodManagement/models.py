@@ -28,7 +28,8 @@ class Operation(models.Model):
 
 class Machine(models.Model):
     id = models.AutoField(primary_key=True)
-    MachineId = models.CharField(max_length=31)
+    MachineId = models.CharField(max_length=31, unique=True)
+    DisplayName = models.CharField(max_length=100, blank=True, null=True)
     PurchaseDate = models.DateField(auto_now_add=True)
     Type = models.CharField(max_length=63)
     FunctionStatus = models.CharField(max_length=15)
@@ -37,6 +38,9 @@ class Machine(models.Model):
     SerialNumber = models.CharField(max_length=15, null=True, blank=True)
     Department = models.ForeignKey(Department, on_delete=models.PROTECT, blank=True, null=True)
 
+    def __str__(self):
+        return self.DisplayName or self.MachineId
+    
     class Meta:
         """Meta definition for Machines."""
 
@@ -197,7 +201,7 @@ class OutSourceJobContractDetails(models.Model):
 
 # New model for energy consumption data (Test phase)
 class EnergyReading(models.Model):
-    Machine = models.CharField(max_length=255) # — links each reading to a machine. CASCADE means if you delete a machine, all its readings get deleted too
+    Machine = models.ForeignKey('Machine', on_delete=models.CASCADE, to_field='MachineId') # — links each reading to a machine. CASCADE means if you delete a machine, all its readings get deleted too
     Timestamp = models.DateTimeField(db_index=True) # — stores the date and time of the reading, indexed for faster queries
     Value_kW = models.FloatField()
 

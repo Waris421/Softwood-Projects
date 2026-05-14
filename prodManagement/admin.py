@@ -68,3 +68,10 @@ class EnergyReadingAdmin(admin.ModelAdmin):
     list_display = ('Machine', 'Timestamp', 'Value_kW')
     list_filter = ('Machine', 'Timestamp')
     date_hierarchy = 'Timestamp'
+
+@admin.register(models.Machine)
+class MachineAdmin(admin.ModelAdmin):
+    list_display = ('MachineId', 'DisplayName', 'Type', 'FunctionStatus', 'Department')
+    list_filter = ('FunctionStatus', 'Department')
+    ordering = ('MachineId',)
+    search_fields = ('MachineId', 'DisplayName')

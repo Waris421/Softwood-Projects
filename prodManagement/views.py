@@ -17,7 +17,7 @@ import os
 from core.constants.theme import theme
 from core.services import generic_services, auth_service
 from .services import stitching_service, bulletin_service, core_sheet_service
-from .services import  worker_service, serial_service, outsource_service
+from .services import worker_service, serial_service, outsource_service, energy_service
 
 from . import models
 
@@ -817,73 +817,27 @@ def GetWorkOrderRoute(request: HttpRequest):
     route = outsource_service.GetWorkOrderRoute(workOrder, source, ignore)
     return JsonResponse(route, safe=False)
 
-# View to upload energy consumption data from excel file. 
+# View to upload energy consumption data from excel file.
 class EnergyUpload(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request):
-        # Step 1 — Verify the user is logged in
         try:
-            user = auth_service.authenticateUser(request, None, None, None)
+            auth_service.authenticateUser(request, None, None, None)
         except Exception as e:
             return Response({'message': str(e)}, status=rest_framework.status.HTTP_401_UNAUTHORIZED)
 
-        # Step 2 — Make sure a file was included
         uploaded_file = request.FILES.get('file')
         if not uploaded_file:
             return Response({'message': 'No file provided'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Step 3 — Read directly from memory into pandas — no disk involved
-            df = pd.read_excel(uploaded_file)
-
-            # Step 4 — Rename first column to Timestamp, parse into proper datetime
-            df = df.rename(columns={df.columns[0]: 'Timestamp'})
-            total_before = len(df)
-            df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%a %d/%m/%y %H:%M", errors='coerce')
-            dropped = df['Timestamp'].isna().sum()
-            df = df.dropna(subset=['Timestamp'])
-            print(f"Rows before: {total_before}, dropped: {dropped}, kept: {len(df)}")
-
-
-            # Step 5 — Check if data for this exact day already exists, but keep going either way
-            upload_date = df['Timestamp'].dt.date.min()
-            duplicate_day = models.EnergyReading.objects.filter(Timestamp__date=upload_date).exists()
-
-            # Step 6 — Melt: convert wide format (many columns) to long format (one row per machine per minute)
-            machine_cols = df.columns[1:].tolist()
-            df = df.melt(id_vars=['Timestamp'], value_vars=machine_cols, var_name='MachineName', value_name='Value_kW')
-            df['Value_kW'] = df['Value_kW'].fillna(0)
-
-            # Step 7 — Collect machine names
-            machine_names = df['MachineName'].unique()
-
-            # Step 8 — Fetch ALL existing timestamp+machine combos in ONE query
-            existing = set(
-                    (name, ts.astimezone().replace(tzinfo=None))
-                    for name, ts in models.EnergyReading.objects
-                    .filter(Machine__in=machine_names)
-                    .values_list('Machine', 'Timestamp')
-                )
-
-            # Step 9 — Filter duplicates and bulk save all new readings
-            readings = []
-            for row in df.itertuples(index=False):
-                key = (row.MachineName, row.Timestamp.to_pydatetime().replace(tzinfo=None))
-                if key not in existing:
-                    readings.append(models.EnergyReading(
-                        Machine=row.MachineName,
-                        Timestamp=row.Timestamp,
-                        Value_kW=row.Value_kW
-                    ))
-
-            models.EnergyReading.objects.bulk_create(readings, ignore_conflicts=True)
-
+            duplicate_day, upload_date = energy_service.ProcessEnergyUpload(uploaded_file)
         except Exception as e:
             return Response({'message': f'File processing failed: {str(e)}'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
         if duplicate_day:
-            return Response({'message': f'Data for {upload_date.strftime("%d %B %Y")} has already been uploaded'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+            return Response({'message': f'Data for {upload_date} has already been uploaded'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'File uploaded successfully'}, status=rest_framework.status.HTTP_200_OK)
 
 
@@ -892,27 +846,15 @@ class EnergyDateRange(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request: Request):
-        # Step 1 — Verify the user is logged in
         try:
             auth_service.authenticateUser(request, None, None, None)
         except Exception as e:
             return Response({'message': str(e)}, status=rest_framework.status.HTTP_401_UNAUTHORIZED)
 
-        # Step 2 — Ask the database for the earliest and latest timestamp in one query
-        result = models.EnergyReading.objects.aggregate(
-            min_date=Min('Timestamp'),
-            max_date=Max('Timestamp')
-        )
-
-        # Step 3 — If no data exists at all, tell the frontend
-        if not result['min_date']:
+        result = energy_service.GetEnergyDateRange()
+        if result is None:
             return Response({'message': 'No data available'}, status=rest_framework.status.HTTP_404_NOT_FOUND)
-
-        # Step 4 — Return just the date part as a plain string eg "2026-04-18"
-        return Response({
-            'min_date': result['min_date'].date().isoformat(),
-            'max_date': result['max_date'].date().isoformat()
-        })
+        return Response(result)
 
 
 # Returns raw readings per machine for a chosen date range
@@ -920,42 +862,20 @@ class EnergyReadings(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request: Request):
-        # Step 1 — Verify the user is logged in
         try:
             auth_service.authenticateUser(request, None, None, None)
         except Exception as e:
             return Response({'message': str(e)}, status=rest_framework.status.HTTP_401_UNAUTHORIZED)
 
-        # Step 2 — Read the from and to dates from the URL eg ?from=2026-04-18&to=2026-04-23
         from_date = request.query_params.get('from')
         to_date = request.query_params.get('to')
 
         if not from_date or not to_date:
             return Response({'message': 'from and to parameters are required'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
-        # Step 3 — Convert the date strings into real Python datetime objects the database understands
         try:
-            from_dt = datetime.strptime(from_date, '%Y-%m-%d')
-            to_dt = datetime.strptime(to_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            result = energy_service.GetEnergyReadings(from_date, to_date)
         except ValueError:
             return Response({'message': 'Invalid date format. Use YYYY-MM-DD'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
-        # Step 4 — Get all readings in the date range, ordered by machine then time
-        all_readings = (
-            models.EnergyReading.objects
-            .filter(Timestamp__range=(from_dt, to_dt))
-            .values('Machine', 'Timestamp', 'Value_kW')
-            .order_by('Machine', 'Timestamp')
-        )
-
-        # Step 5 — Group readings by machine name
-        grouped = {}
-        for r in all_readings:
-            name = r['Machine']
-            if name not in grouped:
-                grouped[name] = []
-            grouped[name].append({'timestamp': r['Timestamp'].isoformat(), 'value_kw': r['Value_kW']})
-
-        # Step 6 — Return the full list, one entry per machine
-        result = [{'machine': name, 'readings': readings} for name, readings in grouped.items()]
         return Response(result)
