@@ -20,8 +20,21 @@ urlpatterns = [
 
     path('merchandising/style', views.StyleCards.as_view(), name='styleCards'),
     path('merchandising/work-order', views.MerchandisingWorkOrders.as_view(), name='merchandisingWorkOrders'),
+    path('merchandising/work-order/<int:pk>/update', views.WorkOrderDetailAPI.as_view(), name='workOrderDetailAPI'),
     path('merchandising/style/add', views.AddStyleCardAPI.as_view(), name='addStyleCardAPI'),
     path('merchandising/style/<str:pk>/update', views.StyleCardDetailAPI.as_view(), name='styleCardDetail'),
+    path('api/style/add', views.AddStyleCard.as_view(), name='apiAddStyleCard'),
+    path('api/style/route-preset/details', views.StyleRoutePresetDetails.as_view(), name='apiRoutePresetDetails'),
+    path('api/style/<str:pk>/update', views.UpdateStyleCard.as_view(), name='apiUpdateStyleCard'),
+    path('api/style/<str:pk>/delete', views.DeleteStyleCard.as_view(), name='apiDeleteStyleCard'),
+    path('api/style/<str:pk>/copy', views.DuplicateStyleCard.as_view(), name='apiCopyStyleCard'),
+
+    # PO details endpoint url
+    path('mmc/purchase-order/<int:pk>/update', views.PurchaseOrderDetailAPI.as_view(), name='poDetailAPI'),
+    path('mmc/purchase-order/<int:pk>/copy', views.PurchaseOrderCopyAPI.as_view(), name='poCopyAPI'),
+    path('mmc/purchase-order/<int:pk>/delete', views.PurchaseOrderDeleteAPI.as_view(), name='poDeleteAPI'),
+    path('mmc/purchase-order/add', views.PurchaseOrderAddAPI.as_view(), name='poAddAPI'),
+    path('mmc/purchase-order', views.PurchaseOrderListAPI.as_view(), name='poListAPI'),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
@@ -64,6 +77,13 @@ urlpatterns = [
     path('workorder/initial-plan', views.WorkOrderInitialPlan, name='initialPlan'),
     path('purchaseorder/add/fromworkorder/<int:pk>', views.GeneratePOFromWO, name='poFromWO'),
     path('api/workorders', views.WorkOrders.as_view(), name='apiWOs'),
+    path('api/workorder/add', views.AddWorkOrderAPI.as_view(), name='apiAddWorkOrder'),
+    path('api/workorder/variants/calculate', views.CalculateVariantsAPI.as_view(), name='apiCalculateVariants'),
+    path('api/workorder/requirement/calculate', views.CalculateInventoryRequirement.as_view(), name='apiCalculateRequirement'),
+    path('api/workorder/requirement/history', views.GetReqHistory.as_view(), name='apiReqHistory'),
+    path('api/workorder/pending-orders', views.PendingInventoryOrders.as_view(), name='apiPendingOrders'),
+    path('api/workorder/<int:pk>/update', views.UpdateWorkOrderAPI.as_view(), name='apiUpdateWorkOrder'),
+    path('api/workorder/<int:pk>/delete', views.DeleteWorkOrderAPI.as_view(), name='apiDeleteWorkOrder'),
 
     path('purchaseorder/autogen', views.AutoInventoryRequirement, name='autoReq'),
     path('purchaseorder', views.PurchaseOrder, name='POs'),
@@ -112,6 +132,8 @@ urlpatterns = [
     path('options/constypes', options_service.getConsTypes, name='ConsTypes'),
     path('options/prodstages', options_service.getProductionStages, name='ProdTypes'),
     path('options/styles', options_service.getStyles, name='StyleList'),
+    path('options/styles-api', options_service.getStylesAPI, name='StyleListAPI'),
+    path('api/options/styles', options_service.getStyles, name='apiStyleList'),
     path('options/ordertypes', options_service.getOrderTypes, name='OrderTypes'),
     path('options/currencies', options_service.getCurrencies, name='CurrencyList'),
     path('options/merchants', options_service.getMerchandisers, name='merchantList'),
@@ -119,6 +141,7 @@ urlpatterns = [
     path('options/unit/<str:group>', options_service.getUnitsForGroup, name='unitsForGroup'),
     path('options/workorders', options_service.getWorkOrders, name='workOrders'),
     path('options/purchaseorders/open', options_service.getOpenPOs, name='openPOs'),
+    path('api/issuance/sampling/add', views.AddSamplingIssuance.as_view(), name='apiAddSamplingIssuance'),
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
     path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),
