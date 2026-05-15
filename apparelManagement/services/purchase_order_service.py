@@ -511,6 +511,26 @@ def EditPurchaseOrder(
     if dfInventory.empty:
         raise ValueError('No Inventory provided')
 
+    # --- VALIDATION — runs before any DB writes regardless of which caller invoked this ---
+    if not dfAllocation.empty:
+        dfAllocation['Quantity'] = pd.to_numeric(dfAllocation['Quantity'], errors='coerce').fillna(0)
+        dfInventory['Quantity'] = pd.to_numeric(dfInventory['Quantity'], errors='coerce').fillna(0)
+        dfAllocation['allocId'] = dfAllocation['allocId'].astype(str)
+        dfInventory['id'] = dfInventory['id'].astype(str)
+
+        allocTotals = dfAllocation.groupby('allocId')['Quantity'].sum().reset_index()
+        allocTotals.columns = ['id', 'AllocatedQty']
+
+        merged = pd.merge(allocTotals, dfInventory[['id', 'InventoryName', 'Quantity']], on='id', how='left')
+        overAllocated = merged[merged['AllocatedQty'] > merged['Quantity']]
+
+        if not overAllocated.empty:
+            errors = [
+                f"{row['InventoryName']}: allocated {int(row['AllocatedQty'])} exceeds quantity of {int(row['Quantity'])}"
+                for _, row in overAllocated.iterrows()
+            ]
+            raise ValueError(', '.join(errors))
+
     dfOrder['Supplier'] = convertTexttoObject(models.Supplier, dfOrder['Supplier'], 'Name')
 
     dfOrder['DeliveryDate'] = pd.to_datetime(dfOrder["DeliveryDate"], format="%Y-%m-%d")
