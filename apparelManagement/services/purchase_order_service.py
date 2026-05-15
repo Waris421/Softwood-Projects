@@ -486,7 +486,15 @@ def EditPurchaseOrderFromData(orderObject: models.PurchaseOrder, data: dict):
         'Forex':         str(row.get('Forex', 1)),
     } for row in inventory])
 
-    allocations = data.get('allocations', [])
+    # Extract allocations from each inventory row and stamp allocId from the inventory row's id
+    allocations = []
+    for inv_row in inventory:
+        for alloc in inv_row.get('allocations', []):
+            allocations.append({
+                'allocId': inv_row.get('id', ''),
+                'WorkOrder': alloc.get('WorkOrder'),
+                'Quantity':  alloc.get('Quantity'),
+            })
     dfAllocation = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=['allocId', 'WorkOrder', 'Quantity'])
 
     EditPurchaseOrder(orderObject, dfOrder, dfInventory, dfAllocation)
