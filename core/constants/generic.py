@@ -133,6 +133,10 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
         {'label': 'Outsource', 'appName': 'prodManagement', 'modelName': 'OutSourceJobContract', 'children': [
             {'label': 'Contract List', 'href': '/productivity/outsource-contracts', 'subtext': 'Manage out-source contracts'},
         ]},
+        {'label': 'Energy Consumption', 'appName': 'prodManagement', 'modelName': 'EnergyConsumption', 'children': [
+            {'label': 'Upload File', 'href': '/productivity/energy/upload', 'subtext': 'Upload energy consumption data'},
+            {'label': 'Data Visualization', 'href': '/productivity/energy/visualization', 'subtext': 'View energy consumption charts'},
+        ]},
     ],
     'finance': [
         {'label': 'Dashboard', 'href': '/finance', 'appName': 'apparelManagement', 'modelName':'Inventory'},
@@ -140,6 +144,9 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Raw Material Stock', 'href': '/finance/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/finance/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
             {'label': 'View PO', 'href': '/finance/purchase-order', 'subtext': 'View all Purchase Orders'},
+        ]},
+        {'label': 'Machinery', 'appName': 'proManagement', 'modelName': 'Machine', 'children': [
+            {'label': 'Machiner List', 'href': '/machinery', 'subtext': 'View and Manage the machiner list'},
         ]},
     ],
     'hr': [
@@ -161,6 +168,10 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Raw Material Stock', 'href': '/mmc/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
             {'label': 'Manage Cards', 'href': '/mmc/inventory', 'subtext': 'Manage Inventory Cards in the database'},
+        ]},
+        {'label': 'Receipt', 'appName': 'apparelManagement', 'modelName': 'InventoryReciept', 'children': [
+            {'label': 'Receipt List', 'href': '/mmc/inventory-receipt', 'subtext': 'Get a list of all the Inventory Receipts'},
+            {'label': 'Add New', 'href': '/mmc/inventory-receipt/add', 'subtext': 'Add a new inventory receipt'},
         ]},
         {'label': 'Issuance', 'appName': 'apparelManagement', 'modelName': 'Issuance', 'children': [
             {'label': 'Issue for Order', 'href': '/mmc/issuance/add-order', 'subtext': 'Add Issuance for Direct material against a work order'},

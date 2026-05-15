@@ -39,6 +39,7 @@ def updateModelWithDF (
         targetTable: Model,
         newData: pd.DataFrame,
         previousData: pd.DataFrame,
+        returnOBjs: bool = False,
 ):
     '''
     Update a django model with the new data provided in dataframe.
@@ -46,6 +47,7 @@ def updateModelWithDF (
     Rows present in both new and previous data would be updated.
     Rows present in newData but not in previousData would be created.
     Both newData and preiousData must have an id column
+    use returnIds for when we need the objects back
     '''
     if 'id' not in newData.columns:
         raise ValueError("id columns are missing in newData df.")
@@ -67,37 +69,56 @@ def updateModelWithDF (
     #Set any rows as new entries where id is nan
     newData['id'] = np.where(newData['id'].isna(), None, newData['id'])
 
-    #Any data in newData who have id. These would be the data already existing in the db and updated by user
-    dfExistingNewData = newData[newData['id'].notna()]
-    
-    # Get a list of existing IDs from the database that are also in our new data
-    existingNewDataIds = set(targetTable.objects.filter(id__in=dfExistingNewData['id'].tolist()).values_list('id', flat=True))
+    # Identify Existing Records
+    existingIds = newData['id'].dropna().tolist()
+    existingIdsInDB = set(
+        targetTable.objects.filter(id__in=existingIds).values_list('id', flat=True)
+    )
 
-    toCreate = []
+    finalObjects = [None] * len(newData)
     toUpdate = []
+    toCreate = []
+    createIndices = []
 
-    for _, row in newData.iterrows():
-        # Exclude 'id' for creation if it's new
-        rowDict = row.drop('id', errors='ignore').to_dict()
-
-        if row['id'] in existingNewDataIds:
-            #Existing Entry. Need to update the DB
-            obj = targetTable(**row.to_dict())
-            toUpdate.append(obj)
-        else:
-            #New Entry. Need to add to DB
-            toCreate.append(targetTable(**rowDict))
-            
-    #This ensures that the code below it is part of one db transation. If any one part of transaction fails, it calls back all changes made.
     with transaction.atomic():
-        if toCreate:
-            targetTable.objects.bulk_create(toCreate)
+        for idx, (originalIdx, row) in enumerate(newData.iterrows()):
+            rowDict = row.to_dict()
+            currId = row['id']
+
+            #Update the exising
+            if pd.notna(currId) and currId in existingIdsInDB:
+                obj = targetTable(**rowDict)
+                toUpdate.append(obj)
+                finalObjects[idx] = obj
+            
+            #Create new
+            else:
+                rowDict.pop('id', None)
+                obj = targetTable(**rowDict)
+
+                if returnOBjs:
+                    newObj = targetTable.objects.create(**rowDict)
+
+                    finalObjects[idx] = newObj
+                else:
+                    toCreate.append(obj)
+                    createIndices.append(idx)
+        
+        updateFields = [col for col in newData.columns if col != 'id']
 
         if toUpdate:
-            # Update only those cols that are provided by user. Exclude fields like 'id'.
-            fieldsToUpdate = [col for col in newData.columns if col != 'id']
-            
-            targetTable.objects.bulk_update(toUpdate, fields=fieldsToUpdate)
+            targetTable.objects.bulk_update(toUpdate, fields=updateFields)
+        
+        if toCreate:
+            createdObjs = targetTable.objects.bulk_create(toCreate)
+
+            for i, obj in zip(createIndices, createdObjs):
+                finalObjects[i] = obj
+        
+        if returnOBjs:
+            return pd.Series(finalObjects, index=newData.index)
+        
+        return None
 
 def refineJson(jsonData: Dict[str, Any]) -> pd.DataFrame | List[pd.DataFrame]:
     '''

@@ -212,7 +212,7 @@ def PreviewUploader(file: TextIO | BinaryIO):
     dfEmployees = pd.read_excel(file) if file.name.endswith('.xlsx') else pd.read_csv(file)
 
     #Make sure the required columns are in the uploaded file. Ignore order of cols
-    requiredCols = ['Code', 'Name', 'FatherSpouse', 'DateOfBirth', 'Department', 'SubDepartment', 'ManagerCode', 'Gender', 'CNIC', 'Username', 'EmailAddress']
+    requiredCols = ['Code', 'Name', 'FatherSpouse', 'DateOfBirth', 'Department', 'SubDepartment', 'ManagerCode', 'Gender', 'CNIC', 'ShiftStart', 'ShiftEnd', 'Username', 'EmailAddress']
     if set(dfEmployees.columns) != set(requiredCols):
         missingCols = set(requiredCols) - set(dfEmployees.columns)
         extraCols = set(dfEmployees.columns) - set(requiredCols)
@@ -250,6 +250,8 @@ def AddEmployeeBulk(token: str | None):
     if cachedData is None:
         raise ValueError('Session Expired. Please try uploading again.')
     
+    defaultOfficeLocation = models.Location.objects.get(id=41)
+
     dfData = pd.DataFrame(cachedData).copy()
     del cachedData, token
 
@@ -278,6 +280,7 @@ def AddEmployeeBulk(token: str | None):
             is_active=True
         ) for _, row in dfUsers.iterrows()
     ]
+    
     with transaction.atomic():
         createdUsers = User.objects.bulk_create(userObjs)
         dfUsers['User'] = createdUsers
@@ -292,17 +295,32 @@ def AddEmployeeBulk(token: str | None):
     
     dfData['DateOfBirth'] = pd.to_datetime(dfData['DateOfBirth'], unit='ns')
     dfData['DateOfBirth'] = dfData['DateOfBirth'].dt.date
-    
+
+    genderMap = {
+        'M': 'Male',
+        'F': 'Female',
+    }    
+    dfData['Gender'] = dfData['Gender'].map(genderMap)
 
     dfData['Department'] = convertTexttoObject(models.Department, dfData['Department'], 'Name')
     dfData['Manager'] = convertTexttoObject(models.Employee, dfData['Manager'], 'id')
 
     employeesToAdd = []
+    assignmentsToAdd = []
     for _, row in dfData.iterrows():
         employee = models.Employee(**row)
         employeesToAdd.append(employee)
 
-    models.Employee.objects.bulk_create(employeesToAdd)
+        locatoinAssignment = models.LocationAssignment(
+            Employee=employee,
+            Location=defaultOfficeLocation
+        )
+        assignmentsToAdd.append(locatoinAssignment)
+
+    #models.Employee.objects.bulk_create(employeesToAdd)
+    #models.LocationAssignment.objects.bulk_create(assignmentsToAdd)
+
+    raise NotImplementedError('Under Construction')
 
     return len(employeesToAdd)
 

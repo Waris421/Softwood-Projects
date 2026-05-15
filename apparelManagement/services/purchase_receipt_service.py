@@ -1,3 +1,4 @@
+from typing import  Dict, List
 import pandas as pd
 import numpy as np
 from decimal import Decimal
@@ -8,7 +9,61 @@ from django.db import transaction
 
 from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
+from core.constants.generic import TODAY
 
+def GetInventoryReceipts():
+    twoYearsAgo = TODAY.replace(year=TODAY.year - 2)
+    filters = Q(ReceiptDate__gte=twoYearsAgo)
+    fields = ['id','ReceiptDate','Supplier','PONumber', 'Invoice']
+    receipts = models.InventoryReciept.objects.filter(filters).values(*fields)
+    dfReceipts = pd.DataFrame(receipts) if receipts else pd.DataFrame(columns=fields)
+    del receipts
+
+    fields = ['id','ReceiptNumber','InventoryCode', 'InventoryCode__Name']
+    inventories = models.RecInventory.objects.filter(ReceiptNumber__in=dfReceipts['id'].to_list()).values(*fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
+    del inventories
+
+    fields = ['RecInvId','WorkOrder', 'WorkOrder__StyleCode']
+    allocations = models.RecAllocation.objects.filter(RecInvId__in=dfInventories['id'].to_list()).values(*fields)
+    dfAllocations = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=fields)
+    del allocations
+
+    dfReceipts.rename(inplace=True, columns={'id':'ReceiptNumber'})
+    dfInventories.rename(inplace=True, columns={'id':'RecInvId', 'InventoryCode__Name': 'InventoryName'})
+    dfAllocations.rename(inplace=True, columns={'WorkOrder__StyleCode': 'StyleCode'})
+
+    dfReceipts = pd.merge(left=dfReceipts, right=dfInventories, on='ReceiptNumber', how='left')
+    del dfInventories
+
+    dfReceipts = pd.merge(left=dfReceipts, right=dfAllocations, on='RecInvId', how='left')
+    dfReceipts.drop(inplace=True, columns=['RecInvId'])
+    del dfAllocations
+
+    dfReceipts['InvoicePending'] = dfReceipts['Invoice'].replace(r'^\s*$', np.nan, regex=True).isna()
+    dfReceipts.drop(inplace=True, columns=['Invoice'])
+
+    dfReceipts = dfReceipts.groupby('ReceiptNumber').agg({
+        'ReceiptDate': 'first',
+        'Supplier': 'first',
+        'PONumber': 'first',
+        'InvoicePending': 'first',
+        'InventoryCode': lambda x: list(set(x)),
+        'InventoryName': lambda x: list(set(x)),
+        'StyleCode': lambda x: list(set(i for i in x if pd.notnull(i))),
+        'WorkOrder': lambda x: list(set(int(i) for i in x if pd.notnull(i))),
+    }).reset_index()
+
+    dfReceipts.rename(inplace=True, columns={
+        'ReceiptNumber': 'id', 'PONumber': 'POId', 'InventoryCode': 'InventoryCodes',
+        'InventoryName': 'InventoryNames', 'StyleCode': 'StyleCodes', 'WorkOrder': 'WorkOrders',
+    })
+
+    dfReceipts.sort_values(inplace=True, by='id', ascending=False)
+
+    return dfToListOfDicts(dfReceipts)
+
+#TODO: This would be obsolete once we shift to next
 def GetReceiptList(supplier: str, receiptNumber: int):
     '''
     Get the list of all purchase orders
@@ -71,6 +126,48 @@ def GetReceiptList(supplier: str, receiptNumber: int):
     dfReceipts = dfReceipts.sort_values(by='ReceiptNumber', ascending=False)
     return dfToListOfDicts(dfReceipts)
 
+def GetDataForRecAddition(poNumber: int):
+    fields = ['id', 'Inventory', 'Inventory__Name', 'Inventory__Unit', 'Variant', 'Quantity', 'Price', 'Currency']
+    poInventories = models.POInventory.objects.filter(PONumber=poNumber).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories
+
+    fields = ['POInvId', 'WorkOrder', 'WorkOrder__StyleCode', 'WorkOrder__Customer', 'WorkOrder__Merchandiser__first_name', 'WorkOrder__Merchandiser__last_name', 'Quantity']
+    poAllocations = models.POAllocation.objects.filter(POInvId__in=dfPOInventories['id'].to_list()).values(*fields)
+    dfPOAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
+    del poAllocations
+
+    dfPOInventories.rename(inplace=True, columns={'Inventory__Name':'InventoryName', 'Inventory__Unit': 'Unit'})
+    dfPOAllocations.rename(inplace=True, columns={
+        'POInvId': 'id', 'WorkOrder__StyleCode': 'StyleCode',
+        'WorkOrder__Customer': 'Customer', 
+        'WorkOrder__Merchandiser__first_name': 'MerchandiserFirstName',
+        'WorkOrder__Merchandiser__last_name': 'MerchandiserLastName'
+    })
+
+    dfPOAllocations['Merchandiser'] = dfPOAllocations[['MerchandiserFirstName', 'MerchandiserLastName']] \
+        .fillna('') \
+        .apply(lambda x: ' '.join(x).strip(), axis=1, result_type='reduce')
+    dfPOAllocations.drop(inplace=True, columns=['MerchandiserFirstName', 'MerchandiserLastName'])
+    
+    dfPOInventories = pd.merge(left=dfPOInventories, right=dfPOAllocations, on='id', how='left')
+    del dfPOAllocations
+
+    dfPOInventories.rename(inplace=True, columns={'Quantity_x': 'POQuantity', 'Quantity_y': 'AllocatedQty'})
+
+    invCols = ['id', 'Inventory', 'InventoryName', 'Unit', 'Variant', 'POQuantity', 'Price', 'Currency']
+    detailCols = ['WorkOrder', 'StyleCode', 'Customer', 'Merchandiser', 'AllocatedQty']
+
+    if dfPOInventories.empty:
+        dfPOInventories = pd.DataFrame(columns=invCols + ['Details'])
+    else:
+        dfPOInventories = dfPOInventories.groupby(invCols).apply(
+                lambda x: x[detailCols].to_dict('records')
+            ).reset_index(name='Details')
+
+    return dfToListOfDicts(dfPOInventories)
+
+#TODO: This woudl be obsolete once we shift to next
 def GetPOData(purchaseOrder: models.PurchaseOrder):
     fields = ['id','Inventory','Variant','Quantity', 'Price', 'Currency']
     poInventories = models.POInventory.objects.filter(PONumber=purchaseOrder).values(*fields)
@@ -88,6 +185,7 @@ def GetPOData(purchaseOrder: models.PurchaseOrder):
     
     return dfToListOfDicts(dfPOInventories)
 
+#TODO: This would be obsolete once we shift to next
 def GetPOContext(poInventory):
     fields = ['WorkOrder', 'Quantity']
     allocations = models.POAllocation.objects.filter(POInvId=poInventory).values(*fields)
@@ -129,6 +227,124 @@ def GetPOContext(poInventory):
 
     return dfToListOfDicts(dfAllocations)
 
+def AddPurchaseReceiptAPI(data: Dict[str, Dict[str, str] | List[Dict[str, str]]]):
+    recHeading = data.get('heading')
+    inventories = data.get('inventory')
+
+    if not recHeading or not inventories:
+        raise ValueError('Incomplete data provided') 
+    
+    try:
+        purchaseOrder = recHeading.get('PONumber')
+        purchaseOrder = models.PurchaseOrder.objects.get(id=purchaseOrder)
+    except:
+        raise LookupError('Invalid PO Number')        
+    
+    dfReceivedInventories = pd.DataFrame(inventories)[['id', 'Quantity', 'Inventory', 'Variant']]
+    
+    fields = ['POInvId','WorkOrder','Quantity']
+    allocations = models.POAllocation.objects.filter(POInvId__in=dfReceivedInventories['id'].unique()).values(*fields)
+    dfPOAllocations = pd.DataFrame(allocations) if allocations else pd.DataFrame(columns=fields)
+    del allocations
+
+    fields = ['id','Inventory','Variant', 'Price', 'Forex']
+    poInventories  = models.POInventory.objects.filter(id__in=dfReceivedInventories['id'].unique()).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories
+
+    fields = ['id', 'Inventory', 'Variant', 'StockQuantity', 'StockValue']
+    stockStatus = models.InventoryStock.objects.filter(
+        Inventory__in=dfReceivedInventories['Inventory'].unique(),
+        Variant__in=dfReceivedInventories['Variant'].unique(),
+    ).values(*fields)
+    dfPreviousStock = pd.DataFrame(stockStatus) if stockStatus else pd.DataFrame(columns=fields)
+    del stockStatus
+
+    dfPOAllocations.rename(inplace=True, columns={'POInvId': 'id'})
+    dfReceivedInventories.drop(inplace=True, columns=['Inventory', 'Variant'])
+
+    #Handle any shortage in received qty
+    dfTotalAllocated = dfPOAllocations.groupby('id')['Quantity'].sum().reset_index()
+    dfTotalAllocated.columns = ['id', 'TotalAllocated']
+
+    dfRecAllocations = pd.merge(left=dfPOAllocations, right=dfTotalAllocated, on='id')
+    dfRecAllocations = pd.merge(left=dfRecAllocations, right=dfReceivedInventories, on='id', suffixes=('_Ordered', '_Received'))
+    
+    dfRecAllocations['ShortageFactor'] = dfRecAllocations['Quantity_Received'] / dfRecAllocations['TotalAllocated']
+
+    dfRecAllocations['Received_Allocation'] = np.where(
+        dfRecAllocations['Quantity_Received'] < dfRecAllocations['TotalAllocated'],
+        dfRecAllocations['Quantity_Ordered'] * dfRecAllocations['ShortageFactor'],      # Distribute shortage
+        dfRecAllocations['Quantity_Ordered']                                            # Keep original (Received >= Allocated)
+    )
+    dfRecAllocations.drop(inplace=True, columns=['Quantity_Ordered', 'TotalAllocated', 'Quantity_Received', 'ShortageFactor'])
+    dfRecAllocations.rename(inplace=True, columns={'Received_Allocation': 'Quantity'})
+
+    dfReceivedInventories = pd.merge(left=dfReceivedInventories, right=dfPOInventories, on='id', how='left')
+    dfReceivedInventories['Approval'] = False
+    dfReceivedInventories['QualityComments'] = None
+
+    dfRecAllocations = pd.merge(left=dfRecAllocations, right=dfPOInventories, on='id', how='left')
+    dfRecAllocations.drop(inplace=True, columns=['id', 'Price', 'Forex'])
+    
+    dfNewStockStatus = dfReceivedInventories[['Inventory', 'Variant', 'Quantity', 'Price', 'Forex']]
+    dfReceivedInventories.drop(inplace=True, columns=['id', 'Price', 'Forex'])
+    
+    dfNewStockStatus = pd.merge(left=dfNewStockStatus, right=dfPreviousStock, on=['Inventory', 'Variant'], how='left')
+
+    for col in ['StockQuantity', 'StockValue']:
+        dfNewStockStatus[col] = dfNewStockStatus[col].fillna(0).astype(float)
+    dfNewStockStatus['Quantity'] = dfNewStockStatus['Quantity'].astype(float)
+
+    dfNewStockStatus['StockQuantity'] +=  dfNewStockStatus['Quantity']
+    dfNewStockStatus['StockValue'] += (dfNewStockStatus['Quantity'] * dfNewStockStatus['Price'] * dfNewStockStatus['Forex'])
+    dfNewStockStatus.drop(inplace=True, columns=['Quantity', 'Price', 'Forex'])
+
+    recHeading['Supplier'] = purchaseOrder.Supplier
+    recHeading['PONumber'] = purchaseOrder
+    recHeading['BiltyValue'] = recHeading.pop('Amount')
+    inventoryReciept = models.InventoryReciept(**recHeading)
+
+    dfReceivedInventories['ReceiptNumber'] = inventoryReciept
+    dfReceivedInventories['InventoryCode'] = convertTexttoObject(models.Inventory, dfReceivedInventories['Inventory'], 'Code')
+    dfReceivedInventories.drop(inplace=True, columns=['Inventory'])
+    dfReceivedInventories['id'] = None
+    
+    dfRecAllocations['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfRecAllocations['WorkOrder'], 'OrderNumber')
+
+    dfNewStockStatus['Inventory'] = convertTexttoObject(models.Inventory, dfNewStockStatus['Inventory'], 'Code')
+
+    emptyDF = pd.DataFrame(columns=['id'])
+
+    with transaction.atomic():
+        inventoryReciept.save()
+        
+        try:
+            dfReceivedInventories['id'] = updateModelWithDF(models.RecInventory, dfReceivedInventories, emptyDF, returnOBjs=True)
+        except Exception as e:
+            raise ValueError(f"RecInv: {e}")
+        
+        dfReceivedInventories['Inventory'] = dfReceivedInventories['InventoryCode'].apply(lambda x: x.Code)
+        dfReceivedInventories.drop(inplace=True, columns=['InventoryCode', 'Quantity', 'Approval', 'QualityComments', 'ReceiptNumber'])
+
+        dfRecAllocations = pd.merge(left=dfRecAllocations, right=dfReceivedInventories, on=['Inventory', 'Variant'], how='left')
+        dfRecAllocations.drop(inplace=True, columns=['Inventory', 'Variant'])
+        dfRecAllocations.rename(inplace=True, columns={'id': 'RecInvId'})
+        dfRecAllocations['id'] = None
+
+        try:
+            updateModelWithDF(models.RecAllocation, dfRecAllocations, emptyDF)
+        except Exception as e:
+            raise ValueError(f"Alloc: {e}")
+
+        try:
+            updateModelWithDF(models.InventoryStock, dfNewStockStatus, dfPreviousStock)
+        except Exception as e:
+            raise ValueError(f"Stock: {e}")
+    
+    return inventoryReciept.id
+
+#TODO: This would be obsolete once we shift to next
 def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): # Takes the receipt that has info on supplier, PO, vehicle etc
     '''
     Add the receipt from the receipt Form
@@ -277,7 +493,7 @@ def EditPurchaseReceipt (
         dfReceipt: pd.DataFrame,
         dfRecInventory: pd.DataFrame,
         dfRecAllocation: pd.DataFrame
-):
+    ):
     '''
     Update the Receipt from the data in the Receipt table.
     '''

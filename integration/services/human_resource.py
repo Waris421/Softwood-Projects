@@ -13,7 +13,8 @@ def AddAttendanceFromMachines(location: models.Location, data: List[Dict[str, st
     dfData = pd.DataFrame(json.loads(data))
 
     #Standardize and Clean
-    dfData['TimeDate'] = pd.to_datetime(dfData['Date'] + ' ' + dfData['Time']).dt.tz_localize(LOCAL_TIMEZONE)
+    combinedSeries = dfData['Date'].str.cat(dfData['Time'], sep=' ')
+    dfData['TimeDate'] = pd.to_datetime(combinedSeries, errors='coerce').dt.tz_localize(LOCAL_TIMEZONE)
     dfData['Employee'] = convertTexttoObject(models.Employee, dfData['EmployeeCode'], 'id')
     dfData = dfData[~dfData['Employee'].isna()]
     dfData['Date'] = pd.to_datetime(dfData['Date']).dt.date
@@ -39,6 +40,7 @@ def AddAttendanceFromMachines(location: models.Location, data: List[Dict[str, st
         return
     
     dfData.drop(inplace=True, columns=['EmployeeCode', 'Date', 'Time'])
+    dfData = dfData[dfData['TimeDate'].notna()].reset_index(drop=True).copy()
 
     #Setting up the fixed values
     dfData[['Latitude', 'Longitude']] = location.Latitude, location.Longitude

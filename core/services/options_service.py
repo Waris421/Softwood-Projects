@@ -577,6 +577,39 @@ def getWorkOrders(request: HttpRequest):
     data = dfToListOfDicts(dfData)
     return JsonResponse(data, safe=False)
 
+class GetOpenPurchaseOrders(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'PurchaseOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search')
+        limit = request.query_params.get('limit')
+
+        exists = Exists(appModels.InventoryReciept.objects.filter(PONumber=OuterRef('id')))
+        filters = Q(received=False)
+        if search:
+            filters &= Q(id__icontains=search) | Q(Supplier__Name__icontains=search)
+
+        querySet = appModels.PurchaseOrder.objects.annotate(received=exists).filter(filters).annotate(
+            value=Cast(F('id'), output_field=CharField()),
+            label=Concat(
+                Cast(F('id'), output_field=CharField()),
+                Value(' - '),
+                Cast(F('Supplier__Name'), output_field=CharField()),
+            )
+        ).order_by('id') 
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]  
+
+        fields = ['value', 'label',]
+        orderList = list(querySet.values(*fields))
+        return Response(data=orderList, status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def getOpenPOs(request:HttpRequest):
     if request.method != 'GET':
@@ -620,17 +653,14 @@ def getOpenPOs(request:HttpRequest):
     return JsonResponse(data, safe=False)
 
 class GetInvUnitsForGroup(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', type='add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
-        
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'add'
+
+    def get(self, request: Request):        
         group = request.query_params.get('group')
         if group is None:
             response = {'message': 'Invalid Group'}
@@ -963,16 +993,14 @@ def GetAvailableCardGroups(request: HttpRequest):
     return JsonResponse(dfToListOfDicts(dfCards), safe=False)
 
 class GetWorkers(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Employee'
+    permissionType = 'view'
 
     def get(self, request: Request):
-        try:
-            manager = authenticateUser(request, 'HumanResource', 'Employee', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-
         search = request.query_params.get('search', '')
         code = request.query_params.get('code', None)
         managerOnly = request.query_params.get('restricted', 'Yes')
@@ -990,11 +1018,11 @@ class GetWorkers(APIView):
             filters &= Q(WorkerCode=code)
         
         fields = ['id', 'WorkerName', 'Department']
-        if (managerOnly == 'No') or (manager.is_staff):
+        if (managerOnly == 'No') or (request.user.is_staff):
             employees = hrModels.Employee.objects.filter(filters).values(*fields)
         else:
             try:
-                manager = hrModels.Employee.objects.get(User=manager)
+                manager = hrModels.Employee.objects.get(User=request.user)
             except:
                 raise PermissionError('Your employee information is incorrect. Check with HR.')
             employees = getSubordinates(manager, filters, fields)

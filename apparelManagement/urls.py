@@ -36,6 +36,9 @@ urlpatterns = [
     path('mmc/inventory-orders/pending', views.PendingInventoryOrders.as_view()),
     path('mmc/issuance/add-sampling', views.AddSamplingIssuance.as_view()),
 
+    path('mmc/inventory-receipt', views.InventoryReceipt.as_view()),
+    path('mmc/inventory-receipt/add', views.AddInventoryReceiptAPI.as_view()),
+
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),
     path('inv/<str:pk>/edit/', views.UpdateInv, name='editInv'),
@@ -141,4 +144,5 @@ urlpatterns = [
     path('api/units', options_service.GetInvUnitsForGroup.as_view()),
     path('options/styles-api', options_service.GetStyles.as_view()),
     path('options/work-orders', options_service.GetWorkOrders.as_view()),
+    path('options/purchase-orders-api/pending', options_service.GetOpenPurchaseOrders.as_view()),
 ]

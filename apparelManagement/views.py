@@ -1845,6 +1845,23 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
             }
         return render(request, 'purchase_order/delete.html', context)
 
+class InventoryReceipt(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'view'
+
+    def get(self, _: Request):
+        try:
+            receipts = purchase_receipt_service.GetInventoryReceipts()
+            return Response(data=receipts, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def PurchaseReceipt(request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='view'):
@@ -1876,6 +1893,47 @@ def PurchaseReceipt(request: HttpRequest):
         'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         'searchTerm': searchTerm, 'selectedSupplier': supplierFilter, 'selectedRec':recFilter}
     return render(request, 'purchase_receipt/home.html', context)
+
+class AddInventoryReceiptAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'add'
+
+    def get(self, request:Request):
+        poNumber = request.query_params.get('po', None)
+
+        if poNumber:
+            try:
+                inventory = purchase_receipt_service.GetDataForRecAddition(poNumber)
+            except Exception as e:
+                print(e)
+                response = {'message': str(e)}
+                return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            inventory = []
+        
+        return Response(data=inventory, status=status.HTTP_200_OK)
+
+    def post(self, request: Request):
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+
+        try:
+            recNumber = purchase_receipt_service.AddPurchaseReceiptAPI(data)
+            response = {'recNumber': recNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def AddPurchaseReceipt(request: HttpRequest):
