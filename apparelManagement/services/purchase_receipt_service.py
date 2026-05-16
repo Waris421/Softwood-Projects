@@ -4,7 +4,7 @@ import numpy as np
 from decimal import Decimal
 
 from django.forms import model_to_dict
-from django.db.models import Q
+from django.db.models import F, Q
 from django.db import transaction
 
 from .. import models
@@ -579,6 +579,44 @@ def EditPurchaseReceipt (
         except Exception as e:
             raise ValueError (e)        
 
+def GetDataForReceiptUpdate(inventoryReceipt: models.InventoryReciept):
+    fields = ['id','InventoryCode','InventoryCode__Name','InventoryCode__Unit','Variant','Quantity','Approval','QualityComments']
+    querySet = models.RecInventory.objects.filter(
+        ReceiptNumber=inventoryReceipt
+    )
+    recInventories = querySet.values(*fields)
+    dfRecInventories = pd.DataFrame(recInventories) if recInventories else pd.DataFrame(columns=fields)
+    del recInventories
+
+    fields = ['Inventory', 'Variant', 'Price', 'Currency']
+    poInventories = models.POInventory.objects.filter(PONumber=inventoryReceipt.PONumber).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories
+    
+    dfRecInventories.rename(inplace=True, columns={
+        'InventoryCode__Name': 'InventoryName',
+        'InventoryCode__Unit': 'Unit',
+    })
+    dfPOInventories.rename(inplace=True, columns={'Inventory': 'InventoryCode'})
+
+    dfRecInventories = pd.merge(left=dfRecInventories, right=dfPOInventories, on=['InventoryCode', 'Variant'], how='left')
+    del dfPOInventories
+    
+    fields = ['id', 'RecInvId', 'WorkOrder', 'Quantity']
+    recAllocations = models.RecAllocation.objects.filter(RecInvId__in=querySet).values(*fields)
+
+    receipt = model_to_dict(inventoryReceipt)
+    receipt['ReceiptDate'] = inventoryReceipt.ReceiptDate
+
+    return {
+        'FormData': {
+            'Receipt': receipt,
+            'Inventories': dfToListOfDicts(dfRecInventories),
+            'Allocations': recAllocations
+        }
+    }
+
+#TODO: This would be obsolete once we shift to next
 def ProcessReceiptData(receiptObject: models.InventoryReciept):
     '''
     Get the data of the provided Receipt.
@@ -613,6 +651,7 @@ def ProcessReceiptData(receiptObject: models.InventoryReciept):
     
     return receipt, dfToListOfDicts(dfRecInventories)
 
+#TODO: This would be obsolete once we shift to next
 def GetReceiptAllocation(recInventory: models.RecInventory):
     '''
     Get the allocation of an inventory code in a provided Receipt.

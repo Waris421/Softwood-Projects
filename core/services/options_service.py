@@ -512,7 +512,8 @@ class GetWorkOrders(APIView):
 
     def get(self, request: Request):
         search = request.query_params.get('search')
-        showStyle = request.query_params.get('showStyle') == 'yes'
+        searches = request.query_params.getlist('searches')
+        extraCols = request.query_params.getlist('extraCols')
         limit = request.query_params.get('limit')
 
         filters = Q()
@@ -522,6 +523,14 @@ class GetWorkOrders(APIView):
                 Q(StyleCode__StyleCode__icontains=search) | 
                 Q(Customer__Name__icontains=search)
             )
+        
+        for term in searches:
+            if term:
+                filters &= (
+                    Q(OrderNumber__icontains=term) |
+                    Q(StyleCode__StyleCode__icontains=term) | 
+                    Q(Customer__Name__icontains=term)
+                )
 
         querySet = appModels.WorkOrder.objects.filter(filters).annotate(
             value=Cast(F('OrderNumber'), output_field=CharField()),
@@ -537,9 +546,9 @@ class GetWorkOrders(APIView):
         if limit and limit.isdigit():
             querySet = querySet[:int(limit)]  
 
-        fields = ['value', 'label', 'StyleCode', 'Customer']
-        if showStyle:
-            fields.append('StyleCode')     
+        fields = ['value', 'label']
+        if extraCols:
+            fields += extraCols 
 
         orderList = list(querySet.values(*fields))
         return Response(data=orderList, status=status.HTTP_200_OK)

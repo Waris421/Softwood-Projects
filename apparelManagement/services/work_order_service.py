@@ -1254,8 +1254,8 @@ def GetInventoryRequirementHistory(invRequirement: models.InvRequirement, workOr
     dfRecInventory['Type'] = 'Receipt'
     dfIssueInventory['Type'] = 'Issuance'
 
-    dfPOInventory['URL'] = '/mmc/purchase-order/'+dfPOInventory['id'].astype(str)+'/edit'
-    dfRecInventory['URL'] = '/mmc/purchase-receipt/'+dfRecInventory['id'].astype(str)+'/edit'
+    dfPOInventory['URL'] = '/mmc/inventory-order/'+dfPOInventory['id'].astype(str)+'/edit'
+    dfRecInventory['URL'] = '/mmc/inventory-receipt/'+dfRecInventory['id'].astype(str)+'/edit'
     dfIssueInventory['URL'] = '/mmc/issuance/'+dfIssueInventory['id'].astype(str)+'/view'
 
     #Combine all to a single history dataframe

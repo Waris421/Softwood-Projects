@@ -1993,6 +1993,29 @@ def GetContextForPurchaseReceipt(request: HttpRequest):
         print(e)
         return HttpResponse(e, status=400)
 
+class UpdateInventoryReceiptAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'change'
+
+    def get(self, _:Request, pk: int):
+        try:
+            inventoryReceipt = models.InventoryReciept.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            formData = purchase_receipt_service.GetDataForReceiptUpdate(inventoryReceipt)
+            return Response(formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def EditPurchaseReceipt(request: HttpRequest, pk:str):
     try:
