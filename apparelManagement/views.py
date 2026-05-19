@@ -962,7 +962,7 @@ class AddWorkOrderAPI(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            work_order_service.AddWorkOrderAPI(data)
+            work_order_service.AddWorkOrderAPI(data, request.user)
             response = {'message': 'Saved Successfully'}
             return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:

@@ -193,7 +193,7 @@ def GetDataForOrderAddition():
         'currencies': dfToListOfDicts(dfCurrencies)
     }
 
-def AddWorkOrderAPI(data: Dict[str, Dict[str, any]|List[Dict[str, any]]]):
+def AddWorkOrderAPI(data: Dict[str, Dict[str, any]|List[Dict[str, any]]], user: User):
     orderNumber = data.get('order').get('OrderNumber')
     if orderNumber is None:
         raise ValueError('Invalid or missing order number')
@@ -208,6 +208,7 @@ def AddWorkOrderAPI(data: Dict[str, Dict[str, any]|List[Dict[str, any]]]):
     del variantDetails
     if dfVariants['Quantity'].sum() <= 0:
         raise ValueError('Order Quantity must be greater than zero')
+    dfVariants = dfVariants[dfVariants['Quantity']>0]
     
     mappings = {
         'Style': (models.StyleCard, 'StyleCode'),
@@ -229,6 +230,8 @@ def AddWorkOrderAPI(data: Dict[str, Dict[str, any]|List[Dict[str, any]]]):
         workOrder = models.WorkOrder(**orderDetails)
     except Exception as e:
         raise ValueError(e)
+    
+    workOrder.Merchandiser = user
     
     dfVariants['OrderNumber'] = workOrder
     dfVariants.rename(inplace=True, columns={'Variant': 'Name'})
@@ -387,10 +390,6 @@ def EditWorkOrder(
     requirementData: List[Dict[str, str]],
     attachmentData: List[Dict[str, str]],
 ):
-    #This shouldn't happen normally, but may happen in case of poor internet connections
-    if workOrder.OrderNumber != int(orderData['OrderNumber']):
-        raise ValueError('You have changed order number without verifying the data. Please refresh and update again.')
-
     dfVariants = pd.DataFrame(variantData) if variantData else pd.DataFrame(columns=['id'])
     dfAttachments = pd.DataFrame(attachmentData) if attachmentData else pd.DataFrame(columns=['id', 'FileUrl', 'FileName', 'CanEdit', 'NewFile'])
     dfRequirement = pd.DataFrame(requirementData) if requirementData else pd.DataFrame(columns=['id'])
@@ -416,11 +415,10 @@ def EditWorkOrder(
     dfPreviousRequirement = pd.DataFrame(previousRequirement) if previousRequirement else pd.DataFrame(columns=fields)
     del previousRequirement, fields
 
-    orderData['Style'] = models.StyleCard.objects.get(StyleCode=orderData['Style'])
+    orderData['StyleCode'] = models.StyleCard.objects.get(StyleCode=orderData['Style'])
     orderData['Customer'] = models.Customer.objects.get(Name=orderData['Customer'])
     orderData['Currency'] = models.Currency.objects.get(Code=orderData['Currency'])
     
-    orderData.pop('OrderNumber')
     for key, value in orderData.items():
         setattr(workOrder, key, value)
     
@@ -553,14 +551,13 @@ def CalculateInventoryRequirement(styleCard: models.StyleCard, workOrder: models
     
     dfSizeAndVariantRequirement.drop(columns=['SizeDetails','Consumption'], inplace=True)
 
-
     #Concate all the non-empty dataframes to one
     toConcat = [df for df in [
         dfSimpleRequirement, dfVariantRequirement, 
         dfSizeOnlyRequirement, dfSizeAndVariantRequirement
     ] if not df.empty]
     if toConcat:
-        dfRequirement = pd.concat(toConcat)
+        dfRequirement = pd.concat(toConcat, ignore_index=True)
 
     excessCut = workOrder.ExcessCut
     dfRequirement['Quantity'] = dfRequirement['Quantity'] * (1+(excessCut/100))
@@ -576,7 +573,7 @@ def CalculateInventoryRequirement(styleCard: models.StyleCard, workOrder: models
     #Apply the manual adjustment
     dfRequirement = pd.merge(left=dfRequirement, right=dfCurrentRequirement, on=['InventoryCode', 'Variant'], how='left')
     multiplier = 1+(dfRequirement['Adjustment'] / 100)
-    dfRequirement['Quantity'] = dfRequirement['Quantity'] * multiplier
+    dfRequirement['Quantity'] *= multiplier.fillna(1)
     dfRequirement.drop(inplace=True, columns=['Adjustment', 'Type'])
 
     dfRequirement = dfRequirement[dfRequirement['Quantity']>0]
