@@ -35,6 +35,9 @@ urlpatterns = [
     path('mmc/purchase-order/<int:pk>/delete', views.PurchaseOrderDeleteAPI.as_view(), name='poDeleteAPI'),
     path('mmc/purchase-order/add', views.PurchaseOrderAddAPI.as_view(), name='poAddAPI'),
     path('mmc/purchase-order', views.PurchaseOrderListAPI.as_view(), name='poListAPI'),
+    path('mmc/inventory-receipt', views.InventoryReceipt.as_view()),
+    path('mmc/inventory-receipt/add', views.AddInventoryReceiptAPI.as_view()),
+    path('mmc/inventory-receipt/<int:pk>/update', views.UpdateInventoryReceiptAPI.as_view()),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),

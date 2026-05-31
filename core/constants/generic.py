@@ -169,6 +169,10 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
             {'label': 'Start PO', 'href': '/mmc/purchase-order', 'subtext': 'Create a new purchase order or edit an existing one'},
         ]},
+        {'label': 'Inventory Receipt', 'appName': 'apparelManagement', 'modelName': 'InventoryReciept', 'children': [
+            {'label': 'View All', 'href': '/mmc/inventory-receipt', 'subtext': 'View and manage inventory receipts'},
+            {'label': 'Add New', 'href': '/mmc/inventory-receipt/add', 'subtext': 'Record a new inventory receipt'},
+        ]},
     ],
     # New section for marketing features
     'marketing': [
