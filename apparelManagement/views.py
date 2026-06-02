@@ -2979,6 +2979,41 @@ class AddSamplingIssuance(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class EditIssuanceAPI(APIView):
+    def get(self, request: Request, pk: int):
+        try:
+            data = issuance_service.GetDataForIssuanceUpdate(pk)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request: Request, pk: int):
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            issuanceId = issuance_service.EditIssuance(pk, data)
+            return Response({'issuanceId': issuanceId}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class IssuanceListAPI(APIView):
+    def get(self, request: Request):
+        searchTerm = request.GET.get('search', '')
+        departmentFilter = request.GET.get('department', None)
+        issuanceNumber = request.GET.get('id', None)
+        try:
+            data = issuance_service.GetIssuanceList(searchTerm, departmentFilter, issuanceNumber)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 # API for inventory receipt related to MMC module
 class InventoryReceipt(APIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]

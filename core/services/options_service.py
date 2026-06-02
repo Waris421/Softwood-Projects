@@ -104,7 +104,7 @@ def getSuppliersList(request: HttpRequest):
 
     return JsonResponse(suppliers, safe=False)
 
-@login_required(login_url='/login')
+# @login_required(login_url='/login')
 def getDepartmentsList (request: HttpRequest):
     if request.method == 'GET':
         objects = appModels.Department.objects.all().values('Name', 'FullName')

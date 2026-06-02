@@ -1,3 +1,4 @@
+from ast import Dict
 from decimal import Decimal
 
 import pandas as pd
@@ -11,6 +12,7 @@ from django.db.models import Q
 from .. import models
 
 from core.services.generic_services import concatenateValues, dfToListOfDicts, convertTexttoObject
+from core.constants.prod import SAMPLING_WORK_WORKER
 
 def calculateBalance(df: pd.DataFrame) -> pd.Series:
     '''Checks the balance qty that can be issued.'''
@@ -398,6 +400,127 @@ def GetIssuanceList (
 
     return dfToListOfDicts(dfIssuances)
 
+def GetDataForIssuanceUpdate(issuance_id: int):
+    # Verify the issuance exists
+    try:
+        issuance = models.Issuance.objects.get(id=issuance_id)
+    except:
+        raise LookupError('Invalid Issuance ID')
+
+    # Fetch all IssueInventory rows for this issuance
+    # Inventory__Code uses Django double-underscore to get the string code
+    # instead of the raw integer FK id
+    fields = ['id', 'Inventory__Code', 'Variant', 'Quantity']
+    issueInventories = models.IssueInventory.objects.filter(Issuance=issuance).values(*fields)
+
+    # Rename keys to be frontend-friendly
+    inventories_data = [
+        {
+            'IssueInvId': item['id'],
+            'Inventory': item['Inventory__Code'],
+            'Variant': item['Variant'],
+            'Quantity': item['Quantity']
+        }
+        for item in issueInventories
+    ]
+
+    # Fetch the work order allocations for these inventory rows
+    issueInvIds = [item['IssueInvId'] for item in inventories_data]
+    allocations_data = list(
+        models.IssueAllocation.objects.filter(
+            IssueInventory__in=issueInvIds
+        ).values('IssueInventory', 'WorkOrder', 'Quantity')
+    )
+
+    print(f'[GetIssuanceUpdate] Issuance {issuance_id}: {len(inventories_data)} items, {len(allocations_data)} allocations')
+
+    return {
+        'inventories': inventories_data,
+        'allocations': allocations_data
+    }
+
+def EditIssuance(issuance_id: int, data: Dict[str, List[Dict[str, str]]]):
+    print(f'\n========== EditIssuance — Issuance ID: {issuance_id} ==========')
+
+    # Step 1: Validate the incoming payload
+    inventories = data.get('inventory')
+
+    if not inventories:
+        raise ValueError('Incomplete data provided')
+
+    print(f'[EditIssuance] Incoming inventory rows: {len(inventories)}')
+
+    # Step 2: Verify the issuance exists in the database
+    try:
+        issuance = models.Issuance.objects.get(id=issuance_id)
+        print(f'[EditIssuance] Issuance found: id={issuance.id} | Department: {issuance.Department}')
+    except:
+        raise LookupError('Invalid Issuance ID')
+
+    # Step 3: Loop through each item, update rows and stage stock changes
+    stocksToUpdate = []
+
+    with transaction.atomic():
+
+        for item in inventories:
+            inventory_code = item['Inventory']
+            variant = item['Variant']
+            new_qty = Decimal(str(item['Quantity']))
+
+            print(f'\n[EditIssuance] Processing: {inventory_code} | Variant: {variant} | New Qty: {new_qty}')
+
+            # Step 3a: Find the existing IssueInventory row
+            try:
+                issueInventory = models.IssueInventory.objects.get(
+                    Issuance=issuance,
+                    Inventory__Code=inventory_code,
+                    Variant=variant
+                )
+            except:
+                raise ValueError(f'No IssueInventory row found for {inventory_code} / {variant}')
+
+            old_qty = Decimal(str(issueInventory.Quantity))
+            print(f'     Old Qty: {old_qty} → New Qty: {new_qty}')
+
+            # Step 3b: Update IssueInventory with the new quantity
+            issueInventory.Quantity = new_qty
+            issueInventory.save()
+            print(f'     IssueInventory saved — id={issueInventory.id}')
+
+            # Step 3c: Allocations mirror IssueInventory qty 1:1, update to match
+            models.IssueAllocation.objects.filter(IssueInventory=issueInventory).update(Quantity=new_qty)
+            print(f'     IssueAllocation updated')
+
+            # Step 3d: Stage stock delta — positive delta reduces stock, negative increases it
+            stock = models.InventoryStock.objects.filter(
+                Inventory=issueInventory.Inventory,
+                Variant=variant
+            ).first()
+
+            if not stock:
+                print(f'     WARNING — No InventoryStock found for {inventory_code} / {variant} — skipping')
+            elif stock.StockQuantity <= 0:
+                print(f'     WARNING — StockQuantity already 0 or negative ({stock.StockQuantity}) — skipping')
+            else:
+                delta = new_qty - old_qty
+                unit_cost = stock.StockValue / stock.StockQuantity
+                old_stock_qty = stock.StockQuantity
+                old_stock_val = stock.StockValue
+                stock.StockQuantity -= delta
+                stock.StockValue -= delta * unit_cost
+                stocksToUpdate.append(stock)
+                print(f'     Stock staged — Qty: {old_stock_qty} → {stock.StockQuantity} | Value: {old_stock_val} → {stock.StockValue}')
+
+        # Step 4: Write all staged stock changes to the database in one query
+        if stocksToUpdate:
+            models.InventoryStock.objects.bulk_update(stocksToUpdate, ['StockQuantity', 'StockValue'])
+            print(f'\n[EditIssuance] InventoryStock bulk updated — {len(stocksToUpdate)} record(s) saved')
+        else:
+            print(f'\n[EditIssuance] No stock records to update')
+
+    print(f'\n========== EditIssuance DONE — Issuance id={issuance.id} ==========\n')
+    return issuance.id
+
 def ProcessRequisitionData(requisition: models.Requisition):
     fields = ['id', 'Inventory','Variant','Quantity']
     requisitionInventories = models.RequisitionInventory.objects.filter(Requisition=requisition).values(*fields)
@@ -435,3 +558,136 @@ def ProcessRequisitionData(requisition: models.Requisition):
     dfResults['WorkOrder'] = np.where(dfResults['WorkOrder'].isna(), '', dfResults['WorkOrder'])
 
     return dfToListOfDicts(dfResults)
+
+def GetDataForSamplingIssuance():
+    # Fetch all inventory allocated to the sampling work order via receipts
+    fields = ['RecInvId__InventoryCode', 'RecInvId__InventoryCode__Name', 'RecInvId__InventoryCode__Unit', 'RecInvId__Variant', 'RecInvId__ReceiptNumber', 'RecInvId__ReceiptNumber__ReceiptDate', 'Quantity']
+    recAllocations = models.RecAllocation.objects.filter(WorkOrder=SAMPLING_WORK_WORKER).values(*fields)
+    dfReceipts = pd.DataFrame(recAllocations) if recAllocations else pd.DataFrame(columns=fields)
+    del recAllocations
+
+    # Fetch all inventory already issued to the sampling work order
+    fields = ['IssueInventory__Inventory', 'IssueInventory__Variant', 'Quantity']
+    issuances = models.IssueAllocation.objects.filter(WorkOrder=SAMPLING_WORK_WORKER).values(*fields)
+    dfIssuances = pd.DataFrame(issuances) if issuances else pd.DataFrame(columns=fields)
+    del issuances
+
+    dfReceipts.rename(inplace=True, columns={
+        'RecInvId__InventoryCode': 'Inventory',
+        'RecInvId__InventoryCode__Name': 'InventoryName',
+        'RecInvId__InventoryCode__Unit': 'Unit',
+        'RecInvId__Variant': 'Variant',
+        'RecInvId__ReceiptNumber': 'ReceiptNumber',
+        'RecInvId__ReceiptNumber__ReceiptDate': 'ReceiptDate',
+        'Quantity': 'Received',
+    })
+    dfIssuances.rename(inplace=True, columns={
+        'IssueInventory__Inventory': 'Inventory',
+        'IssueInventory__Variant': 'Variant',
+        'Quantity': 'Issued',
+    })
+    
+    if dfReceipts.empty:
+        return []
+
+    # FIFO: sort receipts oldest first so earlier batches get consumed before newer ones
+    dfReceipts['ReceiptDate'] = pd.to_datetime(dfReceipts['ReceiptDate'])
+    dfReceipts = dfReceipts.sort_values(['Inventory', 'Variant', 'ReceiptDate'])
+
+    # Total up everything already issued per inventory+variant
+    dfIssuances = dfIssuances.groupby(['Inventory', 'Variant'])['Issued'].sum().reset_index()
+
+    dfReceipts = pd.merge(left=dfReceipts, right=dfIssuances, on=['Inventory', 'Variant'], how='left')
+    del dfIssuances
+
+    dfReceipts['Issued'] = dfReceipts['Issued'].fillna(0).infer_objects(copy=False)
+
+    # Running total tells us how much has been received up to and including each row
+    dfReceipts['RunningTotal'] = dfReceipts.groupby(['Inventory', 'Variant'])['Received'].cumsum()
+
+    # RemainingInRow = how much of this receipt batch is still available after deducting issued qty
+    dfReceipts['RemainingInRow'] = dfReceipts['RunningTotal'] - dfReceipts['Issued']
+
+    # Drop rows that are fully consumed — only keep batches with stock remaining
+    dfReceipts = dfReceipts[dfReceipts['RemainingInRow'] > 0].copy()
+
+    # Available qty per row is capped at what was received in that batch
+    dfReceipts['Quantity'] = dfReceipts.apply(
+        lambda x: min(x['Received'], x['RemainingInRow']), axis=1
+    )
+    dfReceipts.drop(inplace=True, columns=['Received', 'Issued', 'RunningTotal', 'RemainingInRow'])
+
+    # Bundle receipt details into a nested object for the frontend
+    dfReceipts['Details'] = dfReceipts.apply(
+        lambda row: {'ReceiptNumber': row['ReceiptNumber'], 'ReceiptDate': row['ReceiptDate'], 'BalanceQty': row['Quantity']},
+        axis=1
+    )
+
+    # Collapse to one row per inventory+variant, summing qty and listing all receipt details
+    dfReceipts = dfReceipts.groupby(['Inventory', 'Variant']).agg({
+        'Quantity': 'sum',
+        'InventoryName': 'first',
+        'Unit': 'first',
+        'Details': list
+    }).reset_index()
+
+    return dfToListOfDicts(dfReceipts)
+
+
+def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
+    inventories = data.get('Inventories', [])
+    department = data.get('Department', None)
+
+    # Fetch the fixed sampling work order that all sampling issuances link to
+    samplingWO = models.WorkOrder.objects.get(OrderNumber=SAMPLING_WORK_WORKER)
+
+    try:
+        department = models.Department.objects.get(Name=department)
+    except:
+        raise LookupError('Invalid Department')
+
+    requisition = models.Requisition.objects.all().first()
+
+    # Build the issuance header — same pattern as AddIsuanceForOrder
+    issuance = {
+        'Department': department,
+        'Supplier': None,
+        'ReceivedBy': department.Name,
+        'InventoryRequisition': requisition
+    }
+    try:
+        issuance = models.Issuance(**issuance)
+    except Exception as e:
+        raise ValueError(e)
+
+    dfIssueInventories = pd.DataFrame(inventories)
+    del inventories
+
+    # Convert inventory string codes to Django FK objects
+    dfIssueInventories['Inventory'] = convertTexttoObject(models.Inventory, dfIssueInventories['Inventory'], 'Code')
+    dfIssueInventories['Issuance'] = issuance
+
+    # Build IssueInventory and IssueAllocation objects in memory before saving
+    issueInventories = []
+    issueAllocations = []
+    for _, row in dfIssueInventories.iterrows():
+        issueInventory = models.IssueInventory(**row)
+        issueInventories.append(issueInventory)
+
+        issueAllocation = models.IssueAllocation(
+            IssueInventory=issueInventory,
+            WorkOrder=samplingWO,
+            Quantity=row['Quantity']
+        )
+        issueAllocations.append(issueAllocation)
+
+    # Save everything atomically — issuance header first, then inventory rows, then allocations
+    with transaction.atomic():
+        issuance.save()
+
+        for inv in issueInventories:
+            inv.save()
+
+        models.IssueAllocation.objects.bulk_create(issueAllocations)
+
+    return issuance.id
