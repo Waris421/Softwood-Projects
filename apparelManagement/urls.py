@@ -123,6 +123,9 @@ urlpatterns = [
     path('issuance', views.Issuance, name='issue'),
     path('issuance/add', views.AddIssuance, name='addIssue'),
     path('issuance/add/order', views.AddIssuanceForOrder, name='addIssueForOrder'),
+    path('api/issuance/sampling/add', views.AddSamplingIssuance.as_view(), name='apiAddSamplingIssuance'),
+    path('api/issuance/<int:pk>/update', views.EditIssuanceAPI.as_view(), name='apiEditIssuance'),
+    path('api/issuance', views.IssuanceListAPI.as_view(), name='apiIssuanceList'),
 
     path('options/yesorno', options_service.yesOrNo, name='YesOrNo' ),
     path('options/customers', options_service.getCustomersList, name='CustomerList'),
@@ -144,7 +147,7 @@ urlpatterns = [
     path('options/unit/<str:group>', options_service.getUnitsForGroup, name='unitsForGroup'),
     path('options/workorders', options_service.getWorkOrders, name='workOrders'),
     path('options/purchaseorders/open', options_service.getOpenPOs, name='openPOs'),
-    path('api/issuance/sampling/add', views.AddSamplingIssuance.as_view(), name='apiAddSamplingIssuance'),
+
     path('options/preset-routes', options_service.GetPresetRoutes, name='presetRoutes'),
 
     path('api/inventories', options_service.GetInventories.as_view(), name='apiInventoryList'),

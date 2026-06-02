@@ -173,6 +173,10 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'View All', 'href': '/mmc/inventory-receipt', 'subtext': 'View and manage inventory receipts'},
             {'label': 'Add New', 'href': '/mmc/inventory-receipt/add', 'subtext': 'Record a new inventory receipt'},
         ]},
+        {'label': 'Issuance', 'appName': 'apparelManagement', 'modelName': 'Issuance', 'children': [
+            {'label': 'View All', 'href': '/mmc/issuance', 'subtext': 'View and manage issuances'},
+            {'label': 'Add New', 'href': '/mmc/issuance/add-sample', 'subtext': 'Issue inventory to production'},
+        ]},
     ],
     # New section for marketing features
     'marketing': [
