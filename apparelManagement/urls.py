@@ -34,11 +34,14 @@ urlpatterns = [
     path('merchandising/work-order/<int:pk>/delete', views.DeleteWorkOrderAPI.as_view()),
 
     path('mmc/inventory-orders/pending', views.PendingInventoryOrders.as_view()),
-    path('mmc/issuance/add-sampling', views.AddSamplingIssuance.as_view()),
 
     path('mmc/inventory-receipt', views.InventoryReceipt.as_view()),
     path('mmc/inventory-receipt/add', views.AddInventoryReceiptAPI.as_view()),
     path('mmc/inventory-receipt/<int:pk>/update', views.UpdateInventoryReceiptAPI.as_view()),
+    path('mmc/inventory-receipt/<int:pk>/re-allocate', views.ReAllocateRecInventory.as_view()),
+
+    path('mmc/issuance', views.Issuances.as_view()),
+    path('mmc/issuance/add-sampling', views.AddSamplingIssuance.as_view()),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),

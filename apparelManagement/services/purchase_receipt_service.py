@@ -11,6 +11,32 @@ from .. import models
 from core.services.generic_services import updateModelWithDF, convertTexttoObject, concatenateValues, dfToListOfDicts
 from core.constants.generic import TODAY
 
+def verifyReceiptAllocation(dfInventories: pd.DataFrame, dfAllocations: pd.DataFrame):
+    dfAllocatedTotals = (
+        dfAllocations.groupby("RecInvId")["Quantity"].sum().reset_index()
+    )
+    dfAllocatedTotals.columns = ["id", "TotalAllocatedQuantity"]
+
+    dfCheck = pd.merge(dfInventories, dfAllocatedTotals, on="id", how="left")
+
+    dfCheck["TotalAllocatedQuantity"] = dfCheck["TotalAllocatedQuantity"].fillna(0)
+
+    dfExceededAllocations = dfCheck[
+        dfCheck["TotalAllocatedQuantity"] > dfCheck["Quantity"]
+    ]
+
+    if not dfExceededAllocations.empty:
+        firstProblem = dfExceededAllocations.iloc[0]
+
+        variant = firstProblem['Variant']
+        variant = f" ({variant})" if pd.notna(variant) and str(variant).strip() else ""
+
+        raise ValueError(
+            f"Received Qty is less than allocated Qty for "
+            f"Inventory: {firstProblem['Inventory']}{variant}. "
+            f"Received: {firstProblem['Quantity']}, Allocated: {firstProblem['TotalAllocatedQuantity']}."
+        )
+
 def GetInventoryReceipts():
     twoYearsAgo = TODAY.replace(year=TODAY.year - 2)
     filters = Q(ReceiptDate__gte=twoYearsAgo)
@@ -488,6 +514,89 @@ def AddPurchaseReceipt(dfReceipt:pd.DataFrame, dfRecInventories:pd.DataFrame): #
             
     return receiptCard.id
 
+def UpdatePurchaseReceipt(inventoryReceipt: models.InventoryReciept, data: Dict[str, Dict[str, str] | List[Dict[str, str]]]):
+    recHeading = data.get('Receipt')
+    inventories = data.get('Inventories')
+    allocations = data.get('Allocations')
+    
+    if not recHeading or not inventories or not allocations:
+        raise ValueError('Incomplete data provided') 
+    
+    dfReceivedInventories = pd.DataFrame(inventories)[['id', 'Quantity', 'Inventory', 'Variant']]
+    dfReceiptAllocations = pd.DataFrame(allocations)
+
+    try:
+        verifyReceiptAllocation(dfReceivedInventories, dfReceiptAllocations)
+    except Exception as e:
+        raise ValueError(e)
+    
+    dfReceiptAllocations = dfReceiptAllocations[dfReceiptAllocations['WorkOrder'] != 0]
+
+    fields = ['id', 'Quantity']
+    previousInventories = models.RecInventory.objects.filter(ReceiptNumber=inventoryReceipt).values(*fields)
+    dfPreviousInventories = pd.DataFrame(previousInventories) if previousInventories else pd.DataFrame(columns=fields)
+    del previousInventories
+
+    previousAllocations = models.RecAllocation.objects.filter(RecInvId__in=dfPreviousInventories['id'].unique().tolist()).values(*fields)
+    dfPreviousAllocations = pd.DataFrame(previousAllocations) if previousAllocations else pd.DataFrame(columns=fields)
+    del previousAllocations, fields
+
+    fields = ['id', 'Inventory', 'Variant', 'StockQuantity', 'StockValue']
+    stockStatus = models.InventoryStock.objects.filter(
+        Inventory__in=dfReceivedInventories['Inventory'].unique(),
+        Variant__in=dfReceivedInventories['Variant'].unique(),
+    ).values(*fields)
+    dfStockStatus = pd.DataFrame(stockStatus) if stockStatus else pd.DataFrame(columns=fields)
+    del stockStatus
+    
+    fields = ['Inventory','Variant', 'Price', 'Forex']
+    poInventories  = models.POInventory.objects.filter(PONumber=inventoryReceipt.PONumber).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories
+
+    dfQuantityDifference = pd.merge(left=dfReceivedInventories, right=dfPreviousInventories, on='id', suffixes=("_New", "_Prev"))
+    dfReceivedInventories.drop(inplace=True, columns=['Inventory', 'Variant'])
+    dfPreviousInventories.drop(inplace=True, columns=['Quantity'])
+
+    dfQuantityDifference["Quantity"] = (
+        dfQuantityDifference["Quantity_New"] - dfQuantityDifference["Quantity_Prev"]
+    )
+    dfQuantityDifference.drop(inplace=True, columns=['Quantity_New', 'Quantity_Prev', 'id'])
+
+    dfPOInventories["Price"] = dfPOInventories["Price"] * dfPOInventories["Forex"].fillna(1)
+    dfPOInventories.drop(inplace=True, columns=['Forex'])
+
+    dfQuantityDifference = pd.merge(left=dfQuantityDifference, right=dfPOInventories, on=['Inventory', 'Variant'], how='left')
+    del dfPOInventories
+    dfQuantityDifference['Value'] = dfQuantityDifference['Quantity'] * dfQuantityDifference['Price']
+    dfQuantityDifference.drop(inplace=True, columns=['Price'])
+    
+    dfQuantityDifference = dfQuantityDifference[dfQuantityDifference['Quantity'] != 0]
+    dfQuantityDifference.rename(inplace=True, columns={"Quantity": "StockQuantity", "Value": "StockValue"})
+
+    dfQuantityDifference = pd.merge(left=dfQuantityDifference, right=dfStockStatus, on=['Inventory', 'Variant'], how='left', suffixes=("_update", ""))
+    del dfStockStatus
+    
+    dfQuantityDifference["StockQuantity"] = dfQuantityDifference["StockQuantity"].astype(float) + dfQuantityDifference["StockQuantity_update"].astype(float)
+    dfQuantityDifference["StockValue"] = dfQuantityDifference["StockValue"].astype(float) + dfQuantityDifference["StockValue_update"].astype(float)
+    dfQuantityDifference.drop(inplace=True, columns=['StockQuantity_update', 'StockValue_update', 'Inventory', 'Variant'])
+    
+    dfReceiptAllocations['RecInvId'] = convertTexttoObject(models.RecInventory, dfReceiptAllocations['RecInvId'], 'id')
+    dfReceiptAllocations['WorkOrder'] = convertTexttoObject(models.WorkOrder, dfReceiptAllocations['WorkOrder'], 'OrderNumber')
+
+    with transaction.atomic():
+        headingFieldsToUpdate = {'Invoice', 'Vehicle', 'Bilty', 'BiltyValue'}
+        for key in headingFieldsToUpdate:
+            setattr(inventoryReceipt, key, recHeading.get(key))
+        inventoryReceipt.save()
+
+        updateModelWithDF(models.RecInventory, dfReceivedInventories, dfPreviousInventories)
+
+        updateModelWithDF(models.RecAllocation, dfReceiptAllocations, dfPreviousAllocations)
+
+        updateModelWithDF(models.InventoryStock, dfQuantityDifference, dfQuantityDifference[['id']])
+
+#TODO: This would be obsolete once we shift to next
 def EditPurchaseReceipt (
         receiptObject: models.InventoryReciept, 
         dfReceipt: pd.DataFrame,
@@ -665,6 +774,57 @@ def GetReceiptAllocation(recInventory: models.RecInventory):
     else:
         return []
 
+def ReAllocateRecInventory(recInventory: models.RecInventory, totalReceivedQty: float, allocationMethod: str):
+    purchaseOrder = recInventory.ReceiptNumber.PONumber
+    inventory = recInventory.InventoryCode
+    variant = recInventory.Variant
+
+    poInventories = models.POInventory.objects.filter(
+        PONumber=purchaseOrder,
+        Inventory=inventory,
+        Variant=variant
+    )
+    del purchaseOrder, inventory, variant
+
+    fields = ['WorkOrder','Quantity']
+    poAllocations = models.POAllocation.objects.filter(POInvId__in=poInventories).values(*fields)
+    dfAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
+    del poAllocations
+    
+    fields = ['OrderNumber','DeliveryDate']
+    orderDDs = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocations['WorkOrder'].to_list()).values(*fields)
+    dfOrderDDs = pd.DataFrame(orderDDs) if orderDDs else pd.DataFrame(columns=fields)
+    del orderDDs, fields
+
+    totalPOQty = float(dfAllocations['Quantity'].sum())
+
+    if totalReceivedQty < totalPOQty:
+        if allocationMethod == 'distribute':
+            reductionFactor = totalReceivedQty / totalPOQty
+            dfAllocations['Quantity'] = dfAllocations['Quantity'] * reductionFactor
+        else:
+            dfAllocations = pd.merge(dfAllocations, dfOrderDDs, left_on='WorkOrder', right_on='OrderNumber', how='left')
+            dfAllocations.sort_values(by='DeliveryDate', ascending=True, inplace=True)
+
+            remainingQty = totalReceivedQty
+            dfAllocations['NewQuantity'] = 0
+
+            for index, row in dfAllocations.iterrows():
+                allocatedQty = min(row['Quantity'], remainingQty)
+                dfAllocations.at[index, 'NewQuantity'] = allocatedQty
+                remainingQty -= allocatedQty
+
+                if remainingQty<=0:
+                    break
+            
+            dfAllocations['Quantity'] = dfAllocations['NewQuantity']
+            dfAllocations.drop(columns=['OrderNumber', 'DeliveryDate', 'NewQuantity'], inplace=True)
+
+        dfAllocations['Quantity'] = np.floor(dfAllocations['Quantity'] * 100) / 100
+    
+    return dfToListOfDicts(dfAllocations)
+
+#TODO: This would be obsolete once we shift to next
 def ReAllocateReceiptInventory(recInventory: models.RecInventory, totalQtyStr: str, allocationMethod: str):
     purchaseOrder = recInventory.ReceiptNumber.PONumber
     inventory = recInventory.InventoryCode

@@ -1999,7 +1999,10 @@ class UpdateInventoryReceiptAPI(APIView):
 
     appName = 'apparelManagement'
     modelName = 'InventoryReciept'
-    permissionType = 'change'
+    permissionType = {
+        'GET': 'view',
+        'POST': 'change'
+    }
 
     def get(self, _:Request, pk: int):
         try:
@@ -2011,6 +2014,28 @@ class UpdateInventoryReceiptAPI(APIView):
         try:
             formData = purchase_receipt_service.GetDataForReceiptUpdate(inventoryReceipt)
             return Response(formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            inventoryReceipt = models.InventoryReciept.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            purchase_receipt_service.UpdatePurchaseReceipt(inventoryReceipt, data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
@@ -2049,6 +2074,36 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
         
         return render(request, 'purchase_receipt/edit.html', context)
 
+class ReAllocateRecInventory(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'change'
+
+    def get(self, request: Request, pk: int):
+        try:
+            recInventory = models.RecInventory.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        allocationMethod = request.query_params.get('allocationMethod')
+        totalQty = request.query_params.get('totalQty')
+
+        if allocationMethod is None or totalQty is None:
+            response = {'message': 'Incomplete data'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            allocation = purchase_receipt_service.ReAllocateRecInventory(recInventory, float(totalQty), allocationMethod)
+            return Response(data=allocation, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'messnage': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
     if request.method != 'GET':
@@ -2073,6 +2128,7 @@ def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
 
     return JsonResponse(allocation, safe=False)
 
+#TODO: No longer needed for Next
 @login_required(login_url='/login')
 def GetReceiptAllocation(request: HttpRequest):
     if request.method != 'POST':
@@ -2496,6 +2552,23 @@ def GetRequisitionAllocation(request: HttpRequest):
         return JsonResponse(allocation, safe=False)
     else:
         return HttpResponse('No Allowed', status=405)
+
+class Issuances(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Issuance'
+    permissionType = 'view'
+
+    def get(self, _:Request):
+        try:
+            issuances = issuance_service.GetIssuances()
+            return Response(data=issuances, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='login')
 def Issuance (request: HttpRequest):

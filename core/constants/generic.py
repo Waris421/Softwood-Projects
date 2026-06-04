@@ -177,6 +177,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Issue for Order', 'href': '/mmc/issuance/add-order', 'subtext': 'Add Issuance for Direct material against a work order'},
             {'label': 'Issue for Inventory', 'href': '/mmc/issuance/add-inv', 'subtext': 'Add Issuance for Indirect material'},
             {'label': 'Issue for Sampling', 'href': '/mmc/issuance/add-sample', 'subtext': 'Add Issuance for Sampling Department'},
+            {'label': 'History', 'href': '/mmc/issuance', 'subtext': 'View Issuances from last two years'}
         ]},
     ],
     'merchandising': [
