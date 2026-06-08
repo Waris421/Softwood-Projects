@@ -1,10 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework import status
 
 from . import models
+from .services import attendance_service
 
 from .services import employee_service
 
@@ -60,3 +63,22 @@ class AddEmployee(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+# Token: 76b7ab94a259af0daf37c5c5b72c13abcb7bda17
+class RFIDAttendanceAPI(APIView):
+    # Static token auth — ESP sends a fixed token, no user login needed
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        cardUID = request.data.get('CardUID')
+        attendanceType = request.data.get('Type')
+
+        if not cardUID or not attendanceType:
+            return Response({'message': 'CardUID and Type are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            attendance_service.AddRFIDAttendance(cardUID, attendanceType)
+            return Response({'message': 'Attendance recorded'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
