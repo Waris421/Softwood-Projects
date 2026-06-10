@@ -42,6 +42,8 @@ urlpatterns = [
 
     path('mmc/issuance', views.Issuances.as_view()),
     path('mmc/issuance/add-sampling', views.AddSamplingIssuance.as_view()),
+    path('mmc/issuance/add-inventory', views.AddInventoryIssuance.as_view()),
+    path('mmc/issuance/add-order', views.AddOrderIssuance.as_view()),
 
     path ('inv',views.Inventory, name='Inv'),   
     path ('inv/add', views.AddInv, name='addInv'),

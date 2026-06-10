@@ -13,6 +13,7 @@ from .. import models
 from core.services.generic_services import concatenateValues, dfToListOfDicts, convertTexttoObject, updateModelWithDF
 from core.constants.prod import SAMPLING_WORK_WORKER
 
+#TODO: This would be obsolete once we transfer to next
 def calculateBalance(df: pd.DataFrame) -> pd.Series:
     '''Checks the balance qty that can be issued.'''
     minQty = np.minimum(df['Required'], df['Received'])
@@ -21,6 +22,7 @@ def calculateBalance(df: pd.DataFrame) -> pd.Series:
 
     return balance
 
+#TODO: This would be obsolete once we transfer to next
 def calculateMaxBalance(df: pd.DataFrame) -> pd.Series:
     partA = (1.02 * df['Required']) - df['Issued']
     partB = df['Received'] - df['Issued']
@@ -54,6 +56,7 @@ def consumeFIFO(row: pd.Index):
 
     return consumedReceipts
 
+#TODO: This would be obsolete once we transfer to next
 def AddIssuance(requisition: models.Requisition, comments: str):
     issuance = {
         'Department': requisition.Department,
@@ -89,6 +92,119 @@ def AddIssuance(requisition: models.Requisition, comments: str):
             issueAllocation = models.IssueAllocation(**issueAllocation)
             issueAllocation.save()
 
+def AddIssuanceForWorkOrder(data: Dict[str, str | List[Dict[str, str|int]]]):
+    inventories = data.get('Inventories', [])
+    department = data.get('Department', None)
+    workOrder = data.get('WorkOrder', None)
+
+    try:
+        department = models.Department.objects.get(Name = department)
+    except:
+        raise LookupError('Invalid Department')
+
+    try:
+        workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
+    except:
+        raise LookupError('Invalid Work Order')
+    
+    requisition = models.Requisition.objects.all().first()
+
+    issuance = {
+        'Department': department,
+        'Supplier': None,
+        'ReceivedBy': department.Name,
+        'InventoryRequisition': requisition
+    }
+
+    try:
+        issuance = models.Issuance(**issuance)
+    except Exception as e:
+        raise ValueError(e)
+
+    dfIssueInventories = pd.DataFrame(inventories)
+    del inventories
+
+    fields = ['POInvId__Inventory', 'POInvId__Variant', 'POInvId__Price', 'POInvId__Forex', 'Quantity']
+    purchaseOrders = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfPurchaseOrders = pd.DataFrame(purchaseOrders) if purchaseOrders else pd.DataFrame(columns=fields)
+    del purchaseOrders
+
+    fields = ['id', 'Inventory', 'Variant', 'StockQuantity', 'StockValue']
+    stockStatus = models.InventoryStock.objects.filter(
+        Inventory__in=dfIssueInventories['Inventory'].unique(),
+        Variant__in=dfIssueInventories['Variant'].unique(),
+    ).values(*fields)
+    dfPreviousStock = pd.DataFrame(stockStatus) if stockStatus else pd.DataFrame(columns=fields)
+    del stockStatus
+
+    dfPurchaseOrders.rename(inplace=True, columns={
+        'POInvId__Inventory': 'Inventory',
+        'POInvId__Variant': 'Variant',
+        'POInvId__Price': 'Price',
+        'POInvId__Forex': 'Forex',
+    })
+
+    dfPurchaseOrders['Price'] = dfPurchaseOrders['Price'].astype(float) * dfPurchaseOrders['Forex'].astype(float)
+    dfPurchaseOrders.drop(inplace=True, columns=['Forex'])
+
+    dfPurchaseOrders['Value'] = dfPurchaseOrders["Price"] * dfPurchaseOrders["Quantity"]
+
+    dfPurchaseOrders = dfPurchaseOrders.groupby(["Inventory", "Variant"]).agg(
+        Value=("Value", "sum"),
+        Quantity=("Quantity", "sum")
+    ).reset_index()
+
+    dfPurchaseOrders["AveragePrice"] = dfPurchaseOrders["Value"] / dfPurchaseOrders["Quantity"]
+
+    dfStockToRemove = pd.merge(
+        left=dfIssueInventories,
+        right=dfPurchaseOrders[["Inventory", "Variant", "AveragePrice"]],
+        on=["Inventory", "Variant"],
+        how="left",
+    )
+
+    dfStockToRemove['Value'] = dfStockToRemove["Quantity"] * dfStockToRemove["AveragePrice"]
+    dfStockToRemove.drop(inplace=True, columns=['AveragePrice'])
+
+    dfStockToRemove = pd.merge(left=dfStockToRemove, right=dfPreviousStock, on=['Inventory', 'Variant'], how='left')
+    del dfPreviousStock
+
+    dfStockToRemove['StockQuantity'] = dfStockToRemove['StockQuantity'].astype(float).sub(dfStockToRemove['Quantity'], fill_value=0)
+    dfStockToRemove['StockValue'] = dfStockToRemove['StockValue'].astype(float).sub(dfStockToRemove['Value'], fill_value=0)
+    dfStockToRemove.drop(inplace=True, columns=['Quantity', 'Value'])
+
+
+    dfIssueInventories['Inventory'] = convertTexttoObject(models.Inventory, dfIssueInventories['Inventory'], 'Code')
+    dfStockToRemove['Inventory'] = convertTexttoObject(models.Inventory, dfStockToRemove['Inventory'], 'Code')
+
+    issueInventories = []
+    issueAllocations = []
+    for _, row in dfIssueInventories.iterrows():
+        issueInventory = models.IssueInventory(**row)
+        issueInventory.Issuance = issuance
+
+        issueInventories.append(issueInventory)
+
+        issueAllocation = models.IssueAllocation(
+            IssueInventory=issueInventory,
+            WorkOrder=workOrder,
+            Quantity=row['Quantity']
+        )
+        issueAllocations.append(issueAllocation)
+    
+    with transaction.atomic():
+        issuance.save()
+
+        for inv in issueInventories:
+            inv.save()
+
+        models.IssueAllocation.objects.bulk_create(issueAllocations)
+
+        updateModelWithDF(models.InventoryStock, dfStockToRemove, dfStockToRemove[['id']].dropna())
+    
+    return issuance.id
+
+#TODO: This would be obsolete once we transfer to next
 def AddIsuanceForOrder(dfIssuance: pd.DataFrame, dfWorkOrder: pd.DataFrame):
     try:
         workOrder = models.WorkOrder.objects.get(OrderNumber = dfWorkOrder['WorkOrder'][0])
@@ -134,6 +250,90 @@ def AddIsuanceForOrder(dfIssuance: pd.DataFrame, dfWorkOrder: pd.DataFrame):
     
     return issuance.id
 
+def GetDataForWorkOrderIssuance(workOrder: models.WorkOrder):
+    fields = ['InventoryCode', 'InventoryCode__Name', 'InventoryCode__Unit', 'Type']
+    inventories = models.StyleConsumption.objects.filter(Style=workOrder.StyleCode).values(*fields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=fields)
+    del inventories
+
+    filters = Q(OrderNumber=workOrder) & Q(InventoryCode__in=dfInventories['InventoryCode'].unique().tolist())
+    fields = ['InventoryCode', 'Variant', 'Quantity']
+    requirement = models.InvRequirement.objects.filter(filters).values(*fields)
+    dfRequirement = pd.DataFrame(requirement) if requirement else pd.DataFrame(columns=fields)
+    del requirement
+
+    fields = ['POInvId__Inventory', 'POInvId__Variant', 'Quantity']
+    purchaseOrders = models.POAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfPurchaseOrders = pd.DataFrame(purchaseOrders) if purchaseOrders else pd.DataFrame(columns=fields)
+    del purchaseOrders
+
+    fields = ['RecInvId__InventoryCode', 'RecInvId__Variant', 'Quantity']
+    receipts = models.RecAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfReceipts = pd.DataFrame(receipts) if receipts else pd.DataFrame(columns=fields)
+    del receipts
+
+    fields = ['IssueInventory__Inventory', 'IssueInventory__Variant', 'Quantity']
+    issuances= models.IssueAllocation.objects.filter(WorkOrder=workOrder).values(*fields)
+    dfIssuances = pd.DataFrame(issuances) if issuances else pd.DataFrame(columns=fields)
+    del issuances
+
+    dfRequirement.rename(inplace=True, columns={'InventoryCode':'Inventory', 'Quantity': 'Required'})
+    dfPurchaseOrders.rename(inplace=True, columns={
+        'POInvId__Inventory': 'Inventory',
+        'POInvId__Variant': 'Variant',
+        'Quantity': 'Ordered'
+    })
+    dfReceipts.rename(inplace=True, columns={
+        'RecInvId__InventoryCode': 'Inventory',
+        'RecInvId__Variant': 'Variant',
+        'Quantity': 'Received'
+    })
+    dfIssuances.rename(inplace=True, columns={
+        'IssueInventory__Inventory': 'Inventory',
+        'IssueInventory__Variant': 'Variant',
+        'Quantity': 'Issued',
+    })
+    dfInventories.rename(inplace=True, columns={
+        'InventoryCode': 'Inventory',
+        'InventoryCode__Name': 'InventoryName',
+        'InventoryCode__Unit': 'Unit'
+    })
+
+    dfRequirement = dfRequirement.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'sum')
+    ).reset_index()
+
+    dfResults = pd.merge(left=dfRequirement, right=dfPurchaseOrders, on=['Inventory', 'Variant'], how='left')
+    del dfRequirement, dfPurchaseOrders
+    dfResults = dfResults.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'first'),
+        Ordered = ('Ordered', 'sum'),
+    ).reset_index()
+
+    dfResults = pd.merge(left=dfResults, right=dfReceipts, on=['Inventory', 'Variant'], how='left')
+    del dfReceipts
+
+    dfResults = dfResults.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'first'),
+        Ordered = ('Ordered', 'first'),
+        Received = ('Received', 'sum'),
+    ).reset_index()
+
+    dfResults = pd.merge(left=dfResults, right=dfIssuances, on=['Inventory', 'Variant'], how='left')
+    del dfIssuances
+    dfResults = dfResults.groupby(by=['Inventory', 'Variant']).agg(
+        Required = ('Required', 'first'),
+        Ordered = ('Ordered', 'first'),
+        Received = ('Received', 'first'),
+        Issued = ('Issued', 'sum'),
+    ).reset_index()
+
+    dfResults = pd.merge(left=dfResults, right=dfInventories, on=['Inventory'], how='left')
+    del dfInventories
+
+    return dfToListOfDicts(dfResults)
+
+#TODO: This would be obsolete once we transfer to next
 def GetDataForOrderIssuance(orderNumber: str|None, type: str|None, selectedInvs: List[str]):
     try:
         workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
@@ -384,6 +584,7 @@ def GetIssuanceList (
 
     return dfToListOfDicts(dfIssuances)
 
+#TODO: This would be unused once we transfer to next, but should resume once requistion is implemented
 def ProcessRequisitionData(requisition: models.Requisition):
     fields = ['id', 'Inventory','Variant','Quantity']
     requisitionInventories = models.RequisitionInventory.objects.filter(Requisition=requisition).values(*fields)
@@ -472,11 +673,12 @@ def GetDataForSamplingIssuance():
 
     dfReceipts['URL'] = '/mmc/inventory-receipt/'+dfReceipts['ReceiptNumber'].astype(str)+'/edit'
     dfReceipts['Details'] = dfReceipts.apply(
-        lambda row: {'ReceiptNumber': row['ReceiptNumber'],
-                     'ReceiptDate': row['ReceiptDate'],
-                     'BalanceQty': row['Quantity'],
-                     'URL': row['URL'],
-                    }, 
+        lambda row: {
+            'ReceiptNumber': row['ReceiptNumber'],
+            'ReceiptDate': row['ReceiptDate'],
+            'BalanceQty': row['Quantity'],
+            'URL': row['URL'],
+        },
         axis=1
     )
     
@@ -492,6 +694,18 @@ def GetDataForSamplingIssuance():
 def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
     inventories = data.get('Inventories', [])
     department = data.get('Department', None)
+
+
+    #Check and ensure that the total issued qty is less than available qty
+    for item in inventories:
+        issuedQty = float(item.get('Quantity', 0))
+        details = item.get('Details', [])
+
+        availableQty = sum(float(detail.get('BalanceQty', 0)) for detail in details)
+
+        if issuedQty > availableQty:
+            raise ValueError('Issued Quantity cannot be more than available Quantity')
+
 
     samplingWO = models.WorkOrder.objects.get(OrderNumber=SAMPLING_WORK_WORKER)
 
@@ -570,6 +784,8 @@ def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
     dfIssueInventories['Inventory'] = convertTexttoObject(models.Inventory, dfIssueInventories['Inventory'], 'Code')
     dfIssueInventories['Issuance'] = issuance
 
+    dfIssuedStock['Inventory'] = convertTexttoObject(models.Inventory, dfIssuedStock['Inventory'], 'Code')
+
     issueInventories = []
     issueAllocations = []
     for _, row in dfIssueInventories.iterrows():
@@ -591,7 +807,198 @@ def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
 
         models.IssueAllocation.objects.bulk_create(issueAllocations)
 
-        updateModelWithDF(models.InventoryStock, dfIssuedStock, [dfIssuedStock['id'].dropna()])
+        updateModelWithDF(models.InventoryStock, dfIssuedStock, dfIssuedStock[['id']].dropna())
 
+    return issuance.id
 
+def GetDataForInventoryIssuance(selectedCodes: List[str]):
+    fields = ['id', 'ReceiptNumber', 'ReceiptNumber__ReceiptDate', 'InventoryCode', 'InventoryCode__Name', 'InventoryCode__Unit', 'Variant', 'Quantity']
+    receivedInventories = models.RecInventory.objects.filter(InventoryCode__in=selectedCodes).values(*fields)
+    dfReceivedInventories = pd.DataFrame(receivedInventories) if receivedInventories else pd.DataFrame(columns=fields)
+    del receivedInventories
+
+    fields = ['RecInvId', 'Quantity']
+    receiptAllocations = models.RecAllocation.objects.filter(RecInvId__in=dfReceivedInventories['id'].unique().tolist())
+    dfReceiptAllocations = pd.DataFrame(receiptAllocations) if receiptAllocations else pd.DataFrame(columns=fields)
+    del receiptAllocations
+
+    fields = ['id', 'Inventory', 'Variant', 'Quantity']
+    issuedInventories = models.IssueInventory.objects.filter(Inventory__in=selectedCodes).values(*fields)
+    dfIssuedInventories = pd.DataFrame(issuedInventories) if issuedInventories else pd.DataFrame(columns=fields)
+    del issuedInventories
+
+    fields = ['IssueInventory', 'Quantity']
+    issuedAllocations = models.IssueAllocation.objects.filter(IssueInventory__in=dfIssuedInventories['id'].unique().tolist()).values(*fields)
+    dfIssuedAllocations = pd.DataFrame(issuedAllocations) if issuedAllocations else pd.DataFrame(columns=fields)
+    del issuedAllocations
+
+    dfReceivedInventories.rename(inplace=True, columns={
+        'ReceiptNumber__ReceiptDate': 'ReceiptDate',
+        'InventoryCode': 'Inventory',
+        'InventoryCode__Name': 'InventoryName',
+        'InventoryCode__Unit': 'Unit',
+    })
+    dfReceiptAllocations.rename(inplace=True, columns={'RecInvId': 'id', 'Quantity': 'AllocatedQty'})
+    dfReceiptAllocations = dfReceiptAllocations.groupby('id')['AllocatedQty'].sum().reset_index()
+
+    dfReceivedInventories = pd.merge(left=dfReceivedInventories, right=dfReceiptAllocations, on='id', how='left') 
+    del dfReceiptAllocations
+
+    dfReceivedInventories['AllocatedQty'] = dfReceivedInventories['AllocatedQty'].fillna(0).infer_objects(copy=False)
+    dfReceivedInventories['Quantity'] = dfReceivedInventories['Quantity'] - dfReceivedInventories['AllocatedQty']
+    dfReceivedInventories.drop(inplace=True, columns=['id', 'AllocatedQty'])
+
+    dfIssuedAllocations.rename(inplace=True, columns={'IssueInventory': 'id', 'Quantity': 'AllocatedQty'})
+    dfIssuedAllocations = dfIssuedAllocations.groupby('id')['AllocatedQty'].sum().reset_index()
+
+    dfIssuedInventories = pd.merge(left=dfIssuedInventories, right=dfIssuedAllocations, on='id', how='left') 
+    del dfIssuedAllocations
+
+    dfIssuedInventories['AllocatedQty'] = dfIssuedInventories['AllocatedQty'].fillna(0).infer_objects(copy=False)
+    dfIssuedInventories['Quantity'] = dfIssuedInventories['Quantity'] - dfIssuedInventories['AllocatedQty']
+    dfIssuedInventories.drop(inplace=True, columns=['id', 'AllocatedQty'])
+
+    #FIFO calculations for issuances against received
+    dfReceivedInventories['ReceiptDate'] = pd.to_datetime(dfReceivedInventories['ReceiptDate'])
+    dfReceivedInventories = dfReceivedInventories.sort_values(['Inventory', 'Variant', 'ReceiptDate'])
+
+    dfIssuedInventories = dfIssuedInventories.groupby(['Inventory', 'Variant'])['Quantity'].sum().reset_index()
+
+    dfReceivedInventories = pd.merge(left=dfReceivedInventories, right=dfIssuedInventories, on=['Inventory', 'Variant'], how='left', suffixes=['_Received', '_Issued'])
+    del dfIssuedInventories
+
+    dfReceivedInventories['Quantity_Issued'] = dfReceivedInventories['Quantity_Issued'].fillna(0).infer_objects(copy=False)
+    dfReceivedInventories['CumSum_Received'] = dfReceivedInventories.groupby(['Inventory', 'Variant'])['Quantity_Received'].cumsum()
+    dfReceivedInventories['Prior_CumSum_Received'] = dfReceivedInventories['CumSum_Received'] - dfReceivedInventories['Quantity_Received']
+    dfReceivedInventories['Quantity'] = dfReceivedInventories['Quantity_Received'] - np.clip(
+        dfReceivedInventories['Quantity_Issued'] - dfReceivedInventories['Prior_CumSum_Received'],
+        0,
+        dfReceivedInventories['Quantity_Received']
+    )
+    dfReceivedInventories = dfReceivedInventories.drop(
+        columns=['Quantity_Received', 'Quantity_Issued', 'CumSum_Received', 'Prior_CumSum_Received']
+    )
+
+    dfReceivedInventories = dfReceivedInventories[dfReceivedInventories['Quantity'] != 0]
+    dfReceivedInventories['URL'] = '/mmc/inventory-receipt/'+dfReceivedInventories['ReceiptNumber'].astype(str)+'/edit'
+    dfReceivedInventories['Details'] = dfReceivedInventories.apply(
+        lambda row: {
+            'ReceiptNumber': row['ReceiptNumber'],
+            'ReceiptDate': row['ReceiptDate'],
+            'BalanceQty': row['Quantity'],
+            'URL': row['URL'],
+        },
+        axis=1
+    )
+
+    dfReceivedInventories = dfReceivedInventories.groupby(['Inventory', 'Variant']).agg({
+        'Quantity': 'sum',
+        'InventoryName': 'first',
+        'Unit': 'first',
+        'Details': list
+    }).reset_index()
+
+    return dfToListOfDicts(dfReceivedInventories)
+
+def AddInventoryIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
+    inventories = data.get('Inventories', [])
+    department = data.get('Department', None)
+
+    #Check and ensure that the total issued qty is less than available qty
+    for item in inventories:
+        issuedQty = float(item.get('Quantity', 0))
+        details = item.get('Details', [])
+
+        availableQty = sum(float(detail.get('BalanceQty', 0)) for detail in details)
+
+        if issuedQty > availableQty:
+            raise ValueError('Issued Quantity cannot be more than available Quantity')
+    
+    try:
+        department = models.Department.objects.get(Name = department)
+    except:
+        raise LookupError('Invalid Department')
+    
+    requisition = models.Requisition.objects.all().first()
+    issuance = {
+        'Department': department,
+        'Supplier': None,
+        'ReceivedBy': department.Name,
+        'InventoryRequisition': requisition
+    }
+    try:
+        issuance = models.Issuance(**issuance)
+    except Exception as e:
+        raise ValueError(e)
+    
+    dfIssueInventories = pd.DataFrame(inventories)
+    del inventories
+
+    fields = ['id', 'Inventory', 'Variant', 'StockQuantity', 'StockValue']
+    stockStatus = models.InventoryStock.objects.filter(
+        Inventory__in=dfIssueInventories['Inventory'].unique(),
+        Variant__in=dfIssueInventories['Variant'].unique(),
+    ).values(*fields)
+    dfPreviousStock = pd.DataFrame(stockStatus) if stockStatus else pd.DataFrame(columns=fields)
+    del stockStatus
+
+    dfIssueInventories['FulfilledBy'] = dfIssueInventories.apply(consumeFIFO, axis=1)
+    dfIssueInventories.drop(inplace=True, columns=['Details'])
+    dfIssuedStock = dfIssueInventories.explode('FulfilledBy').reset_index(drop=True)
+
+    receiptsList = [d['ReceiptNumber'] for sublist in dfIssueInventories['FulfilledBy'] for d in sublist if 'ReceiptNumber' in d]
+    dfIssueInventories.drop(inplace=True, columns=['FulfilledBy'])
+    
+    fields = ['id', 'PONumber']
+    purchaseOrders = models.InventoryReciept.objects.filter(id__in=receiptsList).values(*fields)
+    dfPurchaseOrders = pd.DataFrame(purchaseOrders) if purchaseOrders else pd.DataFrame(columns=fields)
+    del purchaseOrders
+
+    fields = ['PONumber', 'Inventory', 'Variant', 'Price', 'Forex']
+    poInventories = models.POInventory.objects.filter(PONumber__in=dfPurchaseOrders['PONumber'].to_list()).values(*fields)
+    dfPOInventories = pd.DataFrame(poInventories) if poInventories else pd.DataFrame(columns=fields)
+    del poInventories
+
+    dfPurchaseOrders.rename(inplace=True, columns={'id': 'ReceiptNumber'})
+
+    dfPurchaseOrders = pd.merge(left=dfPurchaseOrders, right=dfPOInventories, on='PONumber', how='left')
+    del dfPOInventories
+
+    dfFulfilledBy = pd.json_normalize(dfIssuedStock["FulfilledBy"])
+    dfIssuedStock = pd.concat(
+        [dfIssuedStock.drop(columns=["FulfilledBy"]), dfFulfilledBy], axis=1
+    )
+
+    dfIssuedStock = pd.merge(left=dfIssuedStock, right=dfPurchaseOrders, on=["ReceiptNumber", "Inventory", "Variant"], how='left')
+
+    dfIssuedStock["Value"] = dfIssuedStock["TakenQty"] * dfIssuedStock["Price"] * dfIssuedStock['Forex']
+
+    dfIssuedStock = dfIssuedStock.groupby(["Inventory", "Variant"]).agg(
+        Quantity=("TakenQty", "sum"),
+        Value=("Value", "sum"),
+    ).reset_index()
+
+    dfIssuedStock = pd.merge(left=dfIssuedStock, right=dfPreviousStock, on=['Inventory', 'Variant'], how='left')
+    del dfPreviousStock
+
+    dfIssuedStock['StockQuantity'] = dfIssuedStock['StockQuantity'].astype(float).sub(dfIssuedStock['Quantity'], fill_value=0)
+    dfIssuedStock['StockValue'] = dfIssuedStock['StockValue'].astype(float).sub(dfIssuedStock['Value'], fill_value=0)
+    dfIssuedStock.drop(inplace=True, columns=['Quantity', 'Value'])
+
+    dfIssueInventories['Inventory'] = convertTexttoObject(models.Inventory, dfIssueInventories['Inventory'], 'Code')
+    dfIssueInventories['Issuance'] = issuance
+
+    dfIssuedStock['Inventory'] = convertTexttoObject(models.Inventory, dfIssuedStock['Inventory'], 'Code')
+
+    issueInventories = []
+    for _, row in dfIssueInventories.iterrows():
+        issueInventory = models.IssueInventory(**row)
+        issueInventories.append(issueInventory)
+
+    with transaction.atomic():
+        issuance.save()
+        models.IssueInventory.objects.bulk_create(issueInventories)
+
+        updateModelWithDF(models.InventoryStock, dfIssuedStock, dfIssuedStock[['id']].dropna())
+    
     return issuance.id

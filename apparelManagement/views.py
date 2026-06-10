@@ -2595,7 +2595,71 @@ def Issuance (request: HttpRequest):
         }
 
     return render(request, 'issuance/home.html', context)
+
+class AddOrderIssuance(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Issuance'
+    permissionType = 'add'
+
+    def get(self, request: Request):
+        workOrder = request.query_params.get('workOrder')
+
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=workOrder)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            issuanceData = issuance_service.GetDataForWorkOrderIssuance(workOrder)
+            return Response(data=issuanceData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
+    def post(self, request: Request):
+        try:
+            issuanceNumber = issuance_service.AddIssuanceForWorkOrder(request.data)
+            response = {'issuanceNumber': issuanceNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class AddInventoryIssuance(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Issuance'
+    permissionType = 'add'
+
+    def get(self, request: Request):
+        inventories = request.query_params.getlist('filters')
+        
+        try:
+            issuanceData = issuance_service.GetDataForInventoryIssuance(inventories)
+            return Response(data=issuanceData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            issuanceNumber = issuance_service.AddInventoryIssuance(request.data)
+            response = {'issuanceNumber': issuanceNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def AddIssuance (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'Issuance', type='add'):

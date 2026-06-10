@@ -7,6 +7,10 @@ app_name = 'PM'
 urlpatterns = [
     path('productivity', views.Home, name = 'productivity'),
 
+    path('productivity/api/operation', views.OperationList.as_view()),
+    path('productivity/api/operation/add', views.APIOperationAdd.as_view()),
+    path('productivity/api/operation/<int:pk>/update', views.APIOperationEdit.as_view()),
+
     path('productivity/operations', views.Operations, name='operations'),
     path('productivity/operation/add', views.AddOperation, name='addOperation'),
     path('productivity/operation/<int:pk>/edit', views.EditOperation, name='editOperation'),

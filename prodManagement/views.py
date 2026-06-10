@@ -5,16 +5,16 @@ from django.contrib.auth.decorators import login_required
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import  AllowAny
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.permissions import  AllowAny, IsAuthenticated
 from rest_framework.request import Request
-from rest_framework.authtoken.models import Token
-import rest_framework
+from rest_framework import status
 
 import json
-import os
 
 from core.constants.theme import theme
 from core.services import generic_services, auth_service
+from core.services.auth_service import AppModelPermissions
 from .services import stitching_service, bulletin_service, core_sheet_service
 from .services import  worker_service, serial_service, outsource_service
 
@@ -61,6 +61,40 @@ def Operations (request:HttpRequest):
     }
     return render(request, 'operations/home.html', context)
 
+class OperationList(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Operation'
+    permissionType = 'view'
+
+    def get(self, _: Request):
+        try:
+            operatons = stitching_service.GetOperationsList()
+            return Response(data=operatons, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class APIOperationAdd(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Operation'
+    permissionType = 'add'
+
+    def post(self, request: Request):
+        try:
+            opCode = stitching_service.AddOperationAPI(request.data)
+            return Response(data=opCode, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def AddOperation (request:HttpRequest):
     if request.method == 'POST':
@@ -80,6 +114,45 @@ def AddOperation (request:HttpRequest):
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'operations/add.html', context)
+
+class APIOperationEdit(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Operation'
+    permissionType = 'change'
+
+    def get(self, _: Request, pk: int):
+        try:
+            operation = models.Operation.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            opData = stitching_service.GetDataForOperationUpdate(operation)
+            return Response(data=opData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            operation = models.Operation.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            stitching_service.EditOperationAPI(request.data, operation)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def EditOperation (request: HttpRequest, pk: int):
@@ -469,8 +542,7 @@ class MarkGroupCompletion(APIView):
             user = auth_service.getAPIUser(request)
         except:
             response = {'error': 'Access Denied'}
-            status=  rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)            
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)            
 
         print(user)
 
@@ -480,19 +552,19 @@ class MarkGroupCompletion(APIView):
             core_sheet_service.CompleteCardGroup(cardId)
             
             response = {'message': 'Saved Successfully'}
-            status = rest_framework.status.HTTP_200_OK
+            resStatus = status.HTTP_200_OK
         except LookupError as e:
             response = {'error': str(e)}
-            status = rest_framework.status.HTTP_404_NOT_FOUND
+            resStatus = status.HTTP_404_NOT_FOUND
         except ValueError as e:
             response = {'error': str(e)}
-            status = rest_framework.status.HTTP_409_CONFLICT
+            resStatus = status.HTTP_409_CONFLICT
         except Exception as e:
             response = {'error': str(e)}
-            status=  rest_framework.status.HTTP_400_BAD_REQUEST
+            resStatus=  status.HTTP_400_BAD_REQUEST
         
         
-        return Response(data=response, status=status)
+        return Response(data=response, status=resStatus)
 
 class AssignWorkerCard(APIView):
     permission_classes = [AllowAny]
@@ -502,8 +574,7 @@ class AssignWorkerCard(APIView):
             user = generic_services.getAPIUser(request)
         except:
             response = {'error': 'Access Denied'}
-            status=  rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status) 
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED) 
         
         cardId = request.data.get('cardId')
         workerCode = request.data.get('workerCode')
@@ -511,13 +582,10 @@ class AssignWorkerCard(APIView):
         try:
             worker_service.AssignCardToWorker(cardId, workerCode)
             response = {'message': 'In Process'}
-            status=  rest_framework.status.HTTP_200_OK
-
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_200_OK)
         except Exception as e:
             response = {'error': str(e)}
-            status=  rest_framework.status.HTTP_400_BAD_REQUEST
-            return Response(data=response, status=status)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def Serials(request:HttpRequest):

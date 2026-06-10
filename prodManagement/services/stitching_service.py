@@ -1,13 +1,31 @@
 import pandas as pd
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 from django.db.models import Q
 from django.forms.models import model_to_dict
 
 from .. import models
+from core.services.generic_services import dfToListOfDicts
 from core.services import generic_services
 from core.constants import prod
 
+def GetOperationsList():
+    fields = ['id', 'Name', 'Section', 'Category', 'SkillLevel', 'SMV', 'MachineType', 'Rate']
+    operations = models.Operation.objects.all().values(*fields)
+    dfOperations = pd.DataFrame(operations) if operations else pd.DataFrame(columns=fields)
+    del operations
+
+    mappingDict = {item['value']: item['text'] for item in prod.operationSections}
+    dfOperations['Section'] = dfOperations['Section'].map(mappingDict)
+
+    mappingDict = {item['value']: item['text'] for item in prod.machineTypes}
+    dfOperations['MachineType'] = dfOperations['MachineType'].map(mappingDict)
+
+    dfOperations['RatePerSAM'] = (dfOperations['Rate'] / dfOperations['SMV']).mask(dfOperations['SMV'] == 0, 0).round(2)
+
+    return dfToListOfDicts(dfOperations)
+
+#TODO: This would be obsolete once we shift to next
 def GetOperations(sectionFilter: str, machineType: str, skillLevel: str, ratePerSAM: str):
     operations = models.Operation.objects
 
@@ -50,6 +68,20 @@ def GetOperations(sectionFilter: str, machineType: str, skillLevel: str, ratePer
 
     return generic_services.dfToListOfDicts(dfOperations)
 
+def AddOperationAPI(data: Dict[str, Any]):
+    data['Name'] = data.pop('OperationName')
+    data['SkillLevel'] = data.pop('Level')
+    data['SMV'] = data.pop('SAM')
+    data['Code'] = data.pop('OperationCode')
+
+    operation = models.Operation(**data)  
+    operation.MachineRequirement = (operation['MachineType'] != 'Manu')
+
+    operation.save()
+
+    return operation.id
+
+#TODO: This would be obsolete once we shift to next
 def AddOperation (data: Dict):
     #Rename the data keys to match model fields
     data['SkillLevel'] = data.pop('Level')
@@ -63,11 +95,28 @@ def AddOperation (data: Dict):
     except Exception as e:
         raise ValueError(e)
 
+def GetDataForOperationUpdate(operation: models.Operation):
+    data = model_to_dict(operation)
+    return data
+
+#TODO: This would be obsolete once we shift to next
 def GetDataForOperation(operation: models.Operation):
     data = model_to_dict(operation)
 
     return data
 
+def EditOperationAPI(data: Dict[str, Any], operation: models.Operation):
+    data['Name'] = data.pop('OperationName')
+    data['SkillLevel'] = data.pop('Level')
+    data['SMV'] = data.pop('SAM')
+    data['Code'] = data.pop('OperationCode')
+
+    for key, value in data.items():
+        setattr(operation, key, value)
+    
+    operation.save()
+
+#TODO: This would be obsolete once we shift to next
 def EditOperation (data: Dict, operation: models.Operation):
     #Rename the data keys to match model fields
     data['SkillLevel'] = data.pop('Level')

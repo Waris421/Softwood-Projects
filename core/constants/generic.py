@@ -119,10 +119,10 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'View All', 'href':'/consumption/request/thread', 'subtext': 'Complete history of thread consumptions'},
         ]},
         {'label': 'Presets', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
-            {'label':'Style Bulletin', 'href':'/productivity/buletins', 'subtext': 'Manage style bulletins'},
-            {'label':'Operation', 'href':'/productivity/operations', 'subtext': 'Define and categorize production operations'},
-            {'label':'Machines', 'href':'/productivity/machines', 'subtext': 'Define and categorize production machines'},
-            {'label':'Workers', 'href':'/productivity/workers', 'subtext': 'Manage operator profiles and skill matrices'},
+            {'label':'Style Bulletin', 'href':'/productivity/buletin', 'subtext': 'Manage style bulletins'},
+            {'label':'Operation', 'href':'/productivity/operation', 'subtext': 'Define and categorize production operations'},
+            {'label':'Machines', 'href':'/productivity/machine', 'subtext': 'Define and categorize production machines'},
+            {'label':'Workers', 'href':'/productivity/worker', 'subtext': 'Manage operator profiles and skill matrices'},
         ]},
         {'label': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'children': [
             {'label': 'Core Sheet', 'href': '/productivity/core-sheets', 'subtext': 'Track core sheets'},
@@ -168,6 +168,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Raw Material Stock', 'href': '/mmc/inventory/stock-report' , 'subtext': 'Current balance of fabrics, trims, and accessories (limited to 2yrs)'},
             {'label': 'Free Inventory', 'href': '/mmc/inventory/free-stock', 'subtext': 'Unallocated materials available for new orders'},
             {'label': 'Manage Cards', 'href': '/mmc/inventory', 'subtext': 'Manage Inventory Cards in the database'},
+            {'label': 'Purchase Demand', 'href': '/mmc/inventory/demand', 'subtext': 'Manage inventory demands'},
         ]},
         {'label': 'Receipt', 'appName': 'apparelManagement', 'modelName': 'InventoryReciept', 'children': [
             {'label': 'Receipt List', 'href': '/mmc/inventory-receipt', 'subtext': 'Get a list of all the Inventory Receipts'},
@@ -186,7 +187,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Style Cards', 'href': '/merchandising/style', 'subtext': 'Manage style Cards in the database'},
             {'label': 'Work Orders', 'href': '/merchandising/work-order', 'subtext': 'Manage work orders in the database'},
         ]},
-        {'label': 'Reports', 'appName': 'apprelManagement', 'modelName': 'WorkOrder', 'children': [
+        {'label': 'Reports', 'appName': 'apparelManagement', 'modelName': 'WorkOrder', 'children': [
             {'label': 'Unordered Inventories', 'href': '/merchandising/pending-orders', 'subtext': 'Track work orders with unordered inventory.'},
             {'label': 'Awaiting Receipt', 'href': '/merchandising/pending-receipt', 'subtext': 'Monitor purchase orders which are not yet received.'},
         ]},

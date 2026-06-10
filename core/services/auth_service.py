@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.apps import apps
@@ -50,14 +51,17 @@ def hasPermission (
     except Exception as e:
         raise Exception(e)
     
-    permissionCodename = f"{type}_{model._meta.model_name}"
-    contentType = ContentType.objects.get_for_model(model)
-
-    filteredGroups = user.groups.filter(
-        permissions__codename=permissionCodename,
-        permissions__content_type=contentType
-    )
-    return filteredGroups.exists()
+    permissionString = f"{appName}.{type}_{model._meta.model_name}"
+    
+    cacheKey = f"user_permissions_set_{user.id}"
+    cachedPerms = cache.get(cacheKey)
+    
+    if cachedPerms is None:
+        cachedPerms = set(user.get_group_permissions())
+        
+        cache.set(cacheKey, cachedPerms, timeout=3600)
+    
+    return permissionString in cachedPerms
 
 class AppModelPermissions(permissions.BasePermission):
     """
@@ -72,11 +76,11 @@ class AppModelPermissions(permissions.BasePermission):
         
         #permission_config could be a single string or a mapping of HTTP methods
         permissionConfig: Union[str, Dict[str, str], None] = getattr(view, 'permissionType', None)
-
+        
         #Deny access if developer forgot configure in view
         if not all([appName, modelName, permissionConfig]):
             return False
-        
+
         #For method specific permissions in a view
         if isinstance(permissionConfig, dict):
             permissionType = permissionConfig.get(request.method)
@@ -84,6 +88,7 @@ class AppModelPermissions(permissions.BasePermission):
         #For singular permission in a view
         else:
             permissionType = permissionConfig
+        
         
         #Deny access if developer didn't configure properly
         if not permissionType:
