@@ -211,11 +211,12 @@ class GetInventories(APIView):
             status = rest_framework.status.HTTP_200_OK
             return Response(data=response, status=status)
 
-        objects = objects[:15].values('Code','Name')
+        objects = objects[:15].values('Code', 'Name', 'Unit')
         dfData = pd.DataFrame(objects)
         
         dfData['text'] = dfData['Name']+' - '+dfData['Code']
         dfData.drop(inplace=True, columns=['Name'])
+        dfData['Unit'] = dfData['Unit'].fillna('')
         dfData.rename(inplace=True, columns={'Code': 'value'})
         dfData['value'] = dfData['value'].astype(str)
         

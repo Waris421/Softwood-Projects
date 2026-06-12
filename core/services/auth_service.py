@@ -89,7 +89,7 @@ def authenticateUser(
         modelName: str|None,
         type: Literal["view", "add", "change", "delete"]|None
 ):
-    token = request.META.get('HTTP_AUTHORIZATION')
+    token = request.META.get('HTTP_AUTHORIZATION', '').replace('Token ', '').strip()
     print(token)
     try:
         user = Token.objects.get(key=token).user
