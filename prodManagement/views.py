@@ -185,6 +185,50 @@ def EditOperation (request: HttpRequest, pk: int):
         }
         return render(request, 'operations/edit.html', context)
     
+class OperationRateApproval(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'ApprovedRates'
+    permissionType = 'change'  
+
+    def get(self, _: Request):
+        try:
+            operationsToApprove = stitching_service.GetOperationsForRateApproval()
+            return Response(data=operationsToApprove, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)  
+    
+    def post(self, request: Request):
+        try:
+            stitching_service.ApproveRates(request.data, request.user)
+            response = {'message': 'Added Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class MachineList(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Machine'
+    permissionType = 'view'
+
+    def get(self, _:Request):
+        try:
+            machines = stitching_service.GetMachineList()
+            return Response(data=machines, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def Machines(request: HttpRequest):
     if request.method != 'GET':
@@ -215,6 +259,23 @@ def Machines(request: HttpRequest):
     }
     return render(request, 'machines/home.html', context)
 
+class APIMachineAdd(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Machine'
+    permissionType = 'add'
+
+    def post(self, request: Request):
+        try:
+            machineNumber = stitching_service.AddMachineAPI(request.data)
+            return Response(data=machineNumber, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def AddMachine(request: HttpRequest):
     if request.method == 'POST':
@@ -234,6 +295,127 @@ def AddMachine(request: HttpRequest):
             'theme': theme, 'navLinks': auth_service.getNavLinks(request.user, request.resolver_match.app_name),
         }
         return render(request, 'machines/add.html', context)
+
+class APIMachineEdit(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Machine'
+    permissionType = 'change'
+
+    def get(self, _: Request, pk: int):
+        try:
+            machine = models.Machine.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            machineData = stitching_service.GetDataForMachineUpdate(machine)
+            return Response(data=machineData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            machine = models.Machine.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            stitching_service.EditMachineAPI(request.data, machine)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class MachineStatusChange(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Machine'
+    permissionType = 'change'
+
+    def get(selt, _:Request, pk:int):
+        try:
+            machine = models.Machine.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        response = {'FunctionStatus': machine.FunctionStatus}
+        return Response(data=response, status=status.HTTP_200_OK)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            machine = models.Machine.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        machineStatus = request.data.get('FunctionStatus')
+
+        if not machineStatus:
+            response = {'message': 'Invalid Status'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        machine.FunctionStatus = machineStatus
+        machine.save()
+
+        response = {'message': 'Saved Successfully'}
+        return Response(data=response, status=status.HTTP_200_OK)
+
+class MachineDepartmentChange(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Machine'
+    permissionType = 'change'
+
+    def get(self, _:Request, pk:int):
+        try:
+            machine = models.Machine.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+    
+        if machine.Department:
+            department = machine.Department.Name
+        else:
+            department = None
+        
+        response = {'Department': department}
+        return Response(data=response, status=status.HTTP_200_OK)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            machine = models.Machine.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        department = request.data.get('Department')
+        
+        if department is not None:
+            try:
+                department = models.Department.objects.get(Name=department)
+            except:
+                response = {'message': 'Invalid Department'}
+                return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        machine.Department = department
+        machine.save()
+
+        response = {'message': 'Saved Successfully'}
+        return Response(data=response, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def EditMachine(request: HttpResponse, pk: int):

@@ -26,6 +26,17 @@ class Operation(models.Model):
             models.Index(fields=['MachineType']),
         ]
 
+class ApprovedRates(models.Model):
+    id = models.AutoField(primary_key=True)
+    Operation = models.ForeignKey(Operation, on_delete=models.CASCADE)
+    Rate = models.FloatField()
+    ApprovedBy = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Operation'])
+        ]
+
 class Machine(models.Model):
     id = models.AutoField(primary_key=True)
     MachineId = models.CharField(max_length=31)

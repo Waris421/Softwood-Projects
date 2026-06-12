@@ -1,11 +1,11 @@
 import pandas as pd
 from typing import Dict, List, Tuple, Any
 
-from django.db.models import Q
+from django.db.models import Q, F
 from django.forms.models import model_to_dict
 
 from .. import models
-from core.services.generic_services import dfToListOfDicts
+from core.services.generic_services import dfToListOfDicts, convertTexttoObject, updateModelWithDF
 from core.services import generic_services
 from core.constants import prod
 
@@ -129,6 +129,54 @@ def EditOperation (data: Dict, operation: models.Operation):
     except Exception as e:
         raise ValueError(e)
 
+def GetOperationsForRateApproval():
+    filters = Q(approvedrates__isnull=True) | ~Q(approvedrates__Rate=F('Rate'))
+    fields = ['id', 'Name', 'Section', 'SkillLevel', 'SMV', 'Rate']
+    operations = models.Operation.objects.filter(filters).values(*fields)
+    dfOperations = pd.DataFrame(operations) if operations else pd.DataFrame(columns=fields)
+    del operations, filters
+
+    fields = ['id', 'Operation', 'Rate']
+    approvedRates = models.ApprovedRates.objects.filter(Operation__in=dfOperations['id'].unique().tolist()).values(*fields)
+    dfApprovedRates = pd.DataFrame(approvedRates) if approvedRates else pd.DataFrame(columns=fields)
+    del approvedRates, fields
+
+    dfApprovedRates.rename(inplace=True, columns={'id': 'ApprovedRateId', 'Operation': 'id', 'Rate': 'ApprovedRate'})
+
+    dfOperations = pd.merge(left=dfOperations, right=dfApprovedRates, on='id', how='left')
+    del dfApprovedRates
+
+    mappingDict = {item['value']: item['text'] for item in prod.operationSections}
+    dfOperations['Section'] = dfOperations['Section'].map(mappingDict)
+
+    return dfToListOfDicts(dfOperations)
+
+def ApproveRates(data: Dict[str, List[Dict[str, int]]], approvedBy: models.User):
+    rates = data['Operations']
+    dfRates = pd.DataFrame(rates)
+
+    if dfRates.empty:
+        return
+    
+    dfRates.rename(inplace=True, columns={'id': 'Operation', 'PreviousId': 'id'})
+
+    dfRates['ApprovedBy'] = approvedBy
+    dfRates['Operation'] = convertTexttoObject(models.Operation, dfRates['Operation'], 'id')
+
+    updateModelWithDF(models.ApprovedRates, dfRates, dfRates[['id']])
+
+def GetMachineList():
+    fields = ['id', 'MachineId', 'Type', 'FunctionStatus', 'Manufacturer', 'ModelNumber', 'SerialNumber', 'Department']
+    machines = models.Machine.objects.all().values(*fields)
+    dfMachines = pd.DataFrame(machines) if machines else pd.DataFrame(columns=fields)
+    del machines
+
+    mappingDict = {item['value']: item['text'] for item in prod.machineTypes}
+    dfMachines['Type'] = dfMachines['Type'].map(mappingDict)
+    
+    return dfToListOfDicts(dfMachines)
+
+#TODO: This would be obsolete when we shift to next
 def GetMachines(
         type: str,
         status: str,
@@ -158,7 +206,7 @@ def GetMachines(
         dfMachines = pd.DataFrame(columns=fields)
     del machines, fields, filters
 
-    dfMachineTypes = pd.DataFrame(generic_services.machineTypes)
+    dfMachineTypes = pd.DataFrame(prod.machineTypes)
 
     dfMachines = pd.merge(left=dfMachines, right=dfMachineTypes, left_on='Type', right_on='value', how='left')
     del dfMachineTypes
@@ -169,6 +217,25 @@ def GetMachines(
 
     return machines
 
+def AddMachineAPI(data: Dict[str, any]):
+    conflictExists = models.Machine.objects.filter(
+        Q(MachineId=data.get('MachineId')) | 
+        Q(SerialNumber=data.get('SerialNumber'))
+    ).exists()
+    if conflictExists:
+        raise ValueError('Duplicate Data provided')
+
+    data['Type'] = data.pop('MachineType')
+
+    if data.get('Department'):
+        data['Department'] = models.Department.objects.get(Name=data['Department'])
+    
+    machine = models.Machine(**data)
+    machine.save()
+
+    return machine.id
+
+#TODO: This would be obsolete once we shift to next
 def AddMachine(data: Dict):
     data = {key: None if value == 'null' else value for key, value in data.items()}
     
@@ -184,11 +251,34 @@ def AddMachine(data: Dict):
     except Exception as e:
         raise ValueError(e)
 
+def GetDataForMachineUpdate(machine: models.Machine):
+    return model_to_dict(machine)
+
+#TODO: This woudl be obsolete once we shift to next
 def GetDataForMachine (machine: models.Machine):
     data = model_to_dict(machine)
     
     return data
 
+def EditMachineAPI(data: Dict[str, Any], machine: models.Machine):
+    conflictExists = models.Machine.objects.filter(
+        Q(MachineId=data.get('MachineId')) | 
+        Q(SerialNumber=data.get('SerialNumber'))
+    ).exclude(id=machine.id).exists()
+    if conflictExists:
+        raise ValueError('Duplicate Data provided')
+    
+    data['Type'] = data.pop('MachineType')
+
+    if data.get('Department'):
+        data['Department'] = models.Department.objects.get(Name=data['Department'])
+    
+    for key, value in data.items():
+        setattr(machine, key, value)
+    
+    machine.save()
+
+#TODO: This would be obsolete once we shift to next
 def EditMachine (data: Dict, machine: models.Machine):
     data = {key: None if value == 'null' else value for key, value in data.items()}
     

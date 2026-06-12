@@ -10,6 +10,7 @@ urlpatterns = [
     path('productivity/api/operation', views.OperationList.as_view()),
     path('productivity/api/operation/add', views.APIOperationAdd.as_view()),
     path('productivity/api/operation/<int:pk>/update', views.APIOperationEdit.as_view()),
+    path('productivity/api/rate-approval', views.OperationRateApproval.as_view()),
 
     path('productivity/operations', views.Operations, name='operations'),
     path('productivity/operation/add', views.AddOperation, name='addOperation'),
@@ -18,6 +19,12 @@ urlpatterns = [
     path('productivity/machines', views.Machines, name='machines'),
     path('productivity/machine/add', views.AddMachine, name='addMachine'),
     path('productivity/machine/<int:pk>/edit', views.EditMachine, name='editMachine'),
+
+    path('productivity/api/machine', views.MachineList.as_view()),
+    path('productivity/api/machine/add', views.APIMachineAdd.as_view()),
+    path('productivity/api/machine/<int:pk>/update', views.APIMachineEdit.as_view()),
+    path('productivity/api/machine/<int:pk>/status-change', views.MachineStatusChange.as_view()),
+    path('productivity/api/machine/<int:pk>/department-change', views.MachineDepartmentChange.as_view()),
 
     path('productivity/bulletins', views.StyleBulletin, name='styleBulletins'),
     path('productivity/bulletin/add', views.AddStyleBulletin, name='addStyleBulletin'),

@@ -114,15 +114,14 @@ APP_OPTIONS = [
 BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = {
     'productivity': [
         {'label': 'Dashboard', 'href':'/productivity', 'appName': 'prodManagement', 'modelName': 'Operation'},
+        {'label': 'Presets', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
+            {'label':'Style Bulletin', 'href':'/productivity/buletin', 'subtext': 'Manage style bulletins'},
+            {'label':'Operations', 'href':'/productivity/operation', 'subtext': 'Define and categorize production operations'},
+            {'label':'Machines', 'href':'/productivity/machine', 'subtext': 'Define and categorize production machines'},
+        ]},
         {'label': 'Consumption', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
             {'label': 'Pending Consumptions', 'href':'/consumption/request/thread/pending', 'subtext': 'Review and finalize thread consumptions'},
             {'label': 'View All', 'href':'/consumption/request/thread', 'subtext': 'Complete history of thread consumptions'},
-        ]},
-        {'label': 'Presets', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
-            {'label':'Style Bulletin', 'href':'/productivity/buletin', 'subtext': 'Manage style bulletins'},
-            {'label':'Operation', 'href':'/productivity/operation', 'subtext': 'Define and categorize production operations'},
-            {'label':'Machines', 'href':'/productivity/machine', 'subtext': 'Define and categorize production machines'},
-            {'label':'Workers', 'href':'/productivity/worker', 'subtext': 'Manage operator profiles and skill matrices'},
         ]},
         {'label': 'Cutting', 'appName': 'prodManagement', 'modelName': 'Cut', 'children': [
             {'label': 'Core Sheet', 'href': '/productivity/core-sheets', 'subtext': 'Track core sheets'},
