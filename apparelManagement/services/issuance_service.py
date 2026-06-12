@@ -560,78 +560,35 @@ def ProcessRequisitionData(requisition: models.Requisition):
     return dfToListOfDicts(dfResults)
 
 def GetDataForSamplingIssuance():
-    # Fetch all inventory allocated to the sampling work order via receipts
-    fields = ['RecInvId__InventoryCode', 'RecInvId__InventoryCode__Name', 'RecInvId__InventoryCode__Unit', 'RecInvId__Variant', 'RecInvId__ReceiptNumber', 'RecInvId__ReceiptNumber__ReceiptDate', 'Quantity']
-    recAllocations = models.RecAllocation.objects.filter(WorkOrder=SAMPLING_WORK_WORKER).values(*fields)
-    dfReceipts = pd.DataFrame(recAllocations) if recAllocations else pd.DataFrame(columns=fields)
-    del recAllocations
+    print('\n========== GetDataForSamplingIssuance ==========')
 
-    # Fetch all inventory already issued to the sampling work order
-    fields = ['IssueInventory__Inventory', 'IssueInventory__Variant', 'Quantity']
-    issuances = models.IssueAllocation.objects.filter(WorkOrder=SAMPLING_WORK_WORKER).values(*fields)
-    dfIssuances = pd.DataFrame(issuances) if issuances else pd.DataFrame(columns=fields)
-    del issuances
+    # Step 1: Fetch all inventory that currently has stock
+    fields = ['Inventory', 'Variant', 'StockQuantity']
+    stocks = models.InventoryStock.objects.filter(StockQuantity__gt=0).values(*fields)
+    dfStock = pd.DataFrame(stocks) if stocks else pd.DataFrame(columns=fields)
+    del stocks
+    print(f'[GetDataForSamplingIssuance] {len(dfStock)} stock records found')
 
-    dfReceipts.rename(inplace=True, columns={
-        'RecInvId__InventoryCode': 'Inventory',
-        'RecInvId__InventoryCode__Name': 'InventoryName',
-        'RecInvId__InventoryCode__Unit': 'Unit',
-        'RecInvId__Variant': 'Variant',
-        'RecInvId__ReceiptNumber': 'ReceiptNumber',
-        'RecInvId__ReceiptNumber__ReceiptDate': 'ReceiptDate',
-        'Quantity': 'Received',
-    })
-    dfIssuances.rename(inplace=True, columns={
-        'IssueInventory__Inventory': 'Inventory',
-        'IssueInventory__Variant': 'Variant',
-        'Quantity': 'Issued',
-    })
-    
-    if dfReceipts.empty:
+    if dfStock.empty:
+        print('[GetDataForSamplingIssuance] No stock available')
         return []
 
-    # FIFO: sort receipts oldest first so earlier batches get consumed before newer ones
-    dfReceipts['ReceiptDate'] = pd.to_datetime(dfReceipts['ReceiptDate'])
-    dfReceipts = dfReceipts.sort_values(['Inventory', 'Variant', 'ReceiptDate'])
+    # Step 2: Fetch inventory names and units for each stock item
+    invFields = ['Code', 'Name', 'Unit']
+    inventories = models.Inventory.objects.filter(Code__in=dfStock['Inventory'].unique()).values(*invFields)
+    dfInventories = pd.DataFrame(inventories) if inventories else pd.DataFrame(columns=invFields)
+    del inventories
 
-    # Total up everything already issued per inventory+variant
-    dfIssuances = dfIssuances.groupby(['Inventory', 'Variant'])['Issued'].sum().reset_index()
+    # Step 3: Join stock with inventory details
+    dfStock = pd.merge(left=dfStock, right=dfInventories, left_on='Inventory', right_on='Code', how='left')
+    del dfInventories
+    dfStock.drop(inplace=True, columns=['Code'])
+    dfStock.rename(inplace=True, columns={'StockQuantity': 'Quantity', 'Name': 'InventoryName'})
 
-    dfReceipts = pd.merge(left=dfReceipts, right=dfIssuances, on=['Inventory', 'Variant'], how='left')
-    del dfIssuances
+    print(f'[GetDataForSamplingIssuance] Returning {len(dfStock)} items')
+    print('\n========== GetDataForSamplingIssuance DONE ==========\n')
 
-    dfReceipts['Issued'] = dfReceipts['Issued'].fillna(0).infer_objects(copy=False)
-
-    # Running total tells us how much has been received up to and including each row
-    dfReceipts['RunningTotal'] = dfReceipts.groupby(['Inventory', 'Variant'])['Received'].cumsum()
-
-    # RemainingInRow = how much of this receipt batch is still available after deducting issued qty
-    dfReceipts['RemainingInRow'] = dfReceipts['RunningTotal'] - dfReceipts['Issued']
-
-    # Drop rows that are fully consumed — only keep batches with stock remaining
-    dfReceipts = dfReceipts[dfReceipts['RemainingInRow'] > 0].copy()
-
-    # Available qty per row is capped at what was received in that batch
-    dfReceipts['Quantity'] = dfReceipts.apply(
-        lambda x: min(x['Received'], x['RemainingInRow']), axis=1
-    )
-    dfReceipts.drop(inplace=True, columns=['Received', 'Issued', 'RunningTotal', 'RemainingInRow'])
-
-    # Bundle receipt details into a nested object for the frontend
-    dfReceipts['Details'] = dfReceipts.apply(
-        lambda row: {'ReceiptNumber': row['ReceiptNumber'], 'ReceiptDate': row['ReceiptDate'], 'BalanceQty': row['Quantity']},
-        axis=1
-    )
-
-    # Collapse to one row per inventory+variant, summing qty and listing all receipt details
-    dfReceipts = dfReceipts.groupby(['Inventory', 'Variant']).agg({
-        'Quantity': 'sum',
-        'InventoryName': 'first',
-        'Unit': 'first',
-        'Details': list
-    }).reset_index()
-
-    return dfToListOfDicts(dfReceipts)
+    return dfToListOfDicts(dfStock)
 
 
 def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
@@ -670,6 +627,7 @@ def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
     # Build IssueInventory and IssueAllocation objects in memory before saving
     issueInventories = []
     issueAllocations = []
+    stocksToUpdate = []
     for _, row in dfIssueInventories.iterrows():
         issueInventory = models.IssueInventory(**row)
         issueInventories.append(issueInventory)
@@ -681,6 +639,23 @@ def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
         )
         issueAllocations.append(issueAllocation)
 
+        # Step: Look up the stock record for this inventory item and stage the deduction
+        stock = models.InventoryStock.objects.filter(
+            Inventory=row['Inventory'],
+            Variant=row['Variant']
+        ).first()
+        if not stock:
+            print(f'     WARNING — No InventoryStock found for {row["Inventory"]} / {row["Variant"]} — skipping')
+        elif stock.StockQuantity <= 0:
+            print(f'     WARNING — StockQuantity already 0 or negative for {row["Inventory"]} / {row["Variant"]} — skipping')
+        else:
+            qty = Decimal(str(row['Quantity']))
+            unitCost = stock.StockValue / stock.StockQuantity
+            stock.StockQuantity -= qty
+            stock.StockValue -= qty * unitCost
+            stocksToUpdate.append(stock)
+            print(f'     Stock staged — {row["Inventory"]} | Variant: {row["Variant"]} | Qty deducted: {qty}')
+
     # Save everything atomically — issuance header first, then inventory rows, then allocations
     with transaction.atomic():
         issuance.save()
@@ -690,4 +665,12 @@ def AddSamplingIssuance(data: Dict[str, str | List[Dict[str, str|int]]]):
 
         models.IssueAllocation.objects.bulk_create(issueAllocations)
 
+        # Step: Write all staged stock deductions to the database in one query
+        if stocksToUpdate:
+            models.InventoryStock.objects.bulk_update(stocksToUpdate, ['StockQuantity', 'StockValue'])
+            print(f'[AddSamplingIssuance] InventoryStock bulk updated — {len(stocksToUpdate)} record(s) saved')
+        else:
+            print(f'[AddSamplingIssuance] No stock records to update')
+
     return issuance.id
+
