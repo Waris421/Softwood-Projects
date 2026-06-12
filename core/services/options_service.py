@@ -1,12 +1,15 @@
 from django.http import JsonResponse, HttpResponse, HttpRequest
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Exists, OuterRef, Q, Count
+from django.db.models.functions import Cast, Concat
+from django.db.models import Exists, OuterRef, Q, Count, CharField, F, Value
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import  AllowAny
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.permissions import  AllowAny, IsAuthenticated
 from rest_framework.request import Request
+from rest_framework import status
 import rest_framework
 
 from django_countries import countries
@@ -17,12 +20,14 @@ from numpy import where
 from apparelManagement import models as appModels
 from planning import models as planningModels
 from prodManagement import models as prodModels
+from HumanResource import models as hrModels
 
 from core.constants.prod import operationSections, operationCategories, machineTypes, machineManufacturers
 from core.constants.generic import APP_OPTIONS
-from core.services.auth_service import hasPermission, getAPIUser, authenticateUser
+from core.services.auth_service import hasPermission, getAPIUser, authenticateUser, AppModelPermissions
 
 from .generic_services import dfToListOfDicts
+from .hr_service import getSubordinates
 
 @login_required(login_url='/login')
 def yesOrNo(request):
@@ -38,7 +43,41 @@ def yesOrNo(request):
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
 
-# @login_required(login_url='/login')
+class GetCustomers(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Customer'
+    permissionType = 'view'
+
+    def get(self, request: Request):        
+        queries = request.query_params
+        
+        filters = Q()
+
+        search = queries.get('search','')
+        if search:
+            filters &= (
+                Q(Name__icontains=search) |
+                Q(TradeName__icontains=search)
+            )
+        
+        fields = ['Name','TradeName']
+        customers = appModels.Customer.objects.filter(filters).values(*fields)
+        dfCustomers = pd.DataFrame(customers) if customers else pd.DataFrame(columns=fields)
+        del customers
+
+        dfCustomers.rename(inplace=True, columns={'Name':'value', 'TradeName':'label'})
+        dfCustomers['label'] = where(
+            dfCustomers['value'].astype(str) != dfCustomers['label'].astype(str),
+            dfCustomers['value'].astype(str) + ' - ' + dfCustomers['label'].astype(str),
+            dfCustomers['label']
+        ) 
+
+        return Response(data=dfToListOfDicts(dfCustomers), status=status.HTTP_200_OK)
+
+@login_required(login_url='/login')
 def getCustomersList(request):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -68,7 +107,42 @@ def getCustomersList(request):
 
     customers = dfToListOfDicts(dfCustomers)
     return JsonResponse(customers, safe=False)
-# @login_required(login_url='/login')
+
+class GetSuppliers(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Supplier'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        queries = request.query_params
+
+        search = queries.get('search', None)
+        limit = queries.get('limit', None)
+
+        filters = Q()
+        if search:
+            filters &= Q(Name__icontains=search) | Q(TradeName__icontains=search)
+
+        querySet = appModels.Supplier.objects.filter(filters).annotate(
+            value=Cast(F('Name'), output_field=CharField()),
+            label=Concat(
+                    F('Name'), Value(' - '), F('TradeName'), 
+                    output_field=CharField()
+                )
+        ).order_by('Name')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        supplierList = list(querySet.values(*fields))
+
+        return Response(data=supplierList, status=status.HTTP_200_OK)
+
+@login_required(login_url='/login')
 def getSuppliersList(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -104,27 +178,56 @@ def getSuppliersList(request: HttpRequest):
 
     return JsonResponse(suppliers, safe=False)
 
-# @login_required(login_url='/login')
+class GetDepartments(APIView):
+    '''
+        GET Parameters:
+        search: part of code or name;
+        limit: number;
+    '''
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Department'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search', '')
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= Q(Name__icontains=search) | Q(FullName__icontains=search)
+        
+        querySet = appModels.Department.objects.filter(filters).annotate(
+            value=Cast(F('Name'), output_field=CharField()),
+            label=F('FullName')
+        ).order_by('Name')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        departmentList = list(querySet.values(*fields))
+
+        return Response(data=departmentList, status=status.HTTP_200_OK)
+
+@login_required(login_url='/login')
 def getDepartmentsList (request: HttpRequest):
     if request.method == 'GET':
-        objects = appModels.Department.objects.all().values('Name', 'FullName')
+        objects = appModels.Department.objects.all()
+        dfData = pd.DataFrame(index=range(objects.count()))
 
-        dfData = pd.DataFrame(list(objects)) if objects.exists() else pd.DataFrame(columns=['Name', 'FullName'])
+        dfData['text'] = pd.DataFrame(objects.values('FullName'))
+        dfData['value'] = pd.DataFrame(objects.values('Name'))
 
-        dfData['text'] = dfData['FullName'].fillna(dfData['Name'])
-        mask = dfData['text'].str.strip() == ''
-        dfData.loc[mask, 'text'] = dfData.loc[mask, 'Name']
-        dfData['value'] = dfData['Name']
-
-        dfData = dfData[['text', 'value']]
-
-        dfData = pd.concat([pd.Series({'value': '', 'text': ''}).to_frame().T, dfData], ignore_index=True)
+        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
 
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
 
-
+@login_required(login_url='/login')
 def getCategories(request):
     if request.method == 'GET':
         options = appModels.Categories
@@ -135,6 +238,58 @@ def getCategories(request):
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
+
+class GetInventories(APIView):
+    '''
+        GET Parameters:
+        search: part of code or name;
+        limit: number;
+        showUnits: yes/no;
+        showclosed: yes/no;
+        type: string;
+    '''
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search', '')
+        limit = request.query_params.get('limit')
+        showUnits = request.query_params.get('showUnits') == 'yes'
+        showClosed = request.query_params.get('showClosed') == 'yes'
+        invType = request.query_params.get('type')
+
+        filters = Q()
+
+        if search:
+            filters &= Q(Name__icontains=search) | Q(Code__icontains=search)
+        
+        if not showClosed:
+            filters &= Q(InUse=True)
+        
+        if invType:
+            if invType in ['BW', 'AW']:
+                invType = 'Trim'
+            
+            filters &= Q(Group__icontains=invType)
+        
+        querySet = appModels.Inventory.objects.filter(filters).annotate(
+            value=Cast(F('Code'), output_field=CharField()),
+            label=F('Name')
+        ).order_by('Name')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        if showUnits:
+            fields.append('Unit')
+
+        inventoryList = list(querySet.values(*fields))
+        return Response(data=inventoryList, status=status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def getInventories(request: HttpRequest):
@@ -161,7 +316,7 @@ def getInventories(request: HttpRequest):
         if searches:
             for search in searches:
                 if search:
-                    objects = objects.filter(Q(Name__icontains=search) | Q(Code__icontains=search) | Q(Group__icontains=search))
+                    objects = objects.filter(Q(Name__icontains=search) | Q(Code__icontains=search))
 
         if objects.count() < 1:
             return JsonResponse([], safe=False)
@@ -176,55 +331,13 @@ def getInventories(request: HttpRequest):
         dfData.rename(inplace=True, columns={'Code': 'value'})
         dfData['value'] = dfData['value'].astype(str)
         
-        dfData = pd.concat([pd.Series({'value':'', 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
-
+        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
 
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values]  
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse ('No allowed', status=405)
-
-class GetInventories(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            status = rest_framework.status.HTTP_401_UNAUTHORIZED
-            return Response(data=response, status=status)
-
-        search = request.GET.get('search', '')
-
-        filters = Q()
-
-        if search:
-            filters &= Q(Name__icontains=search) | Q(Code__icontains=search)
-        
-        objects = appModels.Inventory.objects.filter(filters)
-
-        if objects.count() < 1:
-            response = []
-            status = rest_framework.status.HTTP_200_OK
-            return Response(data=response, status=status)
-
-        objects = objects[:15].values('Code','Name')
-        dfData = pd.DataFrame(objects)
-        
-        dfData['text'] = dfData['Name']+' - '+dfData['Code']
-        dfData.drop(inplace=True, columns=['Name'])
-        dfData.rename(inplace=True, columns={'Code': 'value'})
-        dfData['value'] = dfData['value'].astype(str)
-        
-        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
-
-        data = dfToListOfDicts(dfData)
-        status = rest_framework.status.HTTP_200_OK
-
-        return Response(data=data, status=status)
      
 @login_required(login_url='/login')
 def getInvGroups (request: HttpRequest):
@@ -247,7 +360,7 @@ def getUnits(request):
         dfData['text'] = pd.DataFrame(objects.values('Name'))
         dfData['value'] = pd.DataFrame(objects.values('Name'))
 
-        dfData = pd.concat([pd.Series({'value':'', 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
+        dfData = pd.concat([pd.Series({'value':None, 'text':'-----------'}).to_frame().T, dfData], ignore_index=True)
 
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values]  
@@ -274,7 +387,44 @@ def getProductionStages(request):
         dfData.columns = ['value', 'text']
 
         return JsonResponse(dfToListOfDicts(dfData), safe=False)
-    
+
+class GetStyles(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search')
+        showCustomer = request.query_params.get('showCustomer') == 'yes'
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= (
+                Q(StyleCode__icontains=search) |
+                Q(StyleCode__icontains=search) | 
+                Q(Customer__Name__icontains=search)
+            )
+        
+        fields = ['StyleCode','Customer']
+        querySet = appModels.StyleCard.objects.filter(filters).annotate(
+            value=Cast(F('StyleCode'), output_field=CharField()),
+            label=F('StyleCode')
+        ).order_by('StyleCode')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+
+        fields = ['value', 'label']
+        if showCustomer:
+            fields.append('Customer')
+
+        styleList = list(querySet.values(*fields))
+        return Response(data=styleList, status=status.HTTP_200_OK)
+        
 @login_required(login_url='/login')
 def getStyles(request):
     if request.method != 'GET':
@@ -308,35 +458,6 @@ def getStyles(request):
     data = dfToListOfDicts(dfData)
     return JsonResponse(data, safe=False)
 
-def getStylesAPI(request):
-    if request.method != 'GET':
-        return HttpResponse('Not Allowed', status=405)
-
-    search = request.GET.get('search', '')
-    showCustomer = request.GET.get('showCustomer', None)
-
-    searchFilter = Q()
-    if search:
-        searchFilter &= (
-            Q(StyleCode__icontains=search) |
-            Q(StyleName__icontains=search)
-        )
-
-    fields = ['StyleCode', 'StyleName', 'Customer__Name']
-    data = appModels.StyleCard.objects.filter(searchFilter).values(*fields)
-    dfData = pd.DataFrame(data) if data else pd.DataFrame(columns=fields)
-
-    dfData['value'] = dfData['StyleCode']
-    dfData['label'] = dfData['StyleCode'] + ' — ' + dfData['StyleName']
-
-    if showCustomer == 'yes':
-        dfData.rename(inplace=True, columns={'Customer__Name': 'Customer'})
-        dfData = dfData[['value', 'label', 'Customer']]
-    else:
-        dfData = dfData[['value', 'label']]
-
-    return JsonResponse(dfToListOfDicts(dfData), safe=False)
-
 @login_required(login_url='/login')
 def getOrderTypes(request):
     if request.method == 'GET':
@@ -348,17 +469,21 @@ def getOrderTypes(request):
         cols = [i for i in dfData]
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
-# @login_required(login_url='/login')
+    
+@login_required(login_url='/login')
 def getCurrencies(request):
     if request.method == 'GET':
-        objects = appModels.Currency.objects.all().values('Code', 'Name')
-        dfData = pd.DataFrame(list(objects)) if objects.exists() else pd.DataFrame(columns=['Code', 'Name'])
-        dfData.rename(columns={'Code': 'value', 'Name': 'text'}, inplace=True)
+        objects = appModels.Currency.objects.all()
+        dfData = pd.DataFrame(index=range(objects.count()))
+
+        dfData['text'] = pd.DataFrame(objects.values('Name'))
+
+        dfData['value'] = pd.DataFrame(objects.values('Code'))
+        dfData['value'] = dfData['value'].astype(str)
 
         cols = [i for i in dfData]
-        data = [dict(zip(cols, i)) for i in dfData.values]
+        data = [dict(zip(cols, i)) for i in dfData.values] 
         return JsonResponse(data, safe=False)
-
 
 @login_required(login_url='/login')
 def getMerchandisers(request):
@@ -377,7 +502,58 @@ def getMerchandisers(request):
         data = [dict(zip(cols, i)) for i in dfData.values] 
         return JsonResponse(data, safe=False)
 
-# @login_required(login_url='/login')
+class GetWorkOrders(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search')
+        searches = request.query_params.getlist('searches')
+        extraCols = request.query_params.getlist('extraCols')
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= (
+                Q(OrderNumber__icontains=search) |
+                Q(StyleCode__StyleCode__icontains=search) | 
+                Q(Customer__Name__icontains=search)
+            )
+        
+        for term in searches:
+            if term:
+                filters &= (
+                    Q(OrderNumber__icontains=term) |
+                    Q(StyleCode__StyleCode__icontains=term) | 
+                    Q(Customer__Name__icontains=term)
+                )
+
+        querySet = appModels.WorkOrder.objects.filter(filters).annotate(
+            value=Cast(F('OrderNumber'), output_field=CharField()),
+            label=Concat(
+                Cast(F('OrderNumber'), output_field=CharField()),
+                Value(' - '),
+                Cast(F('StyleCode'), output_field=CharField()),
+                Value(' - '),
+                Cast(F('Customer'), output_field=CharField())
+            )
+        ).order_by('OrderNumber') 
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]  
+
+        fields = ['value', 'label']
+        if extraCols:
+            fields += extraCols 
+
+        orderList = list(querySet.values(*fields))
+        return Response(data=orderList, status=status.HTTP_200_OK)
+
+@login_required(login_url='/login')
 def getWorkOrders(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)
@@ -410,7 +586,40 @@ def getWorkOrders(request: HttpRequest):
     data = dfToListOfDicts(dfData)
     return JsonResponse(data, safe=False)
 
-# @login_required(login_url='/login')
+class GetOpenPurchaseOrders(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'PurchaseOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        search = request.query_params.get('search')
+        limit = request.query_params.get('limit')
+
+        exists = Exists(appModels.InventoryReciept.objects.filter(PONumber=OuterRef('id')))
+        filters = Q(received=False)
+        if search:
+            filters &= Q(id__icontains=search) | Q(Supplier__Name__icontains=search)
+
+        querySet = appModels.PurchaseOrder.objects.annotate(received=exists).filter(filters).annotate(
+            value=Cast(F('id'), output_field=CharField()),
+            label=Concat(
+                Cast(F('id'), output_field=CharField()),
+                Value(' - '),
+                Cast(F('Supplier__Name'), output_field=CharField()),
+            )
+        ).order_by('id') 
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]  
+
+        fields = ['value', 'label',]
+        orderList = list(querySet.values(*fields))
+        return Response(data=orderList, status=status.HTTP_200_OK)
+
+@login_required(login_url='/login')
 def getOpenPOs(request:HttpRequest):
     if request.method != 'GET':
         return HttpResponse ('No allowed', status=405)
@@ -451,6 +660,29 @@ def getOpenPOs(request:HttpRequest):
 
     data = dfToListOfDicts(dfData) 
     return JsonResponse(data, safe=False)
+
+class GetInvUnitsForGroup(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'add'
+
+    def get(self, request: Request):        
+        group = request.query_params.get('group')
+        if group is None:
+            response = {'message': 'Invalid Group'}
+            return Response(data=response, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+        
+        fields = ['Name']
+        units = appModels.Unit.objects.filter(Group=group).values(*fields)
+        dfData = pd.DataFrame(units) if units else pd.DataFrame(columns=fields)
+        
+        dfData['label'] = dfData['Name']
+        dfData.rename(columns={'Name':'value'}, inplace=True)
+
+        return Response(data=dfToListOfDicts(dfData), status=rest_framework.status.HTTP_200_OK)
 
 @login_required(login_url='/login')
 def getUnitsForGroup(request: HttpRequest, group: str):
@@ -769,51 +1001,50 @@ def GetAvailableCardGroups(request: HttpRequest):
 
     return JsonResponse(dfToListOfDicts(dfCards), safe=False)
 
-@login_required(login_url='/login')
-def GetWorkers(request: HttpRequest):
-    if request.method != 'GET':
-        return HttpResponse('Not Allowed', status=405)
+class GetWorkers(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    search = request.GET.get('search', '')
-    code = request.GET.get('code', None)
+    appName = 'HumanResource'
+    modelName = 'Employee'
+    permissionType = 'view'
 
-    try:
-        code = int(code)
-    except:
-        code = None
+    def get(self, request: Request):
+        search = request.query_params.get('search', '')
+        code = request.query_params.get('code', None)
+        managerOnly = request.query_params.get('restricted', 'Yes')
 
-    filters = Q()
+        try:
+            code = int(code)
+        except:
+            code = None
 
-    if search:
-        filters |= (Q(WorkerCode__icontains=search) | Q(WorkerName__icontains=search))
-    
-    if code:
-        filters &= Q(WorkerCode=code)
-    
-    workers = prodModels.Worker.objects.filter(filters)[:15]
+        filters = Q()
+        if search and search !='null':
+            filters |= (Q(id__icontains=search) | Q(WorkerName__icontains=search))
+        
+        if code:
+            filters &= Q(WorkerCode=code)
+        
+        fields = ['id', 'WorkerName', 'Department']
+        if (managerOnly == 'No') or (request.user.is_staff):
+            employees = hrModels.Employee.objects.filter(filters).values(*fields)
+        else:
+            try:
+                manager = hrModels.Employee.objects.get(User=request.user)
+            except:
+                raise PermissionError('Your employee information is incorrect. Check with HR.')
+            employees = getSubordinates(manager, filters, fields)
 
-    fields = ['WorkerCode', 'WorkerName','Department','SubDepartment']
-    workers = workers.values(*fields)
-    dfWorkers = pd.DataFrame(workers) if workers else pd.DataFrame(columns=fields)
-    del workers
+        dfEmployees = pd.DataFrame(employees) if employees else pd.DataFrame(columns=fields)
+        del employees
+        
+        dfEmployees['WorkerName'] = dfEmployees['WorkerName'].astype(str)+' ('+dfEmployees['Department'].astype(str)+')'
+        dfEmployees.drop(inplace=True, columns=['Department'])
+        dfEmployees.rename(inplace=True, columns={'id': 'value', 'WorkerName': 'label'})
 
-    dfSubDepartments = pd.DataFrame(operationSections)
-    
-    dfWorkers = pd.merge(left=dfWorkers, right=dfSubDepartments, left_on='SubDepartment', right_on='value', how='left')
-    del dfSubDepartments
-    dfWorkers.drop(inplace=True, columns=['SubDepartment','value'])
-    dfWorkers.rename(inplace=True, columns={'text':'Section'})
-
-    dfWorkers['text'] = dfWorkers['WorkerCode'].astype(str)+' - '+dfWorkers['WorkerName'].astype(str)
-    dfWorkers['text'] = dfWorkers['text']+' - '+dfWorkers['Department']+' - '+dfWorkers['Section']
-    dfWorkers.drop(inplace=True, columns=['WorkerName','Department','Section'])
-    dfWorkers.rename(inplace=True, columns={'WorkerCode':'value'})
-
-    emptyRow = {'value': None, 'text': '-------------'}
-    dfWorkers = pd.concat([pd.DataFrame([emptyRow]), dfWorkers]).reset_index(drop=True)
-
-    return JsonResponse(dfToListOfDicts(dfWorkers), safe=False)
-
+        return Response(data=dfToListOfDicts(dfEmployees), status=status.HTTP_200_OK)
+        
 @login_required(login_url='/login')
 def GetCapacities(request: HttpRequest):
     if request.method != 'GET':
@@ -850,6 +1081,7 @@ def GetCapacities(request: HttpRequest):
 
     return JsonResponse(dfToListOfDicts(dfCapacities), safe=False)
 
+@login_required(login_url='/login')
 def GetPresetRoutes(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponse('Not Allowed', status=405)   

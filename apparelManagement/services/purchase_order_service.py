@@ -658,6 +658,43 @@ def getAllocatedQty (purchaseOrder: models.PurchaseOrder, inventory: models.Inve
 
     return allocatedQty
 
+def ReAllocatePOInventory(poInventory: models.POInventory, totalOrderedQty: float, allocationMethod: str):
+    fields = ['WorkOrder', 'Quantity']
+    poAllocations = models.POAllocation.objects.filter(POInvId=poInventory).values(*fields)
+    dfAllocations = pd.DataFrame(poAllocations) if poAllocations else pd.DataFrame(columns=fields)
+
+    fields = ['OrderNumber', 'DeliveryDate']
+    orderDDs = models.WorkOrder.objects.filter(OrderNumber__in=dfAllocations['WorkOrder'].to_list()).values(*fields)
+    dfOrderDDs = pd.DataFrame(orderDDs) if orderDDs else pd.DataFrame(columns=fields)
+
+    totalPOQty = float(dfAllocations['Quantity'].sum())
+
+    if totalOrderedQty < totalPOQty:
+        if allocationMethod == 'distribute':
+            reductionFactor = totalOrderedQty / totalPOQty
+            dfAllocations['Quantity'] = dfAllocations['Quantity'] * reductionFactor
+        else:
+            dfAllocations = pd.merge(dfAllocations, dfOrderDDs, left_on='WorkOrder', right_on='OrderNumber', how='left')
+            dfAllocations.sort_values(by='DeliveryDate', ascending=True, inplace=True)
+
+            remainingQty = totalOrderedQty
+            dfAllocations['NewQuantity'] = 0
+
+            for index, row in dfAllocations.iterrows():
+                allocatedQty = min(row['Quantity'], remainingQty)
+                dfAllocations.at[index, 'NewQuantity'] = allocatedQty
+                remainingQty -= allocatedQty
+
+                if remainingQty <= 0:
+                    break
+
+            dfAllocations['Quantity'] = dfAllocations['NewQuantity']
+            dfAllocations.drop(columns=['OrderNumber', 'DeliveryDate', 'NewQuantity'], inplace=True)
+
+        dfAllocations['Quantity'] = np.floor(dfAllocations['Quantity'] * 100) / 100
+
+    return dfToListOfDicts(dfAllocations)
+
 def ProcessOrderData(orderObject: models.PurchaseOrder):
     '''
     Get the data of the provided PO.

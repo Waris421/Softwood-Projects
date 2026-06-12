@@ -1,19 +1,17 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
 from django.db import transaction
 from django.db.models.deletion import Collector, ProtectedError
 
-import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.request import Request
-from rest_framework import status
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
+from rest_framework.permissions import  AllowAny, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
 
 import json
 
@@ -85,28 +83,31 @@ def Inventory (request: HttpRequest):
     return render (request, 'inventory/home.html',context)
 
 class APIInvenotory(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'view'
+
+    def get(self, _: Request):        
         try:
             inventoryData = inventory_card_service.GetInventories(group='', stockFilter='', inUseFilter=None)
             return Response(data=inventoryData, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
             response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)            
 
 class APIInventoryAdd(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'add'
+
+    def get(self, _: Request):        
         try:
             formData = inventory_card_service.GetDataForInvCardAddition()
             return Response(data=formData, status=status.HTTP_200_OK)
@@ -115,14 +116,7 @@ class APIInventoryAdd(APIView):
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
-    def post(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def post(self, request: Request):        
         try:
             addedCode = inventory_card_service.AddAPIInventory(request.data)
             response = {'code': addedCode}
@@ -158,16 +152,14 @@ def AddInv (request: HttpRequest):
         return render (request, 'inventory/add.html', context)
 
 class GenerateInventoryCodeAPI(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'add'
 
     def post(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-
         try:
             responseData = inventory_card_service.GenerateInvCode(request.data)
             return Response(data=responseData, status=status.HTTP_200_OK)
@@ -191,15 +183,14 @@ def GenerateInventoryCode (request: HttpRequest):
         return HttpResponse(e, status=400)
 
 class CheckInventoryCodeForAddition(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'add'
+
     def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'WorkOrder', 'view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
         code = request.query_params.get('code', None)
         if code is None:
             response = {'message': 'Invalid Code'}
@@ -225,16 +216,14 @@ def CheckInventoryCodeExists(request: HttpRequest, pk: str):
         return HttpResponse('OK', status=200)
 
 class APIInventoryUpdate(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request, pk: str):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'change')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'change'
+
+    def get(self, _: Request, pk: str):
         try:
             inventory = models.Inventory.objects.get(Code=pk)
         except:
@@ -251,13 +240,6 @@ class APIInventoryUpdate(APIView):
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
     
     def post(self, request: Request, pk: str):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'change')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
         try:
             inventory = models.Inventory.objects.get(Code=pk)
         except:
@@ -312,16 +294,14 @@ def UpdateInv(request: HttpRequest, pk: str):
         return render (request, 'inventory/edit.html', context)
 
 class APIInventoryDelete(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def delete(self, request: Request, pk: str):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'delete'
+
+    def delete(self, _: Request, pk: str):
         try:
             inventory = models.Inventory.objects.get(Code=pk)
         except:
@@ -362,16 +342,14 @@ def DeleteInv(request: HttpRequest, pk: int):
         return render(request, 'inventory/delete.html', context)
 
 class APIInventoryCopy(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def post(self, request: Request, pk: str):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', 'add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-        
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'add'
+
+    def post(self, request: Request, _: str):
         sourceCode = request.data.get('Source', None)
         targetCode = request.data.get('Target', None)
 
@@ -427,16 +405,14 @@ def InventoryReports(request: HttpRequest):
     return render(request, 'inventory/reports_home.html', context)
 
 class InventoryStockStatus(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'Inventory', type='view')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-            
+    appName = 'apparelManagement'
+    modelName = 'Inventory'
+    permissionType = 'view'
+
+    def get(self, _: Request):
         try:
             stockStatus = inventory_card_service.GetInventoryStockStatus()
             return Response(data=stockStatus, status=status.HTTP_200_OK)
@@ -527,14 +503,21 @@ def InventoryFreeStockHistory(request: HttpRequest):
     return JsonResponse(history, safe=False)
 
 class StyleCards(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
-    def get(self, request: Request):
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'view'
+
+    def get(self, _: Request):
         try:
             styles = style_card_service.GetStyleCards()
             return Response(data=styles, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url = '/login')
 def Style (request: HttpRequest):
@@ -560,13 +543,39 @@ def Style (request: HttpRequest):
     else:
         return generic_services.showMessageResponse(request, 'Not Allowed', 403)
 
+class AddStyleCard(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'add'
+
+    def get(self, _: Request):
+        try:
+            formData = style_card_service.GetDataForStyleCardAddition()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request: Request):        
+        try:
+            style_card_service.AddStyleCardAPI(request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url = '/login')
 def AddStyle (request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='add'):
         return generic_services.showMessageResponse(request, 'Access Denied', 403)
     
     if request.method == 'POST':
-
         dfStyle, dfRoute, dfVariants = generic_services.refineFormData(request) 
         
         try:
@@ -581,6 +590,64 @@ def AddStyle (request: HttpRequest):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render (request, 'style/add.html', context)
+
+class UpdateStyleCard(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+    parser_classes = (MultiPartParser, FormParser)
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'change'
+
+    def get(self, _:Request, pk: str):
+        try:
+            style = models.StyleCard.objects.get(StyleCode=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            formData = style_card_service.GetDataForStyleCardUpdate(style)
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk:str):
+        try:
+            style = models.StyleCard.objects.get(StyleCode=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+        try:
+            styleData = data.pop('style')
+            variantData = data.pop('variant')
+            routeData = data.pop('route')
+            consumptionData = data.pop('consumption')
+            attachmentData = data.pop('attachment')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            style_card_service.EditStyleCard(style, styleData, variantData, routeData, consumptionData, attachmentData)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def UpdateStyle (request: HttpRequest, pk: str):
@@ -615,6 +682,31 @@ def UpdateStyle (request: HttpRequest, pk: str):
                 'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/edit.html', context)
 
+class DeleteStyleCard(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+    parser_classes = (MultiPartParser, FormParser)
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'change'
+
+    def delete(self, _: Request, pk: str):
+        try:
+            style = models.StyleCard.objects.get(StyleCode=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            style.delete()
+            response = {'message': 'Deleted'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def DeleteStyle(request: HttpRequest, pk: str):
     if not hasPermission(request.user, 'apparelManagement', 'StyleCard', type='delete'):
@@ -640,6 +732,31 @@ def DeleteStyle(request: HttpRequest, pk: str):
     else:
         context = {'object':style, 'confirm':True, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/delete.html', context)
+
+class DuplicateStyleCard(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]    
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'add'
+
+    def post(self, request:Request, pk: str):
+        sourceCode = request.data.get('Source', None)
+        targetCode = request.data.get('Target', None)
+
+        if None in [sourceCode, targetCode]:
+            response = {'message': 'Incomplete Data Provided'}
+            return Response(data=response, status=status.HTTP_409_CONFLICT)
+        
+        try:
+            style_card_service.DuplicateStyleCard(sourceCode, targetCode)
+            response = {'message': 'Added Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def CopyStyle(request: HttpRequest, pk: str):
@@ -710,6 +827,37 @@ def CopyStyle(request: HttpRequest, pk: str):
         context = {'source':style.StyleCode, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'style/copy.html', context)
 
+class StyleRoutePresetDetails(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions] 
+
+    appName = 'apparelManagement'
+    modelName = 'StyleCard'
+    permissionType = 'change'
+
+    def get(self, request: Request):
+        try:
+            authenticateUser(request, 'apparelManagement', 'StyleCard', 'add')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
+    
+        routeId = request.query_params.get('routeId', None)
+        try:
+            routePreset = models.RoutePreset.objects.get(id=routeId)
+        except:
+            return HttpResponse('Invalid Route', status=400)
+        
+        try:
+            stages = style_card_service.GetRoutePresetStages(routePreset)
+            return Response(data=stages, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+@login_required(login_url='/login')
 def StyleRoutePrssetDetails(request: HttpRequest):
     if request.method != 'GET':
         return generic_services.showMessageResponse(request, 'Not allowed', 403)
@@ -758,15 +906,69 @@ def WorkOrder (request: HttpRequest):
     return render(request, 'work_order/home.html', context)
 
 class WorkOrders(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
 
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        showShipped = request.query_params.get('all') == 'yes'
+        
+        try:
+            workOrders = work_order_service.GetWorkOrders(showShipped)
+            return Response(data=workOrders, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+    #This is for the integration with SPTS server
     def post(self, request: Request):
         currentOrders = request.data.get('currentOrders')
         try:
             orderData = work_order_service.GetOrdersForIntegration(currentOrders)
-            return Response(data=orderData, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(data=orderData, status=status.HTTP_200_OK)
+
+class AddWorkOrderAPI(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'add'
+
+    def get(self, _: Request):
+        try:
+            formData = work_order_service.GetDataForOrderAddition()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            work_order_service.AddWorkOrderAPI(data, request.user)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def AddWorkOrder(request: HttpRequest):
@@ -791,6 +993,69 @@ def AddWorkOrder(request: HttpRequest):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
         }
         return render(request, 'work_order/add.html', context)
+
+class UpdateWorkOrderAPI(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = {
+        'GET': 'view',
+        'POST': 'change'
+    }
+
+    def get(self, _:Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            formData = work_order_service.GetDataForWorkOrderUpdate(workOrder)
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource Not Found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            orderData = data.pop('Order')
+            variantData = data.pop('Variant')
+            requirementData = data.pop('Requirement')
+            attachmentData = data.pop('attachment')
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            work_order_service.EditWorkOrder(workOrder, orderData, variantData, requirementData, attachmentData)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def UpdateWorkOrder(request: HttpRequest, pk: int):
@@ -827,6 +1092,29 @@ def UpdateWorkOrder(request: HttpRequest, pk: int):
         
         return render(request, 'work_order/edit.html', context)
 
+class CalculateVariantsAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'add'
+
+    def get(self, request: Request):
+        styleCode = request.query_params.get('styleCode', None)
+        if styleCode is None:
+            response = {'message': 'Need Style Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            style = models.StyleCard.objects.get(StyleCode=styleCode)
+        except:
+            response = {'message': 'Invalid Style Code'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        variants = list(models.StyleVariant.objects.filter(Style=style).values_list('VariantCode', flat=True))
+        return Response(data=variants, status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def CalculateVariants(request: HttpResponse):
     if request.method == 'POST':
@@ -836,6 +1124,42 @@ def CalculateVariants(request: HttpResponse):
         variants = list(models.StyleVariant.objects.filter(Style=styleCode).values_list('VariantCode', flat=True))
       
         return JsonResponse(data=variants, safe=False)
+
+class CalculateInventoryRequirement(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'change'
+
+    def post(self, request: Request):
+        styleCode = request.data.get('style', None)
+        orderNumber = request.data.get('orderNumber', None)
+
+        if None in [orderNumber, styleCode]:
+            response = {'message': 'Incomplete data'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+            styleCard = models.StyleCard.objects.get(StyleCode=styleCode)
+        except Exception as e:
+            response = {'message': 'Invalid Input'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+                            
+        try:
+            work_order_service.CalculateInventoryRequirement(styleCard, workOrder)
+            response = {'message': 'saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def CalculateRequirement(request: HttpRequest):
@@ -861,6 +1185,44 @@ def CalculateRequirement(request: HttpRequest):
     work_order_service.CalculateRequirement(styleCard, workOrder)
 
     return HttpResponse('Ok', status=200)
+
+class GetReqHistory(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        requirementId = request.query_params.get('id', None)
+        orderNumber = request.query_params.get('orderNumber', None)
+
+        if not all([requirementId, orderNumber]):
+            response = {'message': 'Invalid Input'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            requirement = models.InvRequirement.objects.get(id=requirementId)
+            workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
+        except models.InvRequirement.DoesNotExist:
+            response = {'message': 'Requirement not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        except models.WorkOrder.DoesNotExist:
+            response = {'message': 'Invalid Work Order'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            requirementHistory = work_order_service.GetInventoryRequirementHistory(requirement, workOrder)
+            return Response(data=requirementHistory, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def GetRequirementHistory (request: HttpRequest):
@@ -940,6 +1302,64 @@ def GeneratePOFromWO (request: HttpRequest, pk):
             return HttpResponse(e, status=500)
     else:
         return HttpResponse('Not Allowed', status=302)
+
+class DeleteWorkOrderAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'delete'
+
+    def get(self, request: Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            collector = Collector(using='default')
+            collector.collect([workOrder])
+
+            if collector.protected:
+                raise ProtectedError("Protected objects found", collector.protected)
+        except Exception as e:
+            conflictingObjects = e.protected_objects
+            protectedTypes = {obj._meta.verbose_name.capitalize() for obj in conflictingObjects}
+            
+            response = {
+                'message': "Cannot delete this entry due to protected dependencies",
+                'protectedResources': list(protectedTypes)
+            }
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        response = {'message': 'Clear to delete'}
+        return Response(data=response, status=status.HTTP_200_OK)
+
+    def delete(self, request: Request, pk: int):
+        try:
+            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        if (workOrder.Merchandiser != request.user):
+            response = {'message': 'Access Denied'}
+            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            workOrder.delete()
+            response = {'message':'Delete'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def DeleteWorkOrder(request: HttpRequest, pk: int):
@@ -1070,6 +1490,48 @@ def CopyWorkOrder(request: HttpRequest, pk):
         context = {'source':order.OrderNumber, 'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)}
         return render(request, 'work_order/copy.html', context)
 
+class PendingInventoryOrders(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'WorkOrder'
+    permissionType = 'view'
+
+    def get(self, request: Request):
+        startingOrderNumber = request.query_params.get('StartingOrder', None)
+        endOrderNumber = request.query_params.get('EndingOrder', None)
+        customers = request.query_params.getlist('Customers', [])
+
+        if None in [startingOrderNumber, endOrderNumber]:
+            response = {'message': 'Incomplete data provided'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            startingOrder = models.WorkOrder.objects.get(OrderNumber=startingOrderNumber)
+            endingOrder = models.WorkOrder.objects.get(OrderNumber=endOrderNumber)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            pending = purchase_order_service.GetPendingOrders(startingOrder, endingOrder, customers)
+            return Response(data=pending, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)    
+    
+    def post(self, request: Request):
+        try:
+            poNumber = purchase_order_service.GeneratePOFromPendingPOs(request.data)
+            response = {'poNumber': poNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def AutoInventoryRequirement(request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='add'):
@@ -1181,12 +1643,6 @@ def EditPurchaseOrder(request: HttpRequest, pk):
         data = json.loads(request.body.decode('utf-8'))
 
         dfOrder, dfInventory, dfAllocation = generic_services.refineJson(data)
-        # Bridge: old form sends one allocId in the order header — stamp it on each allocation row
-        if 'allocId' in dfOrder.columns and not dfAllocation.empty:
-            dfAllocation['allocId'] = dfOrder['allocId'][0]
-        elif dfAllocation.empty:
-            dfAllocation['allocId'] = None
-
         try:
             purchase_order_service.EditPurchaseOrder(orderObject, dfOrder, dfInventory, dfAllocation)
             return HttpResponse('Saved Successfuly', status=200)
@@ -1196,18 +1652,16 @@ def EditPurchaseOrder(request: HttpRequest, pk):
     else:
         if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='view'):
             return generic_services.showMessageResponse(request,'Access Denied', 403)
-        order, inventory, allocations, workorders=purchase_order_service.ProcessOrderData(orderObject)
+        order, inventory=purchase_order_service.ProcessOrderData(orderObject)
         context = {
             'order':order,
             'inv':inventory, 'invJson':json.dumps(list(inventory)),
-            'alloc':allocations, 'workorders':workorders,
             'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
             }
         
         return render(request, 'purchase_order/edit.html', context)
 
-# @login_required(login_url='/login')
-@csrf_exempt
+@login_required(login_url='/login')
 def getPOAllocation(request: HttpRequest):
     if request.method == 'POST':
         pk = json.loads(request.body.decode('utf-8'))['id']
@@ -1224,8 +1678,7 @@ def getPOAllocation(request: HttpRequest):
     else:
         return HttpResponse('Not allowed', status=302)
 
-# @login_required(login_url='/login')
-@csrf_exempt
+@login_required(login_url='/login')
 def GetWODefaultQtyForPO (request: HttpRequest):
     if request.method != 'POST':
         return HttpResponse('Not Allowed', status=405)
@@ -1250,8 +1703,7 @@ def GetWODefaultQtyForPO (request: HttpRequest):
 
     return JsonResponse(quantity, safe=False)
 
-# @login_required(login_url='/login')
-@csrf_exempt
+@login_required(login_url='/login')
 def getAllocatedQty (request: HttpRequest):
     if request.method == 'POST':
         data = json.loads(request.body.decode('utf-8'))
@@ -1393,6 +1845,23 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
             }
         return render(request, 'purchase_order/delete.html', context)
 
+class InventoryReceipt(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'view'
+
+    def get(self, _: Request):
+        try:
+            receipts = purchase_receipt_service.GetInventoryReceipts()
+            return Response(data=receipts, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def PurchaseReceipt(request: HttpRequest):
     if not hasPermission(request.user, 'apparelManagement', 'InventoryReciept', type='view'):
@@ -1424,6 +1893,47 @@ def PurchaseReceipt(request: HttpRequest):
         'theme':theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name),
         'searchTerm': searchTerm, 'selectedSupplier': supplierFilter, 'selectedRec':recFilter}
     return render(request, 'purchase_receipt/home.html', context)
+
+class AddInventoryReceiptAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'add'
+
+    def get(self, request:Request):
+        poNumber = request.query_params.get('po', None)
+
+        if poNumber:
+            try:
+                inventory = purchase_receipt_service.GetDataForRecAddition(poNumber)
+            except Exception as e:
+                print(e)
+                response = {'message': str(e)}
+                return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            inventory = []
+        
+        return Response(data=inventory, status=status.HTTP_200_OK)
+
+    def post(self, request: Request):
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+
+        try:
+            recNumber = purchase_receipt_service.AddPurchaseReceiptAPI(data)
+            response = {'recNumber': recNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def AddPurchaseReceipt(request: HttpRequest):
@@ -1483,6 +1993,54 @@ def GetContextForPurchaseReceipt(request: HttpRequest):
         print(e)
         return HttpResponse(e, status=400)
 
+class UpdateInventoryReceiptAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = {
+        'GET': 'view',
+        'POST': 'change'
+    }
+
+    def get(self, _:Request, pk: int):
+        try:
+            inventoryReceipt = models.InventoryReciept.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            formData = purchase_receipt_service.GetDataForReceiptUpdate(inventoryReceipt)
+            return Response(formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        try:
+            inventoryReceipt = models.InventoryReciept.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        try:
+            data = generic_services.refineAPIJson(request)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            purchase_receipt_service.UpdatePurchaseReceipt(inventoryReceipt, data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def EditPurchaseReceipt(request: HttpRequest, pk:str):
     try:
@@ -1516,6 +2074,66 @@ def EditPurchaseReceipt(request: HttpRequest, pk:str):
         
         return render(request, 'purchase_receipt/edit.html', context)
 
+class ReAllocateRecInventory(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'InventoryReciept'
+    permissionType = 'change'
+
+    def get(self, request: Request, pk: int):
+        try:
+            recInventory = models.RecInventory.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        allocationMethod = request.query_params.get('allocationMethod')
+        totalQty = request.query_params.get('totalQty')
+
+        if allocationMethod is None or totalQty is None:
+            response = {'message': 'Incomplete data'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            allocation = purchase_receipt_service.ReAllocateRecInventory(recInventory, float(totalQty), allocationMethod)
+            return Response(data=allocation, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'messnage': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class ReAllocatePOInventory(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'POInventory'
+    permissionType = 'change'
+
+    def get(self, request: Request, pk: int):
+        try:
+            poInventory = models.POInventory.objects.get(id=pk)
+        except:
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        allocationMethod = request.query_params.get('allocationMethod')
+        totalQty = request.query_params.get('totalQty')
+
+        if allocationMethod is None or totalQty is None:
+            response = {'message': 'Incomplete data'}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            allocation = purchase_order_service.ReAllocatePOInventory(poInventory, float(totalQty), allocationMethod)
+            return Response(data=allocation, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
     if request.method != 'GET':
@@ -1540,6 +2158,7 @@ def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
 
     return JsonResponse(allocation, safe=False)
 
+#TODO: No longer needed for Next
 @login_required(login_url='/login')
 def GetReceiptAllocation(request: HttpRequest):
     if request.method != 'POST':
@@ -1964,6 +2583,23 @@ def GetRequisitionAllocation(request: HttpRequest):
     else:
         return HttpResponse('No Allowed', status=405)
 
+class Issuances(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Issuance'
+    permissionType = 'view'
+
+    def get(self, _:Request):
+        try:
+            issuances = issuance_service.GetIssuances()
+            return Response(data=issuances, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='login')
 def Issuance (request: HttpRequest):
     if not hasPermission(request.user,'apparelManagement', 'Issuance', type='view'):
@@ -2019,6 +2655,33 @@ def AddIssuance (request: HttpRequest):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'issuance/add.html', context)
+
+class AddSamplingIssuance(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'apparelManagement'
+    modelName = 'Issuance'
+    permissionType = 'add'
+
+    def get(self, _: Request):
+        try:
+            formData = issuance_service.GetDataForSamplingIssuance()
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        try:
+            issuanceNumber = issuance_service.AddSamplingIssuance(request.data)
+            response = {'issuanceNumber': issuanceNumber}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required(login_url='/login')
 def ThreadConsumptionRequests(request: HttpRequest):
@@ -2241,859 +2904,3 @@ class GetThreadConsumptions(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-        
-# Returns paginated work order list for the merchandising frontend
-class MerchandisingWorkOrders(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request):
-        search      = request.GET.get('search', '')
-        customer    = request.GET.get('customer', '')
-        startDate   = request.GET.get('startDate', None)
-        endDate     = request.GET.get('endDate', None)
-        page        = request.GET.get('page', 1)
-
-        try:
-            orders = work_order_service.GetOrderList(customer, startDate, endDate)
-            orders = generic_services.applySearch(orders, search)
-            data   = generic_services.paginate(orders, page)
-            return Response({'orders': data.object_list, 'pages': data.paginator.num_pages})
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# API for work orders
-class WorkOrderDetailAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request, pk: int):
-        try:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
-        except models.WorkOrder.DoesNotExist:
-            return Response({'message': 'Work order not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            order, variants, requirement, attachments = work_order_service.ProcessOrderData(workOrder)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        currencies = [
-            {'value': c, 'label': c}
-            for c in models.Currency.objects.values_list('Code', flat=True)
-        ]
-
-        orderData = {
-            'OrderNumber':  order['OrderNumber'],
-            'StyleCode':    order['StyleCode'],
-            'Customer':     order['Customer'],
-            'DeliveryDate': order['DeliveryDate'].isoformat() if order['DeliveryDate'] else None,
-            'Type':         order['Type'],
-            'Currency':     order['Currency'],
-            'Price':        order['Price'],
-            'ExcessCut':    order['ExcessCut'],
-        }
-
-        return Response({
-            'formData': {
-                'Order':       orderData,
-                'Variants':    list(variants),
-                'Requirement': requirement,
-                'Attachments': attachments,
-            },
-            'currencies': currencies,
-        })
-
-
-class AddStyleCardAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request: Request):
-        data = request.data
-
-        try:
-            dfStyle = pd.DataFrame([{
-                'StyleCode': data.get('StyleCode', ''),
-                'StyleName': data.get('StyleName', ''),
-                'Customer':  data.get('Customer', ''),
-                'Category':  data.get('Category', ''),
-                'Notes':     data.get('Notes', ''),
-            }])
-
-            dfRoute = pd.DataFrame([{'RoutePreset': data.get('RoutePreset')}])
-
-            variants = data.get('variants', [])
-            dfVariants = pd.DataFrame(variants) if variants else pd.DataFrame(columns=['Variant1', 'Variant2'])
-
-            styleCode = style_card_service.AddStyleCard(dfStyle, dfVariants, dfRoute)
-            return Response({'StyleCode': styleCode}, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-class StyleCardDetailAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request, pk: str):
-        try:
-            style = models.StyleCard.objects.get(StyleCode=pk)
-        except models.StyleCard.DoesNotExist:
-            return Response({'message': 'Style not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            styleDict, variants, consumption, route, attachments = style_card_service.ProcessStyleData(style)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        customerFields = ['Name', 'TradeName']
-        customers = models.Customer.objects.all().values(*customerFields)[:50]
-        customerOptions = [{'value': c['Name'], 'text': f"{c['Name']} - {c['TradeName']}"} for c in customers]
-
-        categoryOptions = [{'value': v, 'text': t} for v, t in models.Categories]
-
-        presetFields = ['id', 'Name']
-        presets = models.RoutePreset.objects.all().values(*presetFields).order_by('id')
-        presetOptions = [{'value': None, 'text': '-----------'}] + [{'value': p['id'], 'text': p['Name']} for p in presets]
-
-        return Response({
-            'style':       styleDict,
-            'variants':    list(variants),
-            'consumption': consumption,
-            'route':       route,
-            'attachments': attachments,
-            'options': {
-                'customers':  customerOptions,
-                'categories': categoryOptions,
-                'routes':     presetOptions,
-            },
-        })
-
-# PO details endpoint for frontend:
-# PO details viewed on the main page in frontend
-class PurchaseOrderDetailAPI(APIView):
-    permission_classes = [AllowAny]
-    def get(self, request: Request, pk: int):
-        try:
-            orderObject = models.PurchaseOrder.objects.get(id=pk)
-        except models.PurchaseOrder.DoesNotExist:
-            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            order, inventory, allocations, workorders = purchase_order_service.ProcessOrderData(orderObject)
-            return Response({'order': order, 'inventory': inventory, 'allocations': allocations, 'workorders': workorders})
-
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request, pk: int):
-        try:
-            orderObject = models.PurchaseOrder.objects.get(id=pk)
-        except models.PurchaseOrder.DoesNotExist:
-            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        try:
-            purchase_order_service.EditPurchaseOrderFromData(orderObject, dict(request.data))
-            return Response({'message': 'Saved successfully'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# Purchase order copy endpoint url
-class PurchaseOrderCopyAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request: Request, pk: int):
-        try:
-            po = models.PurchaseOrder.objects.get(id=pk)
-        except models.PurchaseOrder.DoesNotExist:
-            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            po.id = None
-            po.save()
-
-            poInventories = models.POInventory.objects.filter(PONumber=pk)
-            for inventory in poInventories:
-                oldId = inventory.id
-                inventory.id = None
-                inventory.PONumber = po
-                inventory.save()
-
-                invAllocations = models.POAllocation.objects.filter(POInvId=oldId)
-                for allocation in invAllocations:
-                    allocation.id = None
-                    allocation.POInvId = inventory
-                    allocation.save()
-
-            return Response({'PONumber': po.id}, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# Purchase order delete endpoint URL
-class PurchaseOrderDeleteAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def delete(self, request: Request, pk: int):
-        try:
-            order = models.PurchaseOrder.objects.get(id=pk)
-        except models.PurchaseOrder.DoesNotExist:
-            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            order.delete()
-            return Response({'message': 'Deleted successfully'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-#  Complete Purchase order list
-class PurchaseOrderListAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request: Request):
-        supplier = request.GET.get('supplier', None)
-        poNumber = request.GET.get('poNumber', None)
-        search   = request.GET.get('search', '')
-        page     = request.GET.get('page', 1)
-
-        try:
-            orders = purchase_order_service.GetOrderList(supplier=supplier, poNumber=poNumber)
-            orders = generic_services.applySearch(orders, search)
-            data   = generic_services.paginate(orders, page)
-            return Response({'orders': data.object_list, 'pages': data.paginator.num_pages})
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# Backend URL for editing the PO
-class PurchaseOrderUpdateAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request: Request, pk: int):
-        try:
-            orderObject = models.PurchaseOrder.objects.get(id=pk)
-        except models.PurchaseOrder.DoesNotExist:
-            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-        try:
-            purchase_order_service.EditPurchaseOrderFromData(orderObject, dict(request.data))
-            return Response({'message': 'Saved successfully'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# Backend url for Adding PO option in the frontend
-class PurchaseOrderAddAPI(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request: Request):
-        try:
-            poNumber = purchase_order_service.AddPurchaseOrderFromData(dict(request.data))
-            return Response({'PONumber': poNumber}, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-class AddStyleCard(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'StyleCard'
-    permissionType = 'add'
-
-    def get(self, _: Request):
-        try:
-            formData = style_card_service.GetDataForStyleCardAddition()
-            return Response(data=formData, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request):
-        try:
-            style_card_service.AddStyleCardAPI(request.data)
-            response = {'message': 'Saved Successfully'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class UpdateStyleCard(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-    parser_classes = (MultiPartParser, FormParser)
-
-    appName = 'apparelManagement'
-    modelName = 'StyleCard'
-    permissionType = 'change'
-
-    def get(self, _: Request, pk: str):
-        try:
-            style = models.StyleCard.objects.get(StyleCode=pk)
-        except:
-            response = {'message': 'Resource Not Found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            formData = style_card_service.GetDataForStyleCardUpdate(style)
-            return Response(data=formData, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request, pk: str):
-        try:
-            style = models.StyleCard.objects.get(StyleCode=pk)
-        except:
-            response = {'message': 'Resource Not Found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            data = generic_services.refineAPIJson(request)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            styleData = data.pop('style')
-            variantData = data.pop('variant')
-            routeData = data.pop('route')
-            consumptionData = data.pop('consumption')
-            attachmentData = data.pop('attachment')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            style_card_service.EditStyleCard(style, styleData, variantData, routeData, consumptionData, attachmentData)
-            response = {'message': 'Saved Successfully'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class DeleteStyleCard(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'StyleCard'
-    permissionType = 'change'
-
-    def delete(self, _: Request, pk: str):
-        try:
-            style = models.StyleCard.objects.get(StyleCode=pk)
-        except:
-            response = {'message': 'Resource Not Found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            style.delete()
-            response = {'message': 'Deleted'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class DuplicateStyleCard(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'StyleCard'
-    permissionType = 'add'
-
-    def post(self, request: Request, pk: str):
-        sourceCode = request.data.get('Source', None)
-        targetCode = request.data.get('Target', None)
-
-        if None in [sourceCode, targetCode]:
-            response = {'message': 'Incomplete Data Provided'}
-            return Response(data=response, status=status.HTTP_409_CONFLICT)
-
-        try:
-            style_card_service.DuplicateStyleCard(sourceCode, targetCode)
-            response = {'message': 'Added Successfully'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class StyleRoutePresetDetails(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'StyleCard'
-    permissionType = 'change'
-
-    def get(self, request: Request):
-        try:
-            authenticateUser(request, 'apparelManagement', 'StyleCard', 'add')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_401_UNAUTHORIZED)
-
-        routeId = request.query_params.get('routeId', None)
-        try:
-            routePreset = models.RoutePreset.objects.get(id=routeId)
-        except:
-            return HttpResponse('Invalid Route', status=400)
-
-        try:
-            stages = style_card_service.GetRoutePresetStages(routePreset)
-            return Response(data=stages, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class AddWorkOrderAPI(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = 'add'
-
-    def get(self, _: Request):
-        try:
-            formData = work_order_service.GetDataForOrderAddition()
-            return Response(data=formData, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request):
-        try:
-            data = generic_services.refineAPIJson(request)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            work_order_service.AddWorkOrderAPI(data)
-            response = {'message': 'Saved Successfully'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class UpdateWorkOrderAPI(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = {
-        'GET': 'view',
-        'POST': 'change'
-    }
-
-    def get(self, _: Request, pk: int):
-        try:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
-        except:
-            response = {'message': 'Resource Not Found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            formData = work_order_service.GetDataForWorkOrderUpdate(workOrder)
-            return Response(data=formData, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request, pk: int):
-        try:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
-        except:
-            response = {'message': 'Resource Not Found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        if workOrder.Merchandiser != request.user:
-            response = {'message': 'Access Denied'}
-            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            data = generic_services.refineAPIJson(request)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            orderData = data.pop('Order')
-            variantData = data.pop('Variant')
-            requirementData = data.pop('Requirement')
-            attachmentData = data.pop('attachment')
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            work_order_service.EditWorkOrder(workOrder, orderData, variantData, requirementData, attachmentData)
-            response = {'message': 'Saved Successfully'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CalculateVariantsAPI(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = 'add'
-
-    def get(self, request: Request):
-        styleCode = request.query_params.get('styleCode', None)
-        if styleCode is None:
-            response = {'message': 'Need Style Code'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            style = models.StyleCard.objects.get(StyleCode=styleCode)
-        except:
-            response = {'message': 'Invalid Style Code'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        variants = list(models.StyleVariant.objects.filter(Style=style).values_list('VariantCode', flat=True))
-        return Response(data=variants, status=status.HTTP_200_OK)
-
-
-class CalculateInventoryRequirement(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = 'change'
-
-    def post(self, request: Request):
-        styleCode = request.data.get('style', None)
-        orderNumber = request.data.get('orderNumber', None)
-
-        if None in [orderNumber, styleCode]:
-            response = {'message': 'Incomplete data'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
-            styleCard = models.StyleCard.objects.get(StyleCode=styleCode)
-        except Exception as e:
-            response = {'message': 'Invalid Input'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        if workOrder.Merchandiser != request.user:
-            response = {'message': 'Access Denied'}
-            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            work_order_service.CalculateInventoryRequirement(styleCard, workOrder)
-            response = {'message': 'Saved Successfully'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class GetReqHistory(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = 'view'
-
-    def get(self, request: Request):
-        requirementId = request.query_params.get('id', None)
-        orderNumber = request.query_params.get('orderNumber', None)
-
-        if not all([requirementId, orderNumber]):
-            response = {'message': 'Invalid Input'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            requirement = models.InvRequirement.objects.get(id=requirementId)
-            workOrder = models.WorkOrder.objects.get(OrderNumber=orderNumber)
-        except models.InvRequirement.DoesNotExist:
-            response = {'message': 'Requirement not found'}
-            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
-        except models.WorkOrder.DoesNotExist:
-            response = {'message': 'Invalid Work Order'}
-            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            requirementHistory = work_order_service.GetInventoryRequirementHistory(requirement, workOrder)
-            return Response(data=requirementHistory, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class DeleteWorkOrderAPI(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = 'delete'
-
-    def get(self, request: Request, pk: int):
-        try:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
-        except:
-            response = {'message': 'Resource not found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        if workOrder.Merchandiser != request.user:
-            response = {'message': 'Access Denied'}
-            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            collector = Collector(using='default')
-            collector.collect([workOrder])
-
-            if collector.protected:
-                raise ProtectedError("Protected objects found", collector.protected)
-        except Exception as e:
-            conflictingObjects = e.protected_objects
-            protectedTypes = {obj._meta.verbose_name.capitalize() for obj in conflictingObjects}
-            response = {
-                'message': 'Cannot delete this entry due to protected dependencies',
-                'protectedResources': list(protectedTypes)
-            }
-            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
-
-        response = {'message': 'Clear to delete'}
-        return Response(data=response, status=status.HTTP_200_OK)
-
-    def delete(self, request: Request, pk: int):
-        try:
-            workOrder = models.WorkOrder.objects.get(OrderNumber=pk)
-        except:
-            response = {'message': 'Resource not found'}
-            return Response(data=response, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        if workOrder.Merchandiser != request.user:
-            response = {'message': 'Access Denied'}
-            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            workOrder.delete()
-            response = {'message': 'Deleted'}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class PendingInventoryOrders(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'WorkOrder'
-    permissionType = 'view'
-
-    def get(self, request: Request):
-        startingOrderNumber = request.query_params.get('StartingOrder', None)
-        endOrderNumber = request.query_params.get('EndingOrder', None)
-        customers = request.query_params.getlist('Customers', [])
-
-        if None in [startingOrderNumber, endOrderNumber]:
-            response = {'message': 'Incomplete data provided'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            startingOrder = models.WorkOrder.objects.get(OrderNumber=startingOrderNumber)
-            endingOrder = models.WorkOrder.objects.get(OrderNumber=endOrderNumber)
-        except:
-            response = {'message': 'Resource not found'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            pending = purchase_order_service.GetPendingOrders(startingOrder, endingOrder, customers)
-            return Response(data=pending, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request):
-        try:
-            poNumber = purchase_order_service.GeneratePOFromPendingPOs(request.data)
-            response = {'poNumber': poNumber}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-
-class AddSamplingIssuance(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'Issuance'
-    permissionType = 'add'
-
-    def get(self, _: Request):
-        try:
-            formData = issuance_service.GetDataForSamplingIssuance()
-            return Response(data=formData, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-    def post(self, request: Request):
-        try:
-            issuanceNumber = issuance_service.AddSamplingIssuance(request.data)
-            response = {'issuanceNumber': issuanceNumber}
-            return Response(data=response, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-class EditIssuanceAPI(APIView):
-    def get(self, request: Request, pk: int):
-        try:
-            data = issuance_service.GetDataForIssuanceUpdate(pk)
-            return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request: Request, pk: int):
-        try:
-            data = generic_services.refineAPIJson(request)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            issuanceId = issuance_service.EditIssuance(pk, data)
-            return Response({'issuanceId': issuanceId}, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-class IssuanceListAPI(APIView):
-    def get(self, request: Request):
-        searchTerm = request.GET.get('search', '')
-        departmentFilter = request.GET.get('department', None)
-        issuanceNumber = request.GET.get('id', None)
-        try:
-            data = issuance_service.GetIssuanceList(searchTerm, departmentFilter, issuanceNumber)
-            return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-# API for inventory receipt related to MMC module
-class InventoryReceipt(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'InventoryReciept'
-    permissionType = 'view'
-
-    def get(self, _: Request):
-        try:
-            receipts = purchase_receipt_service.GetInventoryReceipts()
-            return Response(data=receipts, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class AddInventoryReceiptAPI(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'InventoryReciept'
-    permissionType = 'add'
-
-    def get(self, request: Request):
-        poNumber = request.query_params.get('po', None)
-        if poNumber:
-            try:
-                inventory = purchase_receipt_service.GetDataForRecAddition(poNumber)
-            except Exception as e:
-                print(e)
-                return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            inventory = []
-        return Response(data=inventory, status=status.HTTP_200_OK)
-
-    def post(self, request: Request):
-        try:
-            data = generic_services.refineAPIJson(request)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            recNumber = purchase_receipt_service.AddPurchaseReceiptAPI(data)
-            return Response({'recNumber': recNumber}, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-class UpdateInventoryReceiptAPI(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'InventoryReciept'
-    permissionType = 'change'
-
-    def get(self, _: Request, pk: int):
-        try:
-            inventoryReceipt = models.InventoryReciept.objects.get(id=pk)
-        except:
-            return Response({'message': 'Resource not found'}, status=status.HTTP_404_NOT_FOUND)
-        try:
-            formData = purchase_receipt_service.GetDataForReceiptUpdate(inventoryReceipt)
-            return Response(formData, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request: Request, pk: int):
-        try:
-            data = generic_services.refineAPIJson(request)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            recNumber = purchase_receipt_service.EditPurchaseReceiptAPI(pk, data)
-            return Response({'recNumber': recNumber}, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
