@@ -73,9 +73,11 @@ ROOT_URLCONF = 'erp.urls'
 REST_FRAMEWORK = {
     "NON_FIELD_ERRORS_KEY":"errors",
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ]
+
     }
 
 TEMPLATES = [

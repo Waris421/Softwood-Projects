@@ -470,7 +470,7 @@ def getOrderTypes(request):
         data = [dict(zip(cols, i)) for i in dfData.values]
         return JsonResponse(data, safe=False)
     
-@login_required(login_url='/login')
+# @login_required(login_url='/login')
 def getCurrencies(request):
     if request.method == 'GET':
         objects = appModels.Currency.objects.all()

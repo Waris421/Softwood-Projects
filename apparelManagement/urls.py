@@ -35,12 +35,16 @@ urlpatterns = [
 
     path('mmc/inventory-orders/pending', views.PendingInventoryOrders.as_view()),
 
+    path('mmc/purchase-order', views.PurchaseOrderListAPI.as_view(), name='poListAPI'),
+    path('mmc/purchase-order/add', views.PurchaseOrderAddAPI.as_view(), name='poAddAPI'),
+    path('mmc/purchase-order/<int:pk>/update', views.PurchaseOrderDetailAPI.as_view(), name='poDetailAPI'),
+    path('mmc/purchase-order/<int:pk>/copy', views.PurchaseOrderCopyAPI.as_view(), name='poCopyAPI'),
+    path('mmc/purchase-order/<int:pk>/delete', views.PurchaseOrderDeleteAPI.as_view(), name='poDeleteAPI'),
+
     path('mmc/inventory-receipt', views.InventoryReceipt.as_view()),
     path('mmc/inventory-receipt/add', views.AddInventoryReceiptAPI.as_view()),
     path('mmc/inventory-receipt/<int:pk>/update', views.UpdateInventoryReceiptAPI.as_view()),
     path('mmc/inventory-receipt/<int:pk>/re-allocate', views.ReAllocateRecInventory.as_view()),
-    path('mmc/purchase-order/<int:pk>/re-allocate', views.ReAllocatePOInventory.as_view()),
-
     path('mmc/issuance', views.Issuances.as_view()),
     path('mmc/issuance/add-sampling', views.AddSamplingIssuance.as_view()),
 
@@ -102,7 +106,7 @@ urlpatterns = [
     path('purchasereceipt/<int:pk>/edit', views.EditPurchaseReceipt, name='editRec'),
     path('purchasereceipt/alloc/get', views.GetReceiptAllocation, name='getRecAllocation'),
     path('purchasereceipt/context', views.GetContextForPurchaseReceipt, name='getRecContext'),
-    path('purchasereceipt/<int:pk>/re-allocate', views.ReAllocateReceiptInventory, name='reAllocate'),
+    path('purchasereceipt/<int:pk>/re-allocate', views.ReAllocateRecInventory.as_view(), name='reAllocate'),
     path('purchasereceipt/<int:pk>/print', views.PrintPurchaseReceipt, name='printRec'),
 
     path('purchasedemand', views.PurchaseDemand, name='purchaseDemand'),

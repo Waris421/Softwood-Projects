@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse, HttpRequest
 from django.urls import reverse
@@ -1652,7 +1653,7 @@ def EditPurchaseOrder(request: HttpRequest, pk):
     else:
         if not hasPermission(request.user, 'apparelManagement', 'PurchaseOrder', type='view'):
             return generic_services.showMessageResponse(request,'Access Denied', 403)
-        order, inventory=purchase_order_service.ProcessOrderData(orderObject)
+        order, inventory, allocationList, workOrderList = purchase_order_service.ProcessOrderData(orderObject)
         context = {
             'order':order,
             'inv':inventory, 'invJson':json.dumps(list(inventory)),
@@ -1661,7 +1662,7 @@ def EditPurchaseOrder(request: HttpRequest, pk):
         
         return render(request, 'purchase_order/edit.html', context)
 
-@login_required(login_url='/login')
+@csrf_exempt
 def getPOAllocation(request: HttpRequest):
     if request.method == 'POST':
         pk = json.loads(request.body.decode('utf-8'))['id']
@@ -1678,7 +1679,7 @@ def getPOAllocation(request: HttpRequest):
     else:
         return HttpResponse('Not allowed', status=302)
 
-@login_required(login_url='/login')
+@csrf_exempt
 def GetWODefaultQtyForPO (request: HttpRequest):
     if request.method != 'POST':
         return HttpResponse('Not Allowed', status=405)
@@ -1703,7 +1704,7 @@ def GetWODefaultQtyForPO (request: HttpRequest):
 
     return JsonResponse(quantity, safe=False)
 
-@login_required(login_url='/login')
+@csrf_exempt
 def getAllocatedQty (request: HttpRequest):
     if request.method == 'POST':
         data = json.loads(request.body.decode('utf-8'))
@@ -1844,6 +1845,97 @@ def DeletePurchaseOrder(request: HttpRequest, pk: int):
             'theme': theme, 'navLinks': getNavLinks(request.user, request.resolver_match.app_name)
             }
         return render(request, 'purchase_order/delete.html', context)
+
+class PurchaseOrderDetailAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request, pk: int):
+        try:
+            orderObject = models.PurchaseOrder.objects.get(id=pk)
+        except models.PurchaseOrder.DoesNotExist:
+            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            order, inventory, allocations, workorders = purchase_order_service.ProcessOrderData(orderObject)
+            return Response({'order': order, 'inventory': inventory, 'allocations': allocations, 'workorders': workorders})
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request: Request, pk: int):
+        try:
+            orderObject = models.PurchaseOrder.objects.get(id=pk)
+        except models.PurchaseOrder.DoesNotExist:
+            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            purchase_order_service.EditPurchaseOrderFromData(orderObject, dict(request.data))
+            return Response({'message': 'Saved successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class PurchaseOrderCopyAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request, pk: int):
+        try:
+            po = models.PurchaseOrder.objects.get(id=pk)
+        except models.PurchaseOrder.DoesNotExist:
+            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            po.id = None
+            po.save()
+            poInventories = models.POInventory.objects.filter(PONumber=pk)
+            for inventory in poInventories:
+                oldId = inventory.id
+                inventory.id = None
+                inventory.PONumber = po
+                inventory.save()
+                invAllocations = models.POAllocation.objects.filter(POInvId=oldId)
+                for allocation in invAllocations:
+                    allocation.id = None
+                    allocation.POInvId = inventory
+                    allocation.save()
+            return Response({'PONumber': po.id}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class PurchaseOrderDeleteAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def delete(self, request: Request, pk: int):
+        try:
+            order = models.PurchaseOrder.objects.get(id=pk)
+        except models.PurchaseOrder.DoesNotExist:
+            return Response({'message': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            order.delete()
+            return Response({'message': 'Deleted successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class PurchaseOrderListAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request):
+        supplier = request.GET.get('supplier', None)
+        poNumber = request.GET.get('poNumber', None)
+        search   = request.GET.get('search', '')
+        page     = request.GET.get('page', 1)
+        try:
+            orders = purchase_order_service.GetOrderList(supplier=supplier, poNumber=poNumber)
+            orders = generic_services.applySearch(orders, search)
+            data   = generic_services.paginate(orders, page)
+            return Response({'orders': data.object_list, 'pages': data.paginator.num_pages})
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class PurchaseOrderAddAPI(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        try:
+            poNumber = purchase_order_service.AddPurchaseOrderFromData(dict(request.data))
+            return Response({'PONumber': poNumber}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class InventoryReceipt(APIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
@@ -2104,62 +2196,6 @@ class ReAllocateRecInventory(APIView):
             response = {'messnage': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
 
-class ReAllocatePOInventory(APIView):
-    authentication_classes = [TokenAuthentication, SessionAuthentication]
-    permission_classes = [IsAuthenticated, AppModelPermissions]
-
-    appName = 'apparelManagement'
-    modelName = 'POInventory'
-    permissionType = 'change'
-
-    def get(self, request: Request, pk: int):
-        try:
-            poInventory = models.POInventory.objects.get(id=pk)
-        except:
-            response = {'message': 'Resource not found'}
-            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
-
-        allocationMethod = request.query_params.get('allocationMethod')
-        totalQty = request.query_params.get('totalQty')
-
-        if allocationMethod is None or totalQty is None:
-            response = {'message': 'Incomplete data'}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            allocation = purchase_order_service.ReAllocatePOInventory(poInventory, float(totalQty), allocationMethod)
-            return Response(data=allocation, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
-            response = {'message': str(e)}
-            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
-
-@login_required(login_url='/login')
-def ReAllocateReceiptInventory(request: HttpRequest, pk: int):
-    if request.method != 'GET':
-        return HttpResponse('Not allowed', status=405)
-    
-    try:
-        recInventory = models.RecInventory.objects.get(id=pk)
-    except:
-        return HttpResponse('Invalid Input', status=404)
-    
-    allocationMethod = request.GET.get('allocationMethod', '')
-    if not allocationMethod:
-        return HttpResponse('Allocation Priority not defined', status=404)
-
-    totalQty = request.GET.get('totalQty', None)
-
-    try:
-        allocation = purchase_receipt_service.ReAllocateReceiptInventory(recInventory, totalQty, allocationMethod)
-    except Exception as e:
-        print(e)
-        return HttpResponse(e, status=400)
-
-    return JsonResponse(allocation, safe=False)
-
-#TODO: No longer needed for Next
-@login_required(login_url='/login')
 def GetReceiptAllocation(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponse('No Allowed', status=405)

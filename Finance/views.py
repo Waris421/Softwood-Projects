@@ -18,12 +18,16 @@ class FinancePurchaseOrderList(APIView):
 
     def get(self, request):
         startDate = request.query_params.get('start', None)
+        supplier = request.query_params.get('supplier', None)
+        poNumber = request.query_params.get('poNumber', None)
+        search   = request.query_params.get('search', None)
+        page     = request.query_params.get('page', 1)
 
         if not startDate:
             return Response({'error': 'start date is required. Use ?start=YYYY-MM-DD'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            records = purchase_order_service.GetPurchaseOrders(startDate)
+            records = purchase_order_service.GetPurchaseOrders(startDate, supplier, poNumber, search, page)
             return Response(records, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'error': str(e)}, status= status.HTTP_400_BAD_REQUEST)

@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 
 
-def GetPurchaseOrders(startDate: str):
+def GetPurchaseOrders(startDate: str, supplier=None, poNumber=None, search=None, page=1):
     # Step 1: Validate the date format before hitting the database
     try:
         datetime.strptime(startDate, '%Y-%m-%d')
@@ -15,14 +15,21 @@ def GetPurchaseOrders(startDate: str):
 
     # Step 2: Fetch POs on or after the start date. Get the accompanying info needed along with the start date
     fields = ['id', 'OrderDate', 'Supplier']
-    orders = models.PurchaseOrder.objects.filter(
-        OrderDate__gte=startDate
-    ).values(*fields)
+    orders = models.PurchaseOrder.objects.filter(OrderDate__gte=startDate)
+
+    if supplier:
+        orders = orders.filter(Supplier=supplier)
+
+    if poNumber:
+        orders = orders.filter(id=poNumber)
+
+    orders = orders.values(*fields)
+
     dfOrders = pd.DataFrame(list(orders)) if orders.exists() else pd.DataFrame(columns=fields)
     del orders
 
     if dfOrders.empty:
-        return []
+        return {'total': 0, 'page': int(page), 'pageSize': 20, 'results': []}
 
     # Step 3: Fetch inventory lines + name for those POs only
     fields = ['PONumber', 'Inventory__Code', 'Inventory__Name', 'Currency']
@@ -56,7 +63,23 @@ def GetPurchaseOrders(startDate: str):
 
     # Step 8: Sort by PONumber descending and return as list of dicts
     dfOrders = dfOrders.sort_values(by='PONumber', ascending=False)
-    return dfToListOfDicts(dfOrders)
+    if search:
+        mask = (
+            dfOrders['ItemName'].str.lower().str.contains(search.lower(), na=False) |
+            dfOrders['ItemCode'].str.lower().str.contains(search.lower(), na=False) |
+            dfOrders['PONumber'].astype(str).str.contains(search, na=False)
+        )
+        dfOrders = dfOrders[mask]
+
+    page     = int(page)
+    pageSize = 20
+    total    = len(dfOrders)
+    start    = (page - 1) * pageSize
+    end      = start + pageSize
+    dfOrders = dfOrders.iloc[start:end]
+
+    return {'total': total, 'page': page, 'pageSize': pageSize, 'results': dfToListOfDicts(dfOrders)}
+
 
 # For the PO orders page
 def GetPurchaseOrderDetail(po_id: int):
