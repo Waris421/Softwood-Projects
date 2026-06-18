@@ -2,6 +2,7 @@ from django.contrib import admin
 from . import models
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
+from prodManagement.models import RFIDMachine, BundleCompletion
 
 # Register your models here.
 
@@ -12,6 +13,20 @@ from import_export.admin import ImportExportModelAdmin
 class ImpExp(ImportExportModelAdmin):
     list_display = ('MachineId', 'Manufacturer', 'Department')
     resource_class = ImpExpResource"""
+
+@admin.register(RFIDMachine)
+class RFIDMachineAdmin(admin.ModelAdmin):
+    list_display = ('name', 'mac_address', 'location', 'is_active', 'registered_at')
+    list_filter = ('is_active', 'location')
+    ordering = ('name',)
+    search_fields = ('name', 'mac_address', 'location')
+
+@admin.register(BundleCompletion)
+class BundleCompletionAdmin(admin.ModelAdmin):
+    list_display = ('Employee', 'Bundle', 'Machine', 'CompletedAt')
+    list_filter = ('Machine', 'CompletedAt')
+    ordering = ('-CompletedAt',)
+    search_fields = ('Employee__WorkerName',)
 
 @admin.register(models.Cut)
 class CutAdmin(admin.ModelAdmin):

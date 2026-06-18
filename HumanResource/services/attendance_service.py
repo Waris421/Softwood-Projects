@@ -380,31 +380,97 @@ def AddAttendance(employee: models.Employee, data: Dict[str, str]):
 
     attendance.save()
 
-def AddRFIDAttendance(cardUID: str, attendanceType: str):
-    # Look up the employee who owns this card
+def AddRFIDAttendance(cardUID: str, attendanceType: str, machineMAC: str = None):
+    from prodManagement.models import RFIDMachine, RFIDCard, WorkerCardAssignment, BundleCardAssignment, BundleCompletion
+
+    # Step 1: Look up and validate the machine
+    machine = None
+    if machineMAC:
+        try:
+            machine = RFIDMachine.objects.get(mac_address=machineMAC)
+        except RFIDMachine.DoesNotExist:
+            raise LookupError(f'Machine not registered: {machineMAC}')
+
+        if not machine.is_active:
+            raise PermissionError(f'Machine is inactive: {machine.name}')
+
+    # Step 2: Look up the card
+    try:
+        card = RFIDCard.objects.get(CardId=cardUID)
+    except RFIDCard.DoesNotExist:
+        card = None
+
+    # Step 3: Check if it's a bundle card
+    if card:
+        bundleAssignment = BundleCardAssignment.objects.filter(RFIDCard=card).first()
+        if bundleAssignment:
+            bundle = bundleAssignment.Bundle
+
+            # Check if already completed
+            if BundleCompletion.objects.filter(Bundle=bundle).exists():
+                existing = BundleCompletion.objects.get(Bundle=bundle)
+                raise ValueError(f'Bundle already completed by {existing.Employee.WorkerName}')
+
+            # Find which employee is currently checked in
+            checkedIn = models.Attendance.objects.filter(
+                Type='in',
+                TimeDate__date=TODAY
+            ).exclude(
+                Employee__in=models.Attendance.objects.filter(
+                    Type='out', TimeDate__date=TODAY
+                ).values('Employee')
+            ).first()
+
+            if not checkedIn:
+                raise LookupError('No checked-in worker found for this machine')
+
+            BundleCompletion.objects.create(
+                Employee=checkedIn.Employee,
+                Bundle=bundle,
+                Machine=machine
+            )
+            return
+
+    # Step 4: It's a worker card — look up via CardUID on Employee
     try:
         employee = models.Employee.objects.get(CardUID=cardUID)
-    except:
+    except models.Employee.DoesNotExist:
         raise LookupError(f'No employee found for card: {cardUID}')
 
-    # Validate attendance type
-    if attendanceType not in ['in', 'out']:
-        raise ValueError('Invalid attendance type')
-
-    # Check they haven't already marked attendance today
-    filters = Q(Employee=employee) & Q(Type=attendanceType) & Q(TimeDate__date=TODAY)
-    existing = models.Attendance.objects.filter(filters).first()
-    if existing:
-        attendanceTime = TZ.localtime(existing.TimeDate).strftime("%I:%M %p")
-        raise ValueError(f'Attendance already marked today at {attendanceTime}')
-
-    # Save the attendance record using the machine's fixed location
-    models.Attendance.objects.create(
+    # Step 5: First scan = in, second scan = out
+    existingIn = models.Attendance.objects.filter(
         Employee=employee,
-        Type=attendanceType,
-        Latitude=None,
-        Longitude=None,
-        Details='RFID'
-    )
+        Type='in',
+        TimeDate__date=TODAY
+    ).first()
+
+    existingOut = models.Attendance.objects.filter(
+        Employee=employee,
+        Type='out',
+        TimeDate__date=TODAY
+    ).first()
+
+    if not existingIn:
+        # First scan — record check-in
+        models.Attendance.objects.create(
+            Employee=employee,
+            Type='in',
+            Latitude=None,
+            Longitude=None,
+            Details='RFID',
+            Machine=machine
+        )
+    elif not existingOut:
+        # Second scan — record check-out
+        models.Attendance.objects.create(
+            Employee=employee,
+            Type='out',
+            Latitude=None,
+            Longitude=None,
+            Details='RFID',
+            Machine=machine
+        )
+    else:
+        raise ValueError('Attendance already fully recorded for today')
 
 

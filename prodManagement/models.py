@@ -207,3 +207,28 @@ class EnergyReading(models.Model):
 
     class Meta:
         unique_together = ('Machine', 'Timestamp') # — this is the duplicate prevention. 
+
+# RFID machine model
+class RFIDMachine(models.Model):
+    mac_address  = models.CharField(max_length=255, unique=True)
+    name         = models.CharField(max_length=255)
+    location     = models.CharField(max_length=255)
+    is_active    = models.BooleanField(default=True)
+    registered_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.mac_address})"
+
+# Bundle tracking and completion model
+class BundleCompletion(models.Model):
+    id          = models.AutoField(primary_key=True)
+    Employee    = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT)
+    Bundle      = models.ForeignKey(Bundle, on_delete=models.PROTECT, unique=True)
+    Machine     = models.ForeignKey(RFIDMachine, on_delete=models.PROTECT, null=True, blank=True)
+    CompletedAt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['Employee']),
+            models.Index(fields=['CompletedAt']),
+        ]

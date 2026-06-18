@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -17,6 +18,7 @@ def home(request: HttpRequest):
 
 urlpatterns = [
     path('', home),
+    path('health/', lambda request: JsonResponse({'status': 'ok'})),
     path('home', home, name='home'),
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),

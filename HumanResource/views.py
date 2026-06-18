@@ -70,15 +70,21 @@ class RFIDAttendanceAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request):
-        cardUID = request.data.get('CardUID')
+        cardUID      = request.data.get('CardUID')
         attendanceType = request.data.get('Type')
+        machineMAC   = request.data.get('MachineMAC')
 
         if not cardUID or not attendanceType:
             return Response({'message': 'CardUID and Type are required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not machineMAC:
+            return Response({'message': 'MachineMAC is required'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            attendance_service.AddRFIDAttendance(cardUID, attendanceType)
+            attendance_service.AddRFIDAttendance(cardUID, attendanceType, machineMAC)
             return Response({'message': 'Attendance recorded'}, status=status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({'message': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             print(e)
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

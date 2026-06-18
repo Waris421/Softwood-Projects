@@ -31,6 +31,7 @@ class Attendance(models.Model):
     Latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     Longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     Details = models.CharField(max_length=255, blank=True, null=True)
+    Machine = models.ForeignKey('prodManagement.RFIDMachine', on_delete=models.SET_NULL, null=True, blank=True)
     def __str__(self):
         return f"{self.Employee} - {self.TimeDate}"
 
