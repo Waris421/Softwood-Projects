@@ -9,8 +9,8 @@ from math import ceil
 import os
 
 from django.db import transaction
-from django.db.models import Q, Sum, Subquery, F, ExpressionWrapper, DecimalField, Min, Max
-from django.db.models.functions import TruncMonth
+from django.db.models import Q, DateField, Sum, Subquery, F, ExpressionWrapper, DecimalField, Min, Max, Value
+from django.db.models.functions import Cast, Concat, ExtractMonth, ExtractYear, TruncMonth
 from django.conf import settings
 
 from .. import models
@@ -37,6 +37,24 @@ def convertCategoryToHSCodeStart(categories: List[str]) -> List[str]:
             hsCodes.append(categoryMap[category])
 
     return list(set(hsCodes))
+
+def summarizeQtyPrice(df: pd.DataFrame):
+    dfTemp = df.copy()
+
+    keyColName = set(dfTemp.columns).difference(['Quantity', 'Price']).pop()
+
+    dfTemp['Value'] = dfTemp['Quantity'].astype(float) * dfTemp['Price'].astype(float)
+
+    dfTemp = dfTemp.groupby(keyColName).agg(
+        Quantity=('Quantity', 'sum'),
+        Value=('Value', 'sum')
+    ).reset_index()
+
+    dfTemp['Price'] = dfTemp['Value'] / dfTemp['Quantity']
+
+    dfResult = dfTemp[[keyColName, 'Quantity', 'Price']]
+
+    return dfResult
 
 def CalculateChecks(
         months: List[str], importers: List[str], exporters: List[str], categories: List[str], countries: List[str]
@@ -163,6 +181,41 @@ def ConfirmPendingUploads(approval: str):
                 models.ExportData.objects.bulk_create(dataToAdd)
         pendingUploads.delete()
 
+def GetMonthSummary(
+        importers: List[str], exporters: List[str], categories: List[str], countries: List[str]
+):
+    filters = Q()
+
+    fields = ['ShipDate', 'Quantity', 'Price']    
+    exportData = (
+    models.ExportData.objects.filter(filters)
+        .annotate(
+            shifted_date=Cast(
+                Concat(
+                    ExtractYear('ShipDate'), Value('-'),
+                    ExtractMonth('ShipDate'), Value('-03')
+                ),
+                output_field=DateField()
+            )
+        )
+        .values(Month=F('shifted_date'), *['Quantity', 'Price'])
+    )
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData, fields
+
+    dfExportData = summarizeQtyPrice(dfExportData)
+
+    if not dfExportData.empty:
+        monthSeries = pd.to_datetime(dfExportData['Month'])
+        dfExportData['Month'] = monthSeries.dt.strftime('%b')
+        dfExportData['Year'] = monthSeries.dt.year
+    else:
+        dfExportData['Month'] = pd.Series(dtype='str')
+        dfExportData['Year'] = pd.Series(dtype='int')
+
+    return dfToListOfDicts(dfExportData)
+
+#TODO: This would be obsolete when we shift to next
 def GetMonthWiseQty(
         selectedMonths: List[str], countries: List[str], importerAliases: List[str],
         exporterAliases: List[str],
@@ -207,6 +260,40 @@ def GetMonthWiseQty(
 
     return dfToListOfDicts(dfExportData)
 
+def GetCountrySummaryAPI(
+        months: List[str], importers: List[str], exporters: List[str], categories: List[str], countries: List[str]
+):
+    startDate, endDate = convertMonthstoStrtEndDates(months)
+    filters = Q(ShipDate__gte=startDate, ShipDate__lte=endDate)
+
+    fields = ['Country','Quantity', 'Price']
+    exportData = models.ExportData.objects.filter(filters).values(*fields)
+    dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
+    del exportData, fields
+
+    filePath = os.path.join(settings.BASE_DIR, 'static/Country-Codes-Location.json')
+    dfCoordinates = pd.read_json(filePath)
+
+    dfExportData = summarizeQtyPrice(dfExportData)
+
+    dfExportData = pd.merge(left=dfExportData, right=dfCoordinates, left_on='Country', right_on='alpha2', how='left')
+    del dfCoordinates
+    dfExportData.drop(inplace=True, columns=['alpha2', 'alpha3', 'numeric'])
+    dfExportData.rename(inplace=True, columns={'Country':'CountryCode','country': 'CountryName'}) 
+
+    dfExportData[['CountryName', 'latitude', 'longitude']] = dfExportData[['CountryName', 'latitude', 'longitude']].fillna('')
+
+    #Sort w.r.t qty first
+    dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
+    
+    #Bring the selected countries to the top
+    dfExportData['SortKey'] = dfExportData['CountryCode'].apply(lambda x: 0 if x in countries else 1)
+    dfExportData.sort_values(by='SortKey', kind='stable', inplace=True)
+    dfExportData.drop(inplace=True, columns=['SortKey'])
+
+    return dfToListOfDicts(dfExportData)
+
+#TODO: This would be obsolete when we shift to next
 def GetCountrySummary(
         months: List[str], importerAliases: List[str], exporterAliases: List[str], categories: List[str], countries: List[str], search: str|None,
         minQty: str|None, maxQty:str|None, minPrice:str|None, maxPrice:str|None

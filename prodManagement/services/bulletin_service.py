@@ -5,6 +5,7 @@ from django.forms.models import model_to_dict
 
 from .. import models
 from core.services import generic_services
+from core.services.generic_services import dfToListOfDicts
 from core.constants import prod
 
 def calculateSortedContribution(series: pd.Series):
@@ -83,6 +84,58 @@ def UpdateStyleBulletin(styleBulletin: models.StyleBulletin, dfOperations: pd.Da
 
     generic_services.updateModelWithDF(models.StyleBulletinOperation, dfOperations, dfPerviousOperations)
 
+def GetStyleBulletins():
+    fields = ['id', 'StyleCard']
+    bulletins = models.StyleBulletin.objects.all().values(*fields)
+    dfBulletins = pd.DataFrame(bulletins) if bulletins else pd.DataFrame(columns=fields)
+    del bulletins
+
+    fields = ['StyleBulletin', 'Operation', 'Section', 'Sequence']
+    bulletinOperations = models.StyleBulletinOperation.objects.filter(StyleBulletin__in=dfBulletins['id'].to_list()).values(*fields)
+    dfBulletinOperations = pd.DataFrame(bulletinOperations) if bulletinOperations else pd.DataFrame(columns=fields)
+    del bulletinOperations
+
+    fields = ['id', 'SkillLevel', 'SMV', 'MachineType', 'Rate']
+    operations = models.Operation.objects.filter(id__in=dfBulletinOperations['Operation'].unique().tolist()).values(*fields)
+    dfOperations = pd.DataFrame(operations) if operations else pd.DataFrame(columns=fields)
+    del operations
+
+    dfOperations['ChangeOverTime'] = dfOperations['MachineType'].map(prod.changeOverTimes)
+
+    mappingDict = {item['value']: item['text'] for item in prod.machineTypes}
+    dfOperations['MachineType'] = dfOperations['MachineType'].map(mappingDict)
+
+    mappingDict = {item['value']: item['text'] for item in prod.operationSections}
+    dfBulletinOperations['Section'] = dfBulletinOperations['Section'].map(mappingDict)
+
+    dfBulletinOperations = pd.merge(left=dfBulletinOperations, right=dfOperations, left_on='Operation', right_on='id', how='left')
+    del dfOperations
+    dfBulletinOperations.drop(inplace=True, columns=['Operation', 'id'])
+
+    dfBulletinOperations = pd.merge(left=dfBulletinOperations, right=dfBulletins, left_on='StyleBulletin', right_on='id', how='left')
+    del dfBulletins
+    dfBulletinOperations.drop(inplace=True, columns={'StyleBulletin'})
+    dfBulletinOperations.rename(inplace=True, columns={'StyleCard': 'StyleCode'})
+
+    dfBulletinOperations.sort_values(inplace=True, by=['StyleCode', 'Sequence'])
+
+    dfBulletinOperations['ChangeOverTime'] = dfBulletinOperations['ChangeOverTime'] + (dfBulletinOperations['SMV'] * prod.AVERAGE_BUNDLE_SIZE / 60)
+
+    dfBulletinOperations = dfBulletinOperations.groupby(['id', 'StyleCode']).agg(
+        SMV=('SMV', 'sum'),
+        Rate=('Rate', 'sum'),
+        LeadTime = ('ChangeOverTime', 'sum'),
+        Sections = ('Section', lambda x: calculateSortedContribution(dfBulletinOperations.loc[x.index, 'SMV'].groupby(dfBulletinOperations.loc[x.index, 'Section']).sum())),
+        SkillLevels = ('SkillLevel', lambda x: calculateSortedContribution(dfBulletinOperations.loc[x.index, 'SMV'].groupby(dfBulletinOperations.loc[x.index, 'SkillLevel']).sum())),
+        MachineTypes = ('MachineType', lambda x: calculateSortedContribution(dfBulletinOperations.loc[x.index, 'SMV'].groupby(dfBulletinOperations.loc[x.index, 'MachineType']).sum())),
+    ).reset_index()
+
+    #Round up the lead-time to the nearest half day.
+    dfBulletinOperations['LeadTime'] = np.ceil((dfBulletinOperations['LeadTime']/8) * 2) / 2
+
+    return dfToListOfDicts(dfBulletinOperations)
+
+#TODO: This would be obsolete once we shift to next
 def GetBulletinList(minSAM: float):
     fields = ['id', 'StyleCard']
     bulletins = models.StyleBulletin.objects.all().values(*fields)

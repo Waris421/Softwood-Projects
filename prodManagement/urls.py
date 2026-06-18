@@ -33,6 +33,8 @@ urlpatterns = [
     path('productivity/bulletin/<int:pk>/duplicate', views.DuplicateStyleBulletin, name='duplicateStyleBulletin'),
     path('productivity/bulletin/summarise', views.SummariseStyleBulletin, name='summariseSytleBulletin'),
 
+    path('productivity/api/bulletin', views.StyleBulletinList.as_view()),
+
     path('productivity/core-sheets', views.CoreSheet, name='coreSheets'),
     path('productivity/core-sheet/<int:workOrder>/edit', views.EditCoreSheet, name='editCoreSheet'),
     path('producitivty/core-sheet/orders/missing', options_service.GetOrdersWithMissingCS, name='missingCS'),
@@ -55,6 +57,7 @@ urlpatterns = [
     path('productivity/outsource-contract/<int:pk>/print', views.PrintContract, name='printoutsourceContract'),
 
     path('options/operations', options_service.GetOperations, name='operationsDropdown'),
+    path('options/api/operations', options_service.GetOperationsAPI.as_view()),
     path('options/operations/sections', options_service.GetOperationSections, name='opSecs'),
     path('options/section/<int:pk>', options_service.getOperationSection, name='sectionOperation'),
     path('options/operations/categories', options_service.GetOperationCategories, name='opCats'),

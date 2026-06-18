@@ -103,8 +103,13 @@ def formulateShift(employee: models.Employee, startDate: str, endDate: str):
     filters = (Q(Employee=employee) & Q(StartDate__lte=endDate) & (Q(EndDate__gte=startDate) | Q(EndDate__isnull=True)))
     fields = ['StartDate', 'EndDate', 'StartTime', 'EndTime']
     shifts = models.WorkingShift.objects.filter(filters).values(*fields)
-    dfDateRanges = pd.DataFrame(shifts) if shifts else pd.DataFrame(columns=fields)
+    
+    if not shifts:
+        raise ValueError(f"No valid shifts defined between {startDate} and {endDate}. Check with HR")
+
+    dfDateRanges = pd.DataFrame(shifts)
     del shifts
+    
 
     #Assume the shift with no end date as the active shift. Rest are for past dates
     dfDateRanges['EndDate'] = dfDateRanges['EndDate'].fillna(endDate)
@@ -112,6 +117,8 @@ def formulateShift(employee: models.Employee, startDate: str, endDate: str):
     #Pre-process Dates
     dfDateRanges['StartDate'] = pd.to_datetime(dfDateRanges['StartDate'])
     dfDateRanges['EndDate'] = pd.to_datetime(dfDateRanges['EndDate'])
+    reqStart = pd.to_datetime(startDate).normalize()
+    reqEnd = pd.to_datetime(endDate).normalize()
 
     #Clip shifts to the requested range
     dfDateRanges['StartDate'] = dfDateRanges['StartDate'].clip(lower=pd.to_datetime(startDate))
@@ -132,7 +139,7 @@ def formulateShift(employee: models.Employee, startDate: str, endDate: str):
     if dfDateRanges['EndDate'].max() < pd.to_datetime(endDate):
         raise ValueError(f"No shift defined for {endDate}. Check with HR")
     
-    #Check for an gaps in the date range of the shifts.
+    #Check for any gaps in the date range of the shifts.
     prevEnd = dfDateRanges['EndDate'].shift(1)
     gaps = (dfDateRanges['StartDate'] > (prevEnd + pd.Timedelta(days=1)))
     if gaps.any():
@@ -148,6 +155,14 @@ def formulateShift(employee: models.Employee, startDate: str, endDate: str):
     #Calculate the individual dates
     dfShifts['Date'] = dfShifts['StartDate'] + pd.to_timedelta(dfShifts.groupby(level=0).cumcount(), unit='D')
 
+    #Verify the total unique date count matches the requested date range length
+    expectedDays = (reqEnd - reqStart).days + 1
+    if dfShifts['Date'].nunique() != expectedDays:
+        expectedRange = pd.date_range(start=reqStart, end=reqEnd)
+        missingDates = expectedRange.difference(dfShifts['Date'])
+        if not missingDates.empty:
+            raise ValueError(f"No shift defined for {missingDates[0].date()}. Check with HR")
+
     dfShifts.drop(inplace=True, columns=['StartDate', 'EndDate', 'Duration'])
     dfShifts.rename(inplace=True, columns={'StartTime': 'StandardInTime', 'EndTime': 'StandardOutTime'})
     
@@ -156,6 +171,7 @@ def formulateShift(employee: models.Employee, startDate: str, endDate: str):
 def verifyAttendaceTimes(dfAttendance: pd.DataFrame, dfStandardTimes: pd.DataFrame):
     IN_TIME_ALLOWANCE_IN_MINUTES = 15
     OUT_TIME_ALLOWANCE_IN_MINUTES = 0
+    today = pd.to_datetime(TODAY)
 
     df = pd.merge(dfAttendance, dfStandardTimes, on='Date', how='left', sort=False)
     
@@ -175,6 +191,10 @@ def verifyAttendaceTimes(dfAttendance: pd.DataFrame, dfStandardTimes: pd.DataFra
 
     df['InTimeFlag'] = (df['InTimeDiff'] <= IN_TIME_ALLOWANCE_IN_MINUTES) | (df['InTime'].isna()) | (df['StandardInTime'].isna())
     df['OutTimeFlag'] = (df['OutTimeDiff'] <= OUT_TIME_ALLOWANCE_IN_MINUTES) | (df['OutTime'].isna()) | (df['StandardOutTime'].isna())
+
+    isPastDate = df['Date'] < today
+    df.loc[isPastDate & df['InTime'].isna(), 'InTimeFlag'] = False
+    df.loc[isPastDate & df['OutTime'].isna(), 'OutTimeFlag'] = False
 
     df.drop(inplace=True, columns=['Date', 'InTime', 'OutTime', 'StandardInTime', 'StandardOutTime'])
 
@@ -222,6 +242,279 @@ def adjustHolidays(dfAttendance: pd.DataFrame, dfHolidays: pd.DataFrame):
     dfResults['HolidayDetails'] = dfResults['Description'].where(isHoliday, None) 
     
     return dfResults[['HolidayFlag', 'HolidayDetails']]
+
+def adjustLoginTimeCorrections(dfAttendance: pd.DataFrame, employee: models.Employee):
+    startDate = dfAttendance['Date'].min()
+    endDate = dfAttendance['Date'].max()
+
+    fields = [
+        #From the main header
+        'id',
+        'Approval',
+        'ManagerComments',
+        
+        #From the sub header
+        'AttendanceAdjustmentInfo__Date',
+
+        #From the actual table
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__InTimeAdjustmentInfo__InTime',
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__InTimeAdjustmentInfo__Reason',
+    ]
+    adjustments = models.AdjustmentHeader.objects.filter(
+        Employee=employee,
+        AttendanceAdjustmentInfo__Date__range=(startDate, endDate),
+        AttendanceAdjustmentInfo__TimeAdjustmentInfo__InTimeAdjustmentInfo__isnull=False
+    ).values(*fields)
+    dfAdjustments = pd.DataFrame(adjustments) if adjustments else pd.DataFrame(columns=fields)
+    del adjustments
+
+    dfAdjustments.rename(inplace=True, columns={
+        'AttendanceAdjustmentInfo__Date': 'Date',
+        'id': 'InTimeAdjustmentId',
+        'Approval': 'InTimeAdjustmentApproval',
+        'ManagerComments': 'InTimeAdjustmentManagerComments',
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__InTimeAdjustmentInfo__InTime': 'InTimeRequested',
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__InTimeAdjustmentInfo__Reason': 'InTimeAdjustmentReason'
+    })
+
+    dfAdjustments["Date"] = pd.to_datetime(dfAdjustments["Date"])
+    dfAttendance = pd.merge(dfAttendance, dfAdjustments, on="Date", how="left")
+    del dfAdjustments
+
+    dfAttendance["InTime"] = np.where(
+        dfAttendance["InTimeAdjustmentApproval"] == True,
+        dfAttendance["InTimeRequested"],
+        dfAttendance["InTime"],
+    )
+
+    dfAttendance.drop(inplace=True, columns=['InTimeRequested'])
+
+    return dfAttendance
+
+def adjustLogoutTimeCorrections(dfAttendance: pd.DataFrame, employee: models.Employee):
+    startDate = dfAttendance['Date'].min()
+    endDate = dfAttendance['Date'].max()
+
+    fields = [
+        #From the main header
+        'id',
+        'Approval',
+        'ManagerComments',
+        
+        #From the sub header
+        'AttendanceAdjustmentInfo__Date',
+
+        #From the actual table
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__OutTimeAdjustmentInfo__OutTime',
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__OutTimeAdjustmentInfo__Reason',
+    ]
+    adjustments = models.AdjustmentHeader.objects.filter(
+        Employee=employee,
+        AttendanceAdjustmentInfo__Date__range=(startDate, endDate),
+        AttendanceAdjustmentInfo__TimeAdjustmentInfo__OutTimeAdjustmentInfo__isnull=False
+    ).values(*fields)
+    dfAdjustments = pd.DataFrame(adjustments) if adjustments else pd.DataFrame(columns=fields)
+    del adjustments
+
+    dfAdjustments.rename(inplace=True, columns={
+        'AttendanceAdjustmentInfo__Date': 'Date',
+        'id': 'OutTimeAdjustmentId',
+        'Approval': 'OutTimeAdjustmentApproval',
+        'ManagerComments': 'OutTimeAdjustmentManagerComments',
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__OutTimeAdjustmentInfo__OutTime': 'OutTimeRequested',
+        'AttendanceAdjustmentInfo__TimeAdjustmentInfo__OutTimeAdjustmentInfo__Reason': 'OutTimeAdjustmentReason'
+    })
+
+    dfAdjustments["Date"] = pd.to_datetime(dfAdjustments["Date"])
+    dfAttendance = pd.merge(dfAttendance, dfAdjustments, on="Date", how="left")
+    del dfAdjustments
+
+    dfAttendance["OutTime"] = np.where(
+        dfAttendance["OutTimeAdjustmentApproval"] == True,
+        dfAttendance["OutTimeRequested"],
+        dfAttendance["OutTime"],
+    )
+
+    dfAttendance.drop(inplace=True, columns=['OutTimeRequested'])
+
+    return dfAttendance
+
+def adjustLoginLocationCorrection(dfAttendance: pd.DataFrame, employee: models.Employee):
+    startDate = dfAttendance['Date'].min()
+    endDate = dfAttendance['Date'].max()
+
+    fields = [
+        #From the main header
+        'id',
+        'Approval',
+        'ManagerComments',
+        
+        #From the sub header
+        'AttendanceAdjustmentInfo__Date',
+
+        #From the actual table
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__InLocationAdjustmentInfo__InLocation',
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__InLocationAdjustmentInfo__Reason',
+    ]
+    adjustments = models.AdjustmentHeader.objects.filter(
+        Employee=employee,
+        AttendanceAdjustmentInfo__Date__range=(startDate, endDate),
+        AttendanceAdjustmentInfo__LocationAdjustmentInfo__InLocationAdjustmentInfo__isnull=False
+    ).values(*fields)
+    dfAdjustments = pd.DataFrame(adjustments) if adjustments else pd.DataFrame(columns=fields)
+    del adjustments
+
+    dfAdjustments.rename(inplace=True, columns={
+        'AttendanceAdjustmentInfo__Date': 'Date',
+        'id': 'InLocationAdjustmentId',
+        'Approval': 'InLocationAdjustmentApproval',
+        'ManagerComments': 'InLocationAdjustmentManagerComments',
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__InLocationAdjustmentInfo__InLocation': 'InLocationRequested',
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__InLocationAdjustmentInfo__Reason': 'InLocationAdjustmentReason'
+    })
+
+    dfAdjustments["Date"] = pd.to_datetime(dfAdjustments["Date"])
+    dfAttendance = pd.merge(dfAttendance, dfAdjustments, on="Date", how="left")
+    del dfAdjustments
+
+    dfAttendance.drop(inplace=True, columns=['InLocationRequested'])
+
+    return dfAttendance
+
+def adjustLogoutLocationCorrection(dfAttendance: pd.DataFrame, employee: models.Employee):
+    startDate = dfAttendance['Date'].min()
+    endDate = dfAttendance['Date'].max()
+    
+    fields = [
+        #From the main header
+        'id',
+        'Approval',
+        'ManagerComments',
+        
+        #From the sub header
+        'AttendanceAdjustmentInfo__Date',
+
+        #From the actual table
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__OutLocationAdjustmentInfo__OutLocation',
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__OutLocationAdjustmentInfo__Reason',
+    ]
+    adjustments = models.AdjustmentHeader.objects.filter(
+        Employee=employee,
+        AttendanceAdjustmentInfo__Date__range=(startDate, endDate),
+        AttendanceAdjustmentInfo__LocationAdjustmentInfo__OutLocationAdjustmentInfo__isnull=False
+    ).values(*fields)
+    dfAdjustments = pd.DataFrame(adjustments) if adjustments else pd.DataFrame(columns=fields)
+    del adjustments
+
+    dfAdjustments.rename(inplace=True, columns={
+        'AttendanceAdjustmentInfo__Date': 'Date',
+        'id': 'OutLocationAdjustmentId',
+        'Approval': 'OutLocationAdjustmentApproval',
+        'ManagerComments': 'OutLocationAdjustmentManagerComments',
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__OutLocationAdjustmentInfo__OutLocation': 'OutLocationRequested',
+        'AttendanceAdjustmentInfo__LocationAdjustmentInfo__OutLocationAdjustmentInfo__Reason': 'OutLocationAdjustmentReason'
+    })
+    dfAdjustments["Date"] = pd.to_datetime(dfAdjustments["Date"])
+    dfAttendance = pd.merge(dfAttendance, dfAdjustments, on="Date", how="left")
+    del dfAdjustments
+
+    dfAttendance.drop(inplace=True, columns=['OutLocationRequested'])
+
+    return dfAttendance
+
+def adjustFullLeaves(dfAttendance: pd.DataFrame, employee: models.Employee):
+    startDate = dfAttendance['Date'].min()
+    endDate = dfAttendance['Date'].max()
+
+    sickLeaveQuery = Q(LeaveInfo__SickLeaveInfo__StartDate__lte=endDate) & Q(LeaveInfo__SickLeaveInfo__EndDate__gte=startDate)
+    casualLeaveQuery = Q(LeaveInfo__CasualLeaveInfo__StartDate__lte=endDate) & Q(LeaveInfo__CasualLeaveInfo__EndDate__gte=startDate)
+    annualLeaveQuery = Q(LeaveInfo__AnnualLeaveInfo__StartDate__lte=endDate) & Q(LeaveInfo__AnnualLeaveInfo__EndDate__gte=startDate)   
+
+    fields = [
+        'id',
+        'Approval',
+        'ManagerComments',
+
+        'LeaveInfo__LeaveType',
+
+        'LeaveInfo__SickLeaveInfo__StartDate',
+        'LeaveInfo__SickLeaveInfo__EndDate',
+
+        'LeaveInfo__CasualLeaveInfo__StartDate',
+        'LeaveInfo__CasualLeaveInfo__EndDate',
+        'LeaveInfo__CasualLeaveInfo__Reason',
+
+        'LeaveInfo__AnnualLeaveInfo__StartDate',
+        'LeaveInfo__AnnualLeaveInfo__EndDate',
+        'LeaveInfo__AnnualLeaveInfo__Reason',
+    ]
+    leaves = models.AdjustmentHeader.objects.filter(
+        sickLeaveQuery | casualLeaveQuery | annualLeaveQuery
+    ).values(*fields)
+    dfLeaves = pd.DataFrame(leaves) if leaves else pd.DataFrame(columns=fields)
+    del leaves
+
+    dfLeaves.rename(inplace=True, columns={
+        'id': 'LeaveAdjustmentId',
+        'Approval': 'LeaveAdjustmentApproval',
+        'ManagerComments': 'LeaveAdjustmentManagerComments',
+        'LeaveInfo__LeaveType': 'LeaveType',
+        'LeaveInfo__SickLeaveInfo__StartDate': 'SickLeaveStartDate',
+        'LeaveInfo__SickLeaveInfo__EndDate': 'SickLeaveEndDate',
+        'LeaveInfo__CasualLeaveInfo__StartDate': 'CasualLeaveStartDate',
+        'LeaveInfo__CasualLeaveInfo__EndDate': 'CasualLeaveEndDate',
+        'LeaveInfo__CasualLeaveInfo__Reason': 'CasualLeaveReason',
+        'LeaveInfo__AnnualLeaveInfo__StartDate': 'AnnualLeaveStartDate',
+        'LeaveInfo__AnnualLeaveInfo__EndDate': 'AnnualLeaveEndDate',
+        'LeaveInfo__AnnualLeaveInfo__Reason': 'AnnualLeaveReason',
+    })
+
+    #Melt all the leave types into a long date by date schedule
+    commonCols = ['LeaveAdjustmentId', 'LeaveType', 'LeaveAdjustmentApproval', 'LeaveAdjustmentManagerComments']
+
+    startDates = dfLeaves.melt(
+        id_vars=commonCols,
+        value_vars=['SickLeaveStartDate', 'CasualLeaveStartDate', 'AnnualLeaveStartDate'],
+        var_name='LeaveAdjustmentType',
+        value_name='StartDate'
+    )
+    endDates = dfLeaves.melt(
+        id_vars=commonCols,
+        value_vars=['SickLeaveEndDate', 'CasualLeaveEndDate', 'AnnualLeaveEndDate'],
+        var_name='LeaveAdjustmentType',
+        value_name='EndDate'
+    )
+
+    startDates['LeaveAdjustmentType'] = startDates['LeaveAdjustmentType'].str.replace('StartDate', '')
+    endDates['LeaveAdjustmentType'] = endDates['LeaveAdjustmentType'].str.replace('EndDate', '')
+    
+    dfLeaves = pd.merge(startDates, endDates, on=commonCols + ['LeaveAdjustmentType'])
+    del startDates, endDates
+
+    dfLeaves = dfLeaves.dropna(subset=['StartDate'])
+
+    dfLeaves['StartDate'] = pd.to_datetime(dfLeaves['StartDate'])
+    dfLeaves['EndDate'] = pd.to_datetime(dfLeaves['EndDate'])
+
+    dfLeaves['Date'] = [
+        pd.date_range(start, end) for start, end in zip(dfLeaves['StartDate'], dfLeaves['EndDate'])
+    ]
+    dfLeaves = dfLeaves.explode('Date')
+
+    dfLeaves = dfLeaves[[
+        'Date',
+        'LeaveAdjustmentId',
+        'LeaveType',
+        'LeaveAdjustmentApproval',
+        'LeaveAdjustmentManagerComments',
+    ]].reset_index(drop=True)
+
+    dfAttendance = pd.merge(dfAttendance, dfLeaves, on="Date", how="left")
+    del dfLeaves
+
+    dfAttendance['LeaveFlag'] = (dfAttendance['LeaveAdjustmentApproval'] == True)
+
+    return dfAttendance
 
 def markAbsentism(dfAttendance: pd.DataFrame):
     absentFlag = (
@@ -287,8 +580,18 @@ def GetAttendance(employee: models.Employee, startDate: str, endDate: str):
     dfResults = expandAttendance(dfAttendance, dfDateRange, attSchema)
     del dfAttendance, dfDateRange
 
+    #Apply Adjustments
+    dfResults[['Date', 'InTime', 'InTimeAdjustmentId', 'InTimeAdjustmentApproval', 'InTimeAdjustmentManagerComments', 'InTimeAdjustmentReason']] = adjustLoginTimeCorrections(dfResults[['Date', 'InTime']], employee)
+    dfResults[['Date', 'OutTime', 'OutTimeAdjustmentId', 'OutTimeAdjustmentApproval', 'OutTimeAdjustmentManagerComments', 'OutTimeAdjustmentReason']] = adjustLogoutTimeCorrections(dfResults[['Date', 'OutTime']], employee)
+    dfResults[['Date', 'InLocation', 'InLocationAdjustmentId', 'InLocationAdjustmentApproval', 'InLocationAdjustmentManagerComments', 'InLocationAdjustmentReason']] = adjustLoginLocationCorrection(dfResults[['Date', 'InLocation']], employee)
+    dfResults[['Date', 'OutLocation', 'OutLocationAdjustmentId', 'OutLocationAdjustmentApproval', 'OutLocationAdjustmentManagerComments', 'OutLocationAdjustmentReason']] = adjustLogoutLocationCorrection(dfResults[['Date', 'OutLocation']], employee)
+
+
     #Check the login/logout times and share any descripancies
     dfResults[['InTimeDiff', 'OutTimeDiff', 'InTimeFlag', 'OutTimeFlag']] = verifyAttendaceTimes(dfResults[['Date', 'InTime', 'OutTime']], dfShifts)
+
+    #Apply leaves data
+    dfResults[['Date', 'FullLeaveAdjustmentId', 'FullLeaveType', 'FullLeaveAdjustmentApproval', 'FullLeaveAdjustmentManagerComments', 'FullLeaveFlag']] = adjustFullLeaves(dfResults[['Date']], employee)
 
     #Add the flag for weekends and off saturdays
     dfResults['WeekendFlag'] = adjustWeekend(dfResults, offSaturday)
@@ -297,7 +600,6 @@ def GetAttendance(employee: models.Employee, startDate: str, endDate: str):
     dfResults[['HolidayFlag', 'HolidayDetails']] = adjustHolidays(dfResults, dfHolidays)
 
     #TODO: Take adjustments in to account
-    
 
     dfResults['AbsentFlag'] = markAbsentism(dfResults)
     

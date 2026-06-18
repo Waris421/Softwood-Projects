@@ -1,4 +1,4 @@
-from pytz import timezone
+from zoneinfo import ZoneInfo
 from datetime import datetime
 from typing import Dict, List, Union
 import os
@@ -115,7 +115,7 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
     'productivity': [
         {'label': 'Dashboard', 'href':'/productivity', 'appName': 'prodManagement', 'modelName': 'Operation'},
         {'label': 'Presets', 'appName': 'prodManagement', 'modelName': 'Operation', 'children': [
-            {'label':'Style Bulletin', 'href':'/productivity/buletin', 'subtext': 'Manage style bulletins'},
+            {'label':'Style Bulletin', 'href':'/productivity/bulletin', 'subtext': 'Manage style bulletins'},
             {'label':'Operations', 'href':'/productivity/operation', 'subtext': 'Define and categorize production operations'},
             {'label':'Machines', 'href':'/productivity/machine', 'subtext': 'Define and categorize production machines'},
         ]},
@@ -191,9 +191,15 @@ BROWSER_OPTIONS: Dict[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]] = 
             {'label': 'Awaiting Receipt', 'href': '/merchandising/pending-receipt', 'subtext': 'Monitor purchase orders which are not yet received.'},
         ]},
     ],
+    'marketing': [
+        {'label': 'Dashboard', 'href': '/marketing', 'appName': 'marketing', 'modelName': 'ExportData'},
+        {'label': 'Customers', 'appName': 'marketing', 'modelName': 'ExportData', 'children': [
+            {'label': 'Master List', 'href': '/marketing/export-data', 'subtext': 'View the master list of all the relevant customers.'}
+        ]}
+    ],
 }
 
-LOCAL_TIMEZONE = timezone('Asia/Karachi')
+LOCAL_TIMEZONE = ZoneInfo('Asia/Karachi')
 GST_RATE = 18.0
 GST_RATE_FOR_SERVICES = 16.0
 LOCAL_CURRENCY = 'PKR'

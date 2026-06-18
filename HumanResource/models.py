@@ -250,6 +250,7 @@ class OverTimeAdjustment(models.Model):
     id = models.AutoField(primary_key=True)
     Header = models.OneToOneField(AdjustmentHeader, on_delete=models.CASCADE, related_name='OverTimeAdjsutmentInfo')
     Date = models.DateField(auto_now=False, auto_now_add=False)
+    Duration = models.FloatField()
     Reason = models.CharField(max_length=255)
 
     class Meta:

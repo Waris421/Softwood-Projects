@@ -27,6 +27,8 @@ urlpatterns = [
     path('hr/attendance/add-final', views.AddVerifiedAttendance.as_view(), name='addAttendnceVerified'),
 
     path('hr/attendance/correction/add', views.AddCorrection.as_view(), name='addAttCorrection'),
+    path('hr/attendance/correction/<int:pk>/update', views.UpdateAdjustment.as_view()),
+    path('hr/attendance/leave/<int:pk>/update', views.UpdateLeave.as_view()),
 
     path('options/workers', options_service.GetWorkers.as_view(), name='workersOptions'),
 ]

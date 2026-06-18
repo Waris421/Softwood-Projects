@@ -448,6 +448,23 @@ def EditMachine(request: HttpResponse, pk: int):
         }
         return render(request, 'machines/edit.html', context)
 
+class StyleBulletinList(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'StyleBulletin'
+    permissionType = 'view'
+
+    def get(self, _:Request):
+        try:
+            bulletins = bulletin_service.GetStyleBulletins()
+            return Response(data=bulletins, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
 @login_required(login_url='/login')
 def StyleBulletin(request: HttpRequest):
     if request.method != 'GET':

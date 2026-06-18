@@ -471,3 +471,83 @@ class AddCorrection(APIView):
             print(e)
             response = {'message': str(e)}
             return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request):
+        user = request.user
+
+        try:
+            correction_service.AddCorrection(user, request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class UpdateAdjustment(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Adjustment'
+    permissionType = 'change'
+
+    def get(self, request: Request, pk: int):
+        user = request.user
+        
+        try:
+            adjustment = models.AttendanceAdjustmentHeader.objects.get(Header__id=pk)
+        except Exception as e:
+            print(e)
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            formData = correction_service.GetDataForAdjustmentUpdate(user, adjustment)
+            return Response(data=formData, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+    
+    def post(self, request: Request, pk: int):
+        user = request.user
+        
+        try:
+            adjustment = models.AttendanceAdjustmentHeader.objects.get(Header__id=pk)
+        except Exception as e:
+            print(e)
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            correction_service.UpdateAdjustment(user, adjustment, request.data)
+            response = {'message': 'Saved Successfully'}
+            return Response(data=response, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(e)
+            response = {'message': str(e)}
+            return Response(data=response, status=status.HTTP_400_BAD_REQUEST)
+
+class UpdateLeave(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'HumanResource'
+    modelName = 'Adjustment'
+    permissionType = 'change'
+
+    def get(self, request: Request, pk: int):
+        user = request.user
+
+        try:
+            adjustment = models.LeaveAdjustmentHeader.objects.get(Header__id=pk)
+        except Exception as e:
+            print(e)
+            response = {'message': 'Resource not found'}
+            return Response(data=response, status=status.HTTP_404_NOT_FOUND)
+
+        print(adjustment)
+
+        response = {'message': 'Under Construction'}
+        return Response(data=response, status=status.HTTP_503_SERVICE_UNAVAILABLE)

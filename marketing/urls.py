@@ -31,5 +31,8 @@ urlpatterns = [
     path('marketing/export-data/sliders', views.ExportDataSliders, name='exportDataSliders'),
     path('marketing/export-data/download', views.ExportDataDownload, name='exportDataDownload'),
 
+    path('marketing/export-data/api/months', views.ExportDataMonths.as_view()),
+    path('marketing/export-data/api/countries', views.ExportDataCountriesAPI.as_view()),
+
     path('options/countries', options_service.GetCountries, name='countries'),
 ]

@@ -801,6 +801,38 @@ def GetMachineManufacturers(request: HttpRequest):
     
     return JsonResponse(machineManufacturers, safe=False)
 
+class GetOperationsAPI(APIView):
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated, AppModelPermissions]
+
+    appName = 'PM'
+    modelName = 'Operation'
+    permissionType = 'view'
+
+    def get(self, request:Request):
+        search = request.query_params.get('search')
+        limit = request.query_params.get('limit')
+
+        filters = Q()
+        if search:
+            filters &= (
+                Q(Name__icontains=search) | 
+                Q(id__icontains=search)
+            )
+        
+        querySet = prodModels.Operation.objects.filter(filters).annotate(
+            value=Cast(F('id'), output_field=CharField()),
+            label=F('Name')
+        ).order_by('id')
+
+        if limit and limit.isdigit():
+            querySet = querySet[:int(limit)]
+        
+        fields = ['value', 'label']
+        operationList = list(querySet.values(*fields))
+
+        return Response(data=operationList, status=status.HTTP_200_OK)
+
 @login_required(login_url='/login')
 def GetOperations(request: HttpRequest):
     if request.method != 'GET':
