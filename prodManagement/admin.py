@@ -15,11 +15,14 @@ class ImpExp(ImportExportModelAdmin):
     resource_class = ImpExpResource"""
 
 @admin.register(RFIDMachine)
-class RFIDMachineAdmin(admin.ModelAdmin):
-    list_display = ('name', 'mac_address', 'location', 'is_active', 'registered_at')
-    list_filter = ('is_active', 'location')
-    ordering = ('name',)
-    search_fields = ('name', 'mac_address', 'location')
+class RFIDBoxAdmin(admin.ModelAdmin):
+    list_display = ('mac_address','registered_at')
+    search_fields = ('mac_address')
+
+@admin.register(models.BoxAllotment)
+class BoxAllotmentAdmin(admin.ModelAdmin):
+    list_display = ('Box', 'Machine', 'Employee', 'AssignedAt')
+    ordering = ('-AssignedAt',)
 
 @admin.register(BundleCompletion)
 class BundleCompletionAdmin(admin.ModelAdmin):
@@ -74,8 +77,8 @@ class AttendanceAdmin(admin.ModelAdmin):
 class RFIDCardAdmin(admin.ModelAdmin):
     '''Admin View for RFIDCard'''
 
-    list_display = ('CardId','GroupNumber','GroupStatus')
-    list_filter = ('GroupNumber',)
+    list_display = ('CardId', 'GroupNumber', 'GroupStatus')
+    search_fields = ('CardId', 'GroupNumber', 'GroupStatus')
     ordering = ('CardId',)
 
 @admin.register(models.EnergyReading)
@@ -90,3 +93,9 @@ class MachineAdmin(admin.ModelAdmin):
     list_filter = ('FunctionStatus', 'Department')
     ordering = ('MachineId',)
     search_fields = ('MachineId', 'DisplayName')
+
+@admin.register(models.BundleCardAssignment)
+class BundleCardAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'RFIDCard', 'Bundle')
+    search_fields = ('RFIDCard__CardId',)
+    list_filter = ('Bundle__Cut__WorkOrder',)

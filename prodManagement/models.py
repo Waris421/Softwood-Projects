@@ -96,6 +96,8 @@ class Bundle(models.Model):
     Size = models.CharField(max_length=31)
     Bundle = models.PositiveIntegerField()
     CreatedAt = models.DateTimeField(auto_now_add=True, null=True)
+    def __str__(self):
+        return f"Bundle {self.Bundle} — Cut {self.Cut_id} ({self.Size})"
 
 
     class Meta:
@@ -125,7 +127,7 @@ class Worker(models.Model):
         ]
 
 class RFIDCard(models.Model):
-    CardId = models.PositiveBigIntegerField(primary_key=True)
+    CardId = models.CharField(max_length=50, primary_key=True)
     CardNumber = models.PositiveBigIntegerField(unique=True, null=True, blank=True)
     GroupNumber = models.PositiveBigIntegerField(null=True, blank=True)
     GroupStatus = models.CharField(max_length=31, default='Incomplete')
@@ -209,15 +211,18 @@ class EnergyReading(models.Model):
         unique_together = ('Machine', 'Timestamp') # — this is the duplicate prevention. 
 
 # RFID machine model
-class RFIDMachine(models.Model):
+class RFIDBox(models.Model):
     mac_address  = models.CharField(max_length=255, unique=True)
-    name         = models.CharField(max_length=255)
-    location     = models.CharField(max_length=255)
-    is_active    = models.BooleanField(default=True)
     registered_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} ({self.mac_address})"
+
+class BoxAllotment(models.Model):
+    Box        = models.ForeignKey(RFIDBox, on_delete=models.PROTECT)
+    Machine    = models.ForeignKey(Machine, on_delete=models.PROTECT)
+    Employee   = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT)
+    AssignedAt = models.DateTimeField(auto_now_add=True)
 
 # Bundle tracking and completion model
 class BundleCompletion(models.Model):

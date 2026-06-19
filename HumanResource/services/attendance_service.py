@@ -429,7 +429,7 @@ def AddRFIDAttendance(cardUID: str, attendanceType: str, machineMAC: str = None)
                 Bundle=bundle,
                 Machine=machine
             )
-            return
+            return 'Bundle recorded'
 
     # Step 4: It's a worker card — look up via CardUID on Employee
     try:
@@ -437,40 +437,5 @@ def AddRFIDAttendance(cardUID: str, attendanceType: str, machineMAC: str = None)
     except models.Employee.DoesNotExist:
         raise LookupError(f'No employee found for card: {cardUID}')
 
-    # Step 5: First scan = in, second scan = out
-    existingIn = models.Attendance.objects.filter(
-        Employee=employee,
-        Type='in',
-        TimeDate__date=TODAY
-    ).first()
-
-    existingOut = models.Attendance.objects.filter(
-        Employee=employee,
-        Type='out',
-        TimeDate__date=TODAY
-    ).first()
-
-    if not existingIn:
-        # First scan — record check-in
-        models.Attendance.objects.create(
-            Employee=employee,
-            Type='in',
-            Latitude=None,
-            Longitude=None,
-            Details='RFID',
-            Machine=machine
-        )
-    elif not existingOut:
-        # Second scan — record check-out
-        models.Attendance.objects.create(
-            Employee=employee,
-            Type='out',
-            Latitude=None,
-            Longitude=None,
-            Details='RFID',
-            Machine=machine
-        )
-    else:
-        raise ValueError('Attendance already fully recorded for today')
-
-
+    models.RFIDLog.objects.create(Employee=employee, Machine=machine)
+    return 'Scan recorded'

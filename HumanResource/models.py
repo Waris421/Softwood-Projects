@@ -40,3 +40,8 @@ class Attendance(models.Model):
             models.Index(fields=['Employee']),
             models.Index(fields=['TimeDate']),
         ]
+
+class RFIDLog(models.Model):
+    Employee = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    Machine  = models.ForeignKey('prodManagement.RFIDMachine', on_delete=models.SET_NULL, null=True, blank=True)
+    TimeDate = models.DateTimeField(auto_now_add=True)

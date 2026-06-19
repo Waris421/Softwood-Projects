@@ -1,3 +1,5 @@
+from email.mime import message
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import  AllowAny
@@ -81,8 +83,8 @@ class RFIDAttendanceAPI(APIView):
             return Response({'message': 'MachineMAC is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            attendance_service.AddRFIDAttendance(cardUID, attendanceType, machineMAC)
-            return Response({'message': 'Attendance recorded'}, status=status.HTTP_200_OK)
+            message = attendance_service.AddRFIDAttendance(cardUID, attendanceType, machineMAC)
+            return Response({'message': message}, status=status.HTTP_200_OK)
         except PermissionError as e:
             return Response({'message': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
