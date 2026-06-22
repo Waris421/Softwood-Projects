@@ -381,18 +381,18 @@ def AddAttendance(employee: models.Employee, data: Dict[str, str]):
     attendance.save()
 
 def AddRFIDAttendance(cardUID: str, attendanceType: str, machineMAC: str = None):
-    from prodManagement.models import RFIDMachine, RFIDCard, WorkerCardAssignment, BundleCardAssignment, BundleCompletion
+    from prodManagement.models import RFIDBox, RFIDCard, BundleCardAssignment, BundleCompletion, BoxAllotment, Serial
 
     # Step 1: Look up and validate the machine
     machine = None
     if machineMAC:
         try:
-            machine = RFIDMachine.objects.get(mac_address=machineMAC)
-        except RFIDMachine.DoesNotExist:
+            machine = RFIDBox.objects.get(mac_address=machineMAC)
+        except RFIDBox.DoesNotExist:
             raise LookupError(f'Machine not registered: {machineMAC}')
 
         if not machine.is_active:
-            raise PermissionError(f'Machine is inactive: {machine.name}')
+            raise PermissionError(f'Machine is inactive: {machine.mac_address}')
 
     # Step 2: Look up the card
     try:
@@ -400,7 +400,7 @@ def AddRFIDAttendance(cardUID: str, attendanceType: str, machineMAC: str = None)
     except RFIDCard.DoesNotExist:
         card = None
 
-    # Step 3: Check if it's a bundle card
+        # Step 3: Check if it's a bundle card
     if card:
         bundleAssignment = BundleCardAssignment.objects.filter(RFIDCard=card).first()
         if bundleAssignment:
@@ -411,31 +411,34 @@ def AddRFIDAttendance(cardUID: str, attendanceType: str, machineMAC: str = None)
                 existing = BundleCompletion.objects.get(Bundle=bundle)
                 raise ValueError(f'Bundle already completed by {existing.Employee.WorkerName}')
 
-            # Find which employee is currently checked in
-            checkedIn = models.Attendance.objects.filter(
-                Type='in',
-                TimeDate__date=TODAY
-            ).exclude(
-                Employee__in=models.Attendance.objects.filter(
-                    Type='out', TimeDate__date=TODAY
-                ).values('Employee')
-            ).first()
-
-            if not checkedIn:
-                raise LookupError('No checked-in worker found for this machine')
+            # Get the allotment for this machine to find employee and operation
+            try:
+                allotment = BoxAllotment.objects.select_related('Employee', 'Machine', 'Operation').get(Box=machine)
+            except BoxAllotment.DoesNotExist:
+                raise LookupError(f'No allotment found for machine: {machine.mac_address}')
 
             BundleCompletion.objects.create(
-                Employee=checkedIn.Employee,
+                Employee=allotment.Employee,
                 Bundle=bundle,
                 Machine=machine
             )
+
+            Serial.objects.create(
+                Employee=allotment.Employee,
+                Bundle=bundle,
+                Machine=allotment.Machine,
+                Operation=allotment.Operation,
+            )
+
             return 'Bundle recorded'
 
     # Step 4: It's a worker card — look up via CardUID on Employee
+    from prodManagement.models import EmployeeCardAssignment
     try:
-        employee = models.Employee.objects.get(CardUID=cardUID)
-    except models.Employee.DoesNotExist:
+        assignment = EmployeeCardAssignment.objects.select_related('Employee').get(RFIDCard__CardId=cardUID)
+        employee = assignment.Employee
+    except EmployeeCardAssignment.DoesNotExist:
         raise LookupError(f'No employee found for card: {cardUID}')
-
+        
     models.RFIDLog.objects.create(Employee=employee, Machine=machine)
     return 'Scan recorded'

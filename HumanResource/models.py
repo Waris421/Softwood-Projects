@@ -18,7 +18,6 @@ class Employee(models.Model):
     Status = models.CharField(max_length=31)
     Gender = models.CharField(max_length=7)
     User = models.ForeignKey(User, on_delete=models.PROTECT, blank=True, null=True)
-    CardUID = models.CharField(max_length=255, blank=True, null=True, unique=True)
     def __str__(self):
         return self.WorkerName
 
@@ -31,7 +30,7 @@ class Attendance(models.Model):
     Latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     Longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     Details = models.CharField(max_length=255, blank=True, null=True)
-    Machine = models.ForeignKey('prodManagement.RFIDMachine', on_delete=models.SET_NULL, null=True, blank=True)
+    Machine = models.ForeignKey('prodManagement.RFIDBox', on_delete=models.SET_NULL, null=True, blank=True)
     def __str__(self):
         return f"{self.Employee} - {self.TimeDate}"
 
@@ -43,5 +42,5 @@ class Attendance(models.Model):
 
 class RFIDLog(models.Model):
     Employee = models.ForeignKey(Employee, on_delete=models.PROTECT)
-    Machine  = models.ForeignKey('prodManagement.RFIDMachine', on_delete=models.SET_NULL, null=True, blank=True)
+    Machine = models.ForeignKey('prodManagement.RFIDBox', on_delete=models.SET_NULL, null=True, blank=True)
     TimeDate = models.DateTimeField(auto_now_add=True)

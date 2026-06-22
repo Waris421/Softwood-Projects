@@ -1,10 +1,12 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.contrib.auth.models import User
 
 from apparelManagement.models import Department, StyleCard, WorkOrder, OrderVariant
 from apparelManagement.models import StyleRoute, Currency, RoutePresetStage
 from planning.models import ProductionPlan, Capacity
+from HumanResource.models import Employee
 
 class Operation(models.Model):
     id = models.AutoField(primary_key=True)
@@ -128,7 +130,6 @@ class Worker(models.Model):
 
 class RFIDCard(models.Model):
     CardId = models.CharField(max_length=50, primary_key=True)
-    CardNumber = models.PositiveBigIntegerField(unique=True, null=True, blank=True)
     GroupNumber = models.PositiveBigIntegerField(null=True, blank=True)
     GroupStatus = models.CharField(max_length=31, default='Incomplete')
 
@@ -138,10 +139,16 @@ class RFIDCard(models.Model):
             models.Index(fields=['GroupStatus']),
         ]
 
-class WorkerCardAssignment(models.Model):
+class EmployeeCardAssignment(models.Model):
     id = models.AutoField(primary_key=True)
     RFIDCard = models.ForeignKey(RFIDCard, on_delete=models.CASCADE)
-    Worker = models.ForeignKey(Worker, on_delete=models.CASCADE)
+    Employee = models.ForeignKey('HumanResource.Employee', on_delete=models.CASCADE)
+
+    def clean(self):
+        if BundleCardAssignment.objects.filter(RFIDCard=self.RFIDCard).exists():
+            raise ValidationError(f'Card {self.RFIDCard.CardId} is already assigned to a bundle.')
+        if EmployeeCardAssignment.objects.filter(RFIDCard=self.RFIDCard).exclude(pk=self.pk).exists():
+            raise ValidationError(f'Card {self.RFIDCard.CardId} is already assigned to another employee.')
 
     class Meta:
         indexes = [
@@ -153,6 +160,12 @@ class BundleCardAssignment(models.Model):
     RFIDCard = models.ForeignKey(RFIDCard, on_delete=models.CASCADE)
     Bundle = models.ForeignKey(Bundle, on_delete=models.CASCADE)
 
+    def clean(self):
+        if EmployeeCardAssignment.objects.filter(RFIDCard=self.RFIDCard).exists():
+            raise ValidationError(f'Card {self.RFIDCard.CardId} is already assigned to an employee.')
+        if BundleCardAssignment.objects.filter(RFIDCard=self.RFIDCard).exclude(pk=self.pk).exists():
+            raise ValidationError(f'Card {self.RFIDCard.CardId} is already assigned to another bundle.')
+
     class Meta:
         indexes = [
             models.Index(fields=['RFIDCard']),
@@ -160,12 +173,13 @@ class BundleCardAssignment(models.Model):
 
 class Serial(models.Model):
     id = models.AutoField(primary_key=True)
-    Worker = models.ForeignKey(Worker, on_delete=models.PROTECT)
+    Worker = models.ForeignKey(Worker, on_delete=models.PROTECT, null=True, blank=True)
     Operation = models.ForeignKey(Operation, on_delete=models.PROTECT)
     Bundle = models.ForeignKey(Bundle, on_delete=models.PROTECT)
     Machine = models.ForeignKey(Machine, on_delete=models.PROTECT)
     TimeDate = models.DateTimeField(blank=True, null=True, default=timezone.now)
-    Line = models.CharField(max_length=31)
+    Line = models.CharField(max_length=31, null=True, blank=True)
+    Employee = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT, null=True, blank=True)
 
     class Meta:
         indexes = [
@@ -213,23 +227,25 @@ class EnergyReading(models.Model):
 # RFID machine model
 class RFIDBox(models.Model):
     mac_address  = models.CharField(max_length=255, unique=True)
+    is_active     = models.BooleanField(default=True)
     registered_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.name} ({self.mac_address})"
+        return self.mac_address
 
 class BoxAllotment(models.Model):
     Box        = models.ForeignKey(RFIDBox, on_delete=models.PROTECT)
     Machine    = models.ForeignKey(Machine, on_delete=models.PROTECT)
-    Employee   = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT)
+    Operation  = models.ForeignKey(Operation, on_delete=models.PROTECT, null=True, blank=True)
+    Employee   = models.ForeignKey(Employee, on_delete=models.PROTECT)
     AssignedAt = models.DateTimeField(auto_now_add=True)
 
 # Bundle tracking and completion model
 class BundleCompletion(models.Model):
     id          = models.AutoField(primary_key=True)
     Employee    = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT)
-    Bundle      = models.ForeignKey(Bundle, on_delete=models.PROTECT, unique=True)
-    Machine     = models.ForeignKey(RFIDMachine, on_delete=models.PROTECT, null=True, blank=True)
+    Bundle = models.OneToOneField(Bundle, on_delete=models.PROTECT)
+    Machine = models.ForeignKey(RFIDBox, on_delete=models.PROTECT, null=True, blank=True)
     CompletedAt = models.DateTimeField(auto_now_add=True)
 
     class Meta:

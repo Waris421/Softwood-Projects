@@ -93,27 +93,29 @@ def GetWorkers(department: str, status:str):
     
     return generic_services.dfToListOfDicts(dfWorkers)
 
-def AssignCardToWorker(cardId: int, workerCode: int):
+def AssignCardToWorker(cardId: str, employeeId: int):
+    from HumanResource.models import Employee
+
     try:
         card = models.RFIDCard.objects.get(CardId=cardId)
     except:
         raise LookupError('Card not added in system')
-    
+
     try:
-        worker = models.Worker.objects.get(WorkerCode=workerCode)
+        employee = Employee.objects.get(id=employeeId)
     except:
-        raise LookupError('Worker Code Not Found.')
+        raise LookupError('Employee not found.')
 
     if card.GroupNumber:
         raise ValueError('This card is reserved for bundles.')
 
     try:
-        previousAssignment = models.WorkerCardAssignment.objects.get(Worker=worker)
+        previousAssignment = models.EmployeeCardAssignment.objects.get(Employee=employee)
         previousAssignment.delete()
     except:
         pass
 
-    models.WorkerCardAssignment(
-        RFIDCard = card,
-        Worker = worker
+    models.EmployeeCardAssignment(
+        RFIDCard=card,
+        Employee=employee
     ).save()

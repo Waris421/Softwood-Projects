@@ -2,7 +2,7 @@ from django.contrib import admin
 from . import models
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
-from prodManagement.models import RFIDMachine, BundleCompletion
+from prodManagement.models import RFIDBox, BundleCompletion
 
 # Register your models here.
 
@@ -14,22 +14,30 @@ class ImpExp(ImportExportModelAdmin):
     list_display = ('MachineId', 'Manufacturer', 'Department')
     resource_class = ImpExpResource"""
 
-@admin.register(RFIDMachine)
+@admin.register(RFIDBox)
 class RFIDBoxAdmin(admin.ModelAdmin):
     list_display = ('mac_address','registered_at')
-    search_fields = ('mac_address')
+    search_fields = ('mac_address',)
 
 @admin.register(models.BoxAllotment)
 class BoxAllotmentAdmin(admin.ModelAdmin):
-    list_display = ('Box', 'Machine', 'Employee', 'AssignedAt')
+    list_display = ('Box', 'Machine', 'Operation', 'Employee', 'AssignedAt')
     ordering = ('-AssignedAt',)
 
 @admin.register(BundleCompletion)
 class BundleCompletionAdmin(admin.ModelAdmin):
-    list_display = ('Employee', 'Bundle', 'Machine', 'CompletedAt')
+    list_display = ('Employee', 'Bundle', 'card_uid', 'Machine', 'CompletedAt')
     list_filter = ('Machine', 'CompletedAt')
     ordering = ('-CompletedAt',)
     search_fields = ('Employee__WorkerName',)
+
+    def card_uid(self, obj):
+        try:
+            assignment = models.BundleCardAssignment.objects.get(Bundle=obj.Bundle)
+            return assignment.RFIDCard.CardId
+        except models.BundleCardAssignment.DoesNotExist:
+            return '-'
+    card_uid.short_description = 'Card UID'
 
 @admin.register(models.Cut)
 class CutAdmin(admin.ModelAdmin):
@@ -99,3 +107,14 @@ class BundleCardAssignmentAdmin(admin.ModelAdmin):
     list_display = ('id', 'RFIDCard', 'Bundle')
     search_fields = ('RFIDCard__CardId',)
     list_filter = ('Bundle__Cut__WorkOrder',)
+
+@admin.register(models.EmployeeCardAssignment)
+class EmployeeCardAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('RFIDCard', 'Employee', )
+    search_fields = ('RFIDCard__CardId', 'Employee__WorkerName')
+
+@admin.register(models.Operation)
+class OperationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'Name', 'Section', 'Category', 'SMV', 'Rate')
+    search_fields = ('Name', 'Section', 'Category')
+    list_filter = ('Section', 'Category')
