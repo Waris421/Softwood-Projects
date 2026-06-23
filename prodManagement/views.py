@@ -10,6 +10,8 @@ from rest_framework.permissions import  AllowAny
 from rest_framework.request import Request
 from rest_framework.authtoken.models import Token
 import rest_framework
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 import json
 import os
@@ -17,7 +19,7 @@ import os
 from core.constants.theme import theme
 from core.services import generic_services, auth_service
 from .services import stitching_service, bulletin_service, core_sheet_service
-from .services import worker_service, serial_service, outsource_service, energy_service
+from .services import worker_service, serial_service, outsource_service, energy_service, rfid_service
 
 from . import models
 
@@ -879,3 +881,27 @@ class EnergyReadings(APIView):
             return Response({'message': 'Invalid date format. Use YYYY-MM-DD'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
 
         return Response(result)
+
+# Token: 76b7ab94a259af0daf37c5c5b72c13abcb7bda17
+class RFIDAttendanceAPI(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        cardUID    = request.data.get('CardUID')
+        machineMAC = request.data.get('MachineMAC')
+
+        if not cardUID:
+            return Response({'message': 'CardUID is required'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+
+        if not machineMAC:
+            return Response({'message': 'MachineMAC is required'}, status=rest_framework.status.HTTP_400_BAD_REQUEST)
+
+        try:
+            message = rfid_service.AddRFIDAttendance(cardUID, machineMAC)
+            return Response({'message': message}, status=rest_framework.status.HTTP_200_OK)
+        except PermissionError as e:
+            return Response({'message': str(e)}, status=rest_framework.status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            print(e)
+            return Response({'message': str(e)}, status=rest_framework.status.HTTP_400_BAD_REQUEST)

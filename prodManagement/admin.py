@@ -2,7 +2,7 @@ from django.contrib import admin
 from . import models
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
-from prodManagement.models import RFIDBox, BundleCompletion
+from prodManagement.models import RFIDBox
 
 # Register your models here.
 
@@ -21,23 +21,15 @@ class RFIDBoxAdmin(admin.ModelAdmin):
 
 @admin.register(models.BoxAllotment)
 class BoxAllotmentAdmin(admin.ModelAdmin):
-    list_display = ('Box', 'Machine', 'Operation', 'Employee', 'AssignedAt')
+    list_display = ('Box', 'Machine', 'Employee', 'AssignedAt')
     ordering = ('-AssignedAt',)
 
-@admin.register(BundleCompletion)
-class BundleCompletionAdmin(admin.ModelAdmin):
-    list_display = ('Employee', 'Bundle', 'card_uid', 'Machine', 'CompletedAt')
-    list_filter = ('Machine', 'CompletedAt')
-    ordering = ('-CompletedAt',)
-    search_fields = ('Employee__WorkerName',)
-
-    def card_uid(self, obj):
-        try:
-            assignment = models.BundleCardAssignment.objects.get(Bundle=obj.Bundle)
-            return assignment.RFIDCard.CardId
-        except models.BundleCardAssignment.DoesNotExist:
-            return '-'
-    card_uid.short_description = 'Card UID'
+@admin.register(models.BoxOperation)
+class BoxOperationAdmin(admin.ModelAdmin):
+    list_display = ('Box', 'Operation', 'AssignedAt')
+    list_filter = ('Box',)
+    ordering = ('-AssignedAt',)
+    search_fields = ('Box__mac_address', 'Operation__Name')
 
 @admin.register(models.Cut)
 class CutAdmin(admin.ModelAdmin):
@@ -69,7 +61,7 @@ class ImpExp(ImportExportModelAdmin):
 class SerialAdmin(admin.ModelAdmin):
     '''Admin View for Serial'''
 
-    list_display = ('TimeDate','Line', 'Operation')
+    list_display = ('TimeDate', 'Bundle', 'Operation', 'Machine')
     list_filter = ('Line',)
     ordering = ('TimeDate',)
 
@@ -118,3 +110,10 @@ class OperationAdmin(admin.ModelAdmin):
     list_display = ('id', 'Name', 'Section', 'Category', 'SMV', 'Rate')
     search_fields = ('Name', 'Section', 'Category')
     list_filter = ('Section', 'Category')
+
+@admin.register(models.RFIDLog)
+class RFIDLogAdmin(admin.ModelAdmin):
+    list_display = ('Employee', 'Machine', 'TimeDate')
+    list_filter = ('Employee', 'Machine')
+    ordering = ('-TimeDate',)
+    search_fields = ('Employee__WorkerName',)

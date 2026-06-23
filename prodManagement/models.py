@@ -19,6 +19,8 @@ class Operation(models.Model):
     MachineType = models.CharField(max_length=31)
     Rate = models.FloatField(null=True, blank=True)
     Code = models.CharField(max_length=31, blank=True, null=True)
+    def __str__(self):
+        return self.Name
 
     class Meta:
         """Meta definition for Operations."""
@@ -142,7 +144,7 @@ class RFIDCard(models.Model):
 class EmployeeCardAssignment(models.Model):
     id = models.AutoField(primary_key=True)
     RFIDCard = models.ForeignKey(RFIDCard, on_delete=models.CASCADE)
-    Employee = models.ForeignKey('HumanResource.Employee', on_delete=models.CASCADE)
+    Employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
 
     def clean(self):
         if BundleCardAssignment.objects.filter(RFIDCard=self.RFIDCard).exists():
@@ -174,12 +176,13 @@ class BundleCardAssignment(models.Model):
 class Serial(models.Model):
     id = models.AutoField(primary_key=True)
     Worker = models.ForeignKey(Worker, on_delete=models.PROTECT, null=True, blank=True)
-    Operation = models.ForeignKey(Operation, on_delete=models.PROTECT)
-    Bundle = models.ForeignKey(Bundle, on_delete=models.PROTECT)
-    Machine = models.ForeignKey(Machine, on_delete=models.PROTECT)
+    Operation = models.ForeignKey(Operation, on_delete=models.PROTECT) #<__ For filter
+    Bundle = models.ForeignKey(Bundle, on_delete=models.PROTECT) #< For filter
+    Machine = models.ForeignKey(Machine, on_delete=models.PROTECT, null=True, blank=True)
     TimeDate = models.DateTimeField(blank=True, null=True, default=timezone.now)
     Line = models.CharField(max_length=31, null=True, blank=True)
-    Employee = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT, null=True, blank=True)
+    Employee = models.ForeignKey(Employee, on_delete=models.PROTECT, null=True, blank=True)
+    Box = models.ForeignKey('RFIDBox', on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         indexes = [
@@ -187,6 +190,7 @@ class Serial(models.Model):
             models.Index(fields=['Line', 'Worker']),
             models.Index(fields=['Bundle']),
         ]
+
 
 class Attendance(models.Model):
     id = models.AutoField(primary_key=True)
@@ -236,20 +240,23 @@ class RFIDBox(models.Model):
 class BoxAllotment(models.Model):
     Box        = models.ForeignKey(RFIDBox, on_delete=models.PROTECT)
     Machine    = models.ForeignKey(Machine, on_delete=models.PROTECT)
-    Operation  = models.ForeignKey(Operation, on_delete=models.PROTECT, null=True, blank=True)
     Employee   = models.ForeignKey(Employee, on_delete=models.PROTECT)
     AssignedAt = models.DateTimeField(auto_now_add=True)
 
-# Bundle tracking and completion model
-class BundleCompletion(models.Model):
-    id          = models.AutoField(primary_key=True)
-    Employee    = models.ForeignKey('HumanResource.Employee', on_delete=models.PROTECT)
-    Bundle = models.OneToOneField(Bundle, on_delete=models.PROTECT)
-    Machine = models.ForeignKey(RFIDBox, on_delete=models.PROTECT, null=True, blank=True)
-    CompletedAt = models.DateTimeField(auto_now_add=True)
+# Assigning operations to RFID boxes
+class BoxOperation(models.Model):
+    Box       = models.ForeignKey(RFIDBox, on_delete=models.CASCADE)
+    Operation = models.ForeignKey(Operation, on_delete=models.PROTECT)
+    AssignedAt = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        unique_together = ('Box', 'Operation')
         indexes = [
-            models.Index(fields=['Employee']),
-            models.Index(fields=['CompletedAt']),
+            models.Index(fields=['Box']),
         ]
+
+# Log of all RFID scans for attendance
+class RFIDLog(models.Model):
+    Employee = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    Machine  = models.ForeignKey(RFIDBox, on_delete=models.SET_NULL, null=True, blank=True)
+    TimeDate = models.DateTimeField(auto_now_add=True)

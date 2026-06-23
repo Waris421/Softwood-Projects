@@ -8,10 +8,3 @@ class EmployeeAdmin(admin.ModelAdmin):
 @admin.register(models.Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
     list_display = ['id', 'Employee', 'TimeDate', 'Type', 'Details']
-
-# Attendance Log
-@admin.register(models.RFIDLog)
-class RFIDLogAdmin(admin.ModelAdmin):
-    list_display = ('Employee', 'Machine', 'TimeDate')
-    list_filter = ('Employee', 'Machine')
-    ordering = ('-TimeDate',)

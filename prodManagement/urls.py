@@ -64,4 +64,5 @@ urlpatterns = [
     path('energy/upload', views.EnergyUpload.as_view(), name='energyUpload'),
     path('energy/date-range', views.EnergyDateRange.as_view(), name='energyDateRange'),
     path('energy/readings', views.EnergyReadings.as_view(), name='energyReadings'),
+    path('api/attendance/rfid', views.RFIDAttendanceAPI.as_view(), name='rfidAttendance'),
 ]
