@@ -271,7 +271,7 @@ def GetCountrySummary(
         filters &= Q(Price__lte=maxPrice)
     
     fields = ['Country','Quantity']
-    exportData = models.ExportData.objects.filter(filters).values('Country').annotate(Quantity=Sum('Quantity'))
+    exportData = models.ExportData.objects.filter(filters).values('Country').annotate(Quantity=Sum('Quantity'), Price=Sum('Price'))
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData, fields
 
@@ -445,7 +445,7 @@ def GetExporterSummary(
         filters &= Q(Price__lte=maxPrice)
 
     fields = ['Exporter','Quantity']
-    exportData = models.ExportData.objects.filter(filters).values('Exporter').annotate(Quantity=Sum('Quantity'))
+    exportData = models.ExportData.objects.filter(filters).values('Exporter').annotate(Quantity=Sum('Quantity'), Price=Sum('Price'))
     dfExportData = pd.DataFrame(exportData) if exportData else pd.DataFrame(columns=fields)
     del exportData,fields
 
@@ -461,7 +461,7 @@ def GetExporterSummary(
     dfExportData['Exporter'] = np.where(dfExportData['Alias'].isna(), dfExportData['Exporter'], dfExportData['Alias'])
     dfExportData.drop(inplace=True, columns=['Alias'])
 
-    dfExportData = dfExportData.groupby('Exporter').agg({'Quantity': 'sum'}).reset_index()
+    dfExportData = dfExportData.groupby('Exporter').agg({'Quantity': 'sum', 'Price': 'sum'}).reset_index()
 
     #sort w.r.t. country first
     dfExportData.sort_values(by='Quantity', ascending=False, inplace=True)
